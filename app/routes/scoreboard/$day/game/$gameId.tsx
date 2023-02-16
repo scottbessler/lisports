@@ -3,12 +3,9 @@ import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import invariant from "tiny-invariant";
 import { fetchGame } from "../../../../stores/game.server";
-// import orderBy from "lodash.orderby";
+import orderBy from "lodash.orderby";
 import type { Player, Team } from "../../../../models/boxScore";
-import { useMemo } from "react";
-import type { ColumnDef } from "@tanstack/react-table";
-import { useReactTable } from "@tanstack/react-table";
-import { createColumnHelper } from "@tanstack/react-table";
+import { useCallback, useMemo, useState } from "react";
 
 export async function loader({ request, params }: LoaderArgs) {
   invariant(params.gameId, "gameId not found");
@@ -20,7 +17,7 @@ export async function loader({ request, params }: LoaderArgs) {
   return json({ game: result });
 }
 
-export default function NoteDetailsPage() {
+export default function GameDetailsPage() {
   const data = useLoaderData<typeof loader>();
 
   return (
@@ -40,234 +37,219 @@ export const PrettyPct = ({ pct }: { pct: number | undefined }) => (
 );
 
 export const TeamBox = ({ team }: { team: Team }) => {
-  const columnHelper = createColumnHelper<Player>();
-
-  const columns = useMemo<ColumnDef<Player>[]>(
+  const columns = useMemo<ColumnDef<Player & { id: string }>[]>(
     () => [
-      columnHelper.accessor("name", {
-        header: "Name",
-        cell: (props) => props.getValue(),
-      }),
-      columnHelper.accessor(
-        (p) => Number(p.statistics.minutesCalculated.slice(2, -1)),
-        { header: "MIN", cell: (props) => props.getValue() }
-      ),
-      columnHelper.accessor((p) => p.statistics.points, {
+      { header: "Name", accessor: (p) => ({ value: p.name }) },
+      {
+        header: "MIN",
+        accessor: (p) => ({
+          value: Number(p.statistics.minutesCalculated.slice(2, -1)),
+        }),
+        sortDescFirst: true,
+      },
+      {
         header: "PTS",
-        cell: (props) => props.getValue(),
-      }),
-      columnHelper.accessor((p) => p.statistics.fieldGoalsMade, {
-        header: "        ",
-        cell: (props) => props.getValue(),
-      }),
-      columnHelper.accessor((p) => p.statistics.threePointersMade, {
-        header: "        ",
-        cell: (props) => props.getValue(),
-      }),
-      columnHelper.accessor((p) => p.statistics.freeThrowsMade, {
-        header: "        ",
-        cell: (props) => props.getValue(),
-      }),
-      columnHelper.accessor((p) => trueShooting(p.statistics), {
-        header: "        ",
-        cell: (props) => props.getValue(),
-      }),
-      columnHelper.accessor((p) => p.statistics.reboundsOffensive, {
+        accessor: (p) => ({ value: p.statistics.points }),
+        sortDescFirst: true,
+      },
+      {
+        header: "FG",
+        accessor: (p) => ({
+          value: p.statistics.fieldGoalsMade,
+          cell: (
+            <PrettyShooting
+              made={p.statistics.fieldGoalsMade}
+              attempted={p.statistics.fieldGoalsAttempted}
+            />
+          ),
+        }),
+        sortDescFirst: true,
+      },
+      {
+        header: "3P",
+
+        accessor: (p) => ({
+          value: p.statistics.threePointersMade,
+          cell: (
+            <PrettyShooting
+              made={p.statistics.threePointersMade}
+              attempted={p.statistics.threePointersAttempted}
+            />
+          ),
+        }),
+        sortDescFirst: true,
+      },
+      {
+        header: "FT",
+
+        accessor: (p) => ({
+          value: p.statistics.freeThrowsMade,
+          cell: (
+            <PrettyShooting
+              made={p.statistics.freeThrowsMade}
+              attempted={p.statistics.freeThrowsAttempted}
+            />
+          ),
+        }),
+        sortDescFirst: true,
+      },
+      {
+        header: "TS%",
+        accessor: (p) => {
+          const value = trueShooting(p.statistics);
+          return { value, cell: <PrettyPct pct={value} /> };
+        },
+
+        sortType: "number",
+        sortDescFirst: true,
+      },
+      {
         header: "OREB",
-        cell: (props) => props.getValue(),
-      }),
-      columnHelper.accessor((p) => p.statistics.reboundsDefensive, {
+        accessor: (p) => ({ value: p.statistics.reboundsOffensive }),
+        sortDescFirst: true,
+      },
+      {
         header: "DREB",
-        cell: (props) => props.getValue(),
-      }),
-      columnHelper.accessor((p) => p.statistics.reboundsTotal, {
+        accessor: (p) => ({ value: p.statistics.reboundsDefensive }),
+        sortDescFirst: true,
+      },
+      {
         header: "REB",
-        cell: (props) => props.getValue(),
-      }),
-      columnHelper.accessor((p) => p.statistics.assists, {
+        accessor: (p) => ({ value: p.statistics.reboundsTotal }),
+        sortDescFirst: true,
+      },
+      {
         header: "AST",
-        cell: (props) => props.getValue(),
-      }),
-      columnHelper.accessor((p) => p.statistics.steals, {
+        accessor: (p) => ({ value: p.statistics.assists }),
+        sortDescFirst: true,
+      },
+      {
         header: "STL",
-        cell: (props) => props.getValue(),
-      }),
-      columnHelper.accessor((p) => p.statistics.blocks, {
+        accessor: (p) => ({ value: p.statistics.steals }),
+        sortDescFirst: true,
+      },
+      {
         header: "BLK",
-        cell: (props) => props.getValue(),
-      }),
-      columnHelper.accessor((p) => p.statistics.turnovers, {
+        accessor: (p) => ({ value: p.statistics.blocks }),
+        sortDescFirst: true,
+      },
+      {
         header: "TO",
-        cell: (props) => props.getValue(),
-      }),
-      columnHelper.accessor((p) => p.statistics.foulsPersonal, {
+        accessor: (p) => ({ value: p.statistics.turnovers }),
+        sortDescFirst: true,
+      },
+      {
         header: "PF",
-        cell: (props) => props.getValue(),
-      }),
-      columnHelper.accessor((p) => p.statistics.plusMinusPoints, {
-        header: '"+/-',
-        cell: (props) => props.getValue(),
-      }),
-      // {
-      //   eader: "MIN",
-
-      //   sortDescFirst: true,
-      // },
-      // {
-      //   eader: "PTS",
-
-      //   sortDescFirst: true,
-      // },
-      // {
-      //   eader: "FG",
-      //   Cell: ({ row }: { row: Row<Player> }) => (
-      //     <PrettyShooting
-      //       made={row.original.statistics.fieldGoalsMade}
-      //       attempted={row.original.statistics.fieldGoalsAttempted}
-      //     />
-      //   ),
-
-      //   sortDescFirst: true,
-      // },
-      // {
-      //   eader: "3P",
-      //   Cell: ({ row }: { row: Row<Player> }) => (
-      //     <PrettyShooting
-      //       made={row.original.statistics.threePointersMade}
-      //       attempted={row.original.statistics.threePointersAttempted}
-      //     />
-      //   ),
-
-      //   sortDescFirst: true,
-      // },
-      // {
-      //   eader: "FT",
-      //   Cell: ({ row }: { row: Row<Player> }) => (
-      //     <PrettyShooting
-      //       made={row.original.statistics.freeThrowsMade}
-      //       attempted={row.original.statistics.freeThrowsAttempted}
-      //     />
-      //   ),
-
-      //   sortDescFirst: true,
-      // },
-      // {
-      //   eader: "TS%",
-      //   Cell: ({ value }: { value: number | undefined }) => (
-      //     <PrettyPct pct={value} />
-      //   ),
-
-      //   sortType: "number",
-      //   sortDescFirst: true,
-      // },
-      // {
-      //   eader: "OREB",
-
-      //   sortDescFirst: true,
-      // },
-      // {
-      //   eader: "DREB",
-
-      //   sortDescFirst: true,
-      // },
-      // {
-      //   eader: "REB",
-
-      //   sortDescFirst: true,
-      // },
-      // {
-      //   eader: "AST",
-
-      //   sortDescFirst: true,
-      // },
-      // {
-      //   eader: "STL",
-
-      //   sortDescFirst: true,
-      // },
-      // {
-      //   eader: "BLK",
-
-      //   sortDescFirst: true,
-      // },
-      // {
-      //   eader: "TO",
-
-      //   sortDescFirst: true,
-      // },
-      // {
-      //   eader: "PF",
-
-      //   sortDescFirst: true,
-      // },
-      // {
-      //   eader: "+/-",
-
-      //   sortType: "number",
-      //   sortDescFirst: true,
-      // },
+        accessor: (p) => ({ value: p.statistics.foulsPersonal }),
+        sortDescFirst: true,
+      },
+      {
+        header: "+/-",
+        accessor: (p) => ({ value: p.statistics.plusMinusPoints }),
+        sortType: "number",
+        sortDescFirst: true,
+      },
     ],
     []
   );
 
   const data = useMemo(
-    () => team.players.filter((p) => p.played === "1"),
+    () =>
+      team.players
+        .filter((p) => p.played === "1")
+        .map((p) => ({ ...p, id: String(p.personId) })),
     [team.players]
   );
 
   return <PrettyTable columns={columns} data={data} />;
 };
 
-export const PrettyTable = <T extends object>({
+interface ColumnDef<T extends { id: string }> {
+  header: string;
+
+  accessor: (row: T) => {
+    value: string | number | boolean | null | undefined;
+    cell?: React.ReactNode;
+  };
+
+  sortDescFirst?: boolean;
+}
+
+export const PrettyTable = <T extends { id: string }>({
   columns,
   data,
 }: {
   columns: ColumnDef<T>[];
   data: T[];
 }) => {
-  const { getTableProps, getTableBodyProps, headerGroups, rows, prepareRow } =
-    useReactTable(
-      {
-        columns,
-        data,
-      },
-      useSortBy
-    );
+  const [sortHeader, setSortHeader] = useState<string | undefined>();
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  const onHeaderClick = useCallback(
+    (h: string) => {
+      if (sortHeader === h) {
+        setSortDir((curr) => (curr === "asc" ? "desc" : "asc"));
+      } else {
+        setSortHeader(h);
+        setSortDir("desc");
+      }
+    },
+    [sortHeader]
+  );
+
+  const columnsWithExtras = useMemo(
+    () =>
+      columns.map((c) => {
+        // todo: could create a unique id for tracking which was clicked
+        return {
+          ...c,
+          onClick: () => onHeaderClick(c.header),
+        };
+      }),
+    [columns, onHeaderClick]
+  );
+
+  const sortByColumnDef = useMemo(
+    () => columns.find((c) => c.header === sortHeader),
+    [sortHeader, columns]
+  );
+
+  const sortedData = useMemo(() => {
+    if (sortByColumnDef == null) {
+      return data;
+    }
+    return orderBy(data, (d) => sortByColumnDef.accessor(d).value, sortDir);
+  }, [data, sortByColumnDef, sortDir]);
 
   return (
-    <table {...getTableProps()}>
+    <table className="table-zebra">
       <thead>
-        {headerGroups.map((headerGroup) => (
-          // eslint-disable-next-line react/jsx-key
-          <tr {...headerGroup.getHeaderGroupProps()}>
-            {headerGroup.headers.map((column) => (
-              // Add the sorting props to control sorting. For this example
-              // we can add them into the header props
-              // eslint-disable-next-line react/jsx-key
-              <th {...column.getHeaderProps(column.getSortByToggleProps())}>
-                {column.render("Header")}
-                {/* Add a sort direction indicator */}
-                <span>
-                  {column.isSorted ? (column.isSortedDesc ? " 🔽" : " 🔼") : ""}
-                </span>
-              </th>
-            ))}
+        <tr>
+          {columnsWithExtras.map((c) => (
+            <th
+              className="cursor-pointer px-1"
+              key={c.header}
+              onClick={c.onClick}
+            >
+              {c.header}
+            </th>
+          ))}
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {sortedData.map((row, i) => (
+          <tr key={row.id}>
+            {columns.map((c) => {
+              const { value, cell } = c.accessor(row);
+              return (
+                <td className="px-1" key={`${row.id}-${c.header}`}>
+                  {cell || value}
+                </td>
+              );
+            })}
           </tr>
         ))}
-      </thead>
-      <tbody {...getTableBodyProps()}>
-        {rows.map((row, i) => {
-          prepareRow(row);
-          return (
-            // eslint-disable-next-line react/jsx-key
-            <tr {...row.getRowProps()}>
-              {row.cells.map((cell) => {
-                // eslint-disable-next-line react/jsx-key
-                return <td {...cell.getCellProps()}>{cell.render("Cell")}</td>;
-              })}
-            </tr>
-          );
-        })}
       </tbody>
     </table>
   );
