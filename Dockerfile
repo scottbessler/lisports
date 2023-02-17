@@ -9,7 +9,8 @@ FROM base as deps
 
 WORKDIR /myapp
 
-ADD package.json yarn.lock .yarnrc.yml .yarn ./
+ADD .yarn ./.yarn
+ADD package.json yarn.lock .yarnrc.yml ./
 RUN yarn install
 
 # Setup production node_modules
@@ -17,8 +18,9 @@ FROM base as production-deps
 
 WORKDIR /myapp
 
-ADD package.json yarn.lock .yarnrc.yml .yarn ./
-RUN yarn install --production
+ADD .yarn ./.yarn
+ADD package.json yarn.lock .yarnrc.yml ./
+RUN yarn workspaces focus --all --production
 
 # Build the app
 FROM base as build

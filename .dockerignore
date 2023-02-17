@@ -6,6 +6,5 @@
 /public/build
 /build
 
-.yarn/*
-!.yarn/releases
-!.yarn/plugins
+.yarn/cache
+.yarn/install-state.gz
