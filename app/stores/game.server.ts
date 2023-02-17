@@ -2,6 +2,11 @@ import { getJSON } from "@xavdid/json-requests";
 // import memoize from "lodash.memoize";
 import type { BoxScore } from "../models/boxScore";
 import type { TodaysScoreboard } from "../models/todaysScoreboard";
+import type * as s from "zapatos/schema";
+import * as db from "zapatos/db";
+import { pgPool } from "./pgPool.server";
+import invariant from "tiny-invariant";
+import { getTodayYMD } from "../utils";
 
 export const fetchTodaysGames = async () => {
   const result = await getJSON<TodaysScoreboard>(
@@ -10,11 +15,33 @@ export const fetchTodaysGames = async () => {
   return result.scoreboard.games;
 };
 
-const dayCache: Record<string, TodaysScoreboard> = Object.create(null);
+const fetchFromCache = async (key: string) => {
+  const result = await db.sql<
+    s.json_cache.SQL,
+    s.json_cache.Selectable[]
+  >`select * from ${"json_cache"} where ${{ key }}`.run(pgPool);
+  invariant(
+    result.length <= 1,
+    "received multiple results for key, should be impossible"
+  );
+  return result[0];
+};
+
+const saveToCache = async (key: string, value: any) => {
+  await db
+    .upsert("json_cache", { key, value, stored_at: new Date() }, ["key"])
+    .run(pgPool);
+};
 
 export const fetchDaysGames = async (day: string) => {
-  if (day in dayCache) {
-    return dayCache[day].scoreboard.games;
+  // todo: validate day
+
+  const cacheKey = `day:${day}`;
+  const cacheResult = await fetchFromCache(cacheKey);
+  if (cacheResult != null) {
+    // todo: check stored_at?
+    // todo: validate response?
+    return (cacheResult.value as unknown as TodaysScoreboard).scoreboard.games;
   }
   const result = await getJSON<TodaysScoreboard>(
     `https://stats.nba.com/stats/scoreboardv3?GameDate=${day}&LeagueID=00`,
@@ -34,19 +61,26 @@ export const fetchDaysGames = async (day: string) => {
       },
     }
   );
-  dayCache[day] = result;
+
+  if (day < getTodayYMD()) {
+    await saveToCache(cacheKey, result);
+  }
   return result.scoreboard.games;
 };
 
-const gameCache: Record<string, BoxScore> = Object.create(null);
-
 export const fetchGame = async (id: string) => {
-  if (id in gameCache) {
-    return gameCache[id].game;
+  const cacheKey = `game:${id}`;
+  const cacheResult = await fetchFromCache(cacheKey);
+  if (cacheResult != null) {
+    return (cacheResult.value as unknown as BoxScore).game;
   }
   const result = await getJSON<BoxScore>(
     `https://cdn.nba.com/static/json/liveData/boxscore/boxscore_${id}.json`
   );
-  gameCache[id] = result;
+  // for now only cache completed games
+  // console.log(typeof result.game.gameStatus);
+  if (result.game.gameStatus === 3) {
+    await saveToCache(cacheKey, result);
+  }
   return result.game;
 };

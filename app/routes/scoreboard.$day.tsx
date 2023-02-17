@@ -1,31 +1,37 @@
 import type { LoaderArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Link, Outlet, useLoaderData } from "@remix-run/react";
-import type { Game, Team } from "../../models/todaysScoreboard";
+import { NavLink, Outlet, useLoaderData } from "@remix-run/react";
 
-import { fetchDaysGames, fetchTodaysGames } from "../../stores/game.server";
+import type { Game, Team } from "../models/todaysScoreboard";
+
+import { fetchDaysGames, fetchTodaysGames } from "../stores/game.server";
+import { getTodayYMD } from "../utils";
 
 export async function loader({ request, params }: LoaderArgs) {
   const day = params.day;
-  if (day == null) {
+  const today = getTodayYMD();
+
+  if (day == null || day == today) {
     return json({ games: await fetchTodaysGames() });
   }
   // todo: validate day
   return json({ games: await fetchDaysGames(day) });
 }
 
-export default function Index() {
+export default function ScoreboardDay() {
   const data = useLoaderData<typeof loader>();
 
   return (
-    <div className="flex flex-row">
-      <div>
+    <div className="flex w-80 flex-row gap-5 px-3">
+      <ul className="menu">
         {data.games.map((g) => (
-          <Link prefetch="intent" key={g.gameId} to={`game/${g.gameId}`}>
-            <GameSummary g={g} />
-          </Link>
+          <li key={g.gameId}>
+            <NavLink to={`game/${g.gameId}`}>
+              <GameSummary g={g} />
+            </NavLink>
+          </li>
         ))}
-      </div>
+      </ul>
       <div>
         <Outlet />
       </div>
@@ -36,11 +42,10 @@ export default function Index() {
 export function GameSummary({ g }: { g: Game }) {
   return (
     <>
-      {g.gameStatusText}
-      <table className="min-w-full text-left text-sm text-gray-500 dark:text-gray-400">
-        <thead className="bg-gray-50 text-xs uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-400">
+      <table className="table-zebra min-w-full text-xs">
+        <thead>
           <tr>
-            <th scope="col" className="w-175 px-3 py-1">
+            <th scope="col" className="px-3 py-1">
               Team
             </th>
             {g.awayTeam.periods.map((p) => (
@@ -48,7 +53,7 @@ export function GameSummary({ g }: { g: Game }) {
                 {p.period}
               </th>
             ))}
-            <th scope="col" className="px-3 py-1 text-left">
+            <th scope="col" className="px-3 py-1">
               Tot
             </th>
           </tr>
@@ -64,13 +69,8 @@ export function GameSummary({ g }: { g: Game }) {
 
 export const GameSummaryTeamRow = ({ team }: { team: Team }) => {
   return (
-    <tr className="border-b bg-white dark:border-gray-700 dark:bg-gray-800">
-      <th
-        scope="row"
-        className="whitespace-nowrap px-3 py-2 font-medium text-gray-900 dark:text-white"
-      >
-        {team.teamName}
-      </th>
+    <tr>
+      <th scope="row">{team.teamName}</th>
 
       {team.periods.map((p) => (
         <td className="px-3 py-2" key={p.period}>

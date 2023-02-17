@@ -1,6 +1,6 @@
 import { useMatches } from "@remix-run/react";
+import dayjs from "dayjs";
 import { useMemo } from "react";
-
 
 const DEFAULT_REDIRECT = "/";
 
@@ -43,3 +43,6 @@ export function useMatchesData(
   return route?.data;
 }
 
+export function getTodayYMD() {
+  return dayjs().format("YYYY-MM-DD");
+}

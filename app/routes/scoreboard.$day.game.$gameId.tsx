@@ -2,9 +2,9 @@ import type { LoaderArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import invariant from "tiny-invariant";
-import { fetchGame } from "../../../../stores/game.server";
+import { fetchGame } from "../stores/game.server";
 import orderBy from "lodash.orderby";
-import type { Player, Team } from "../../../../models/boxScore";
+import type { Player, Team } from "../models/boxScore";
 import { useCallback, useMemo, useState } from "react";
 
 export async function loader({ request, params }: LoaderArgs) {
@@ -22,11 +22,13 @@ export default function GameDetailsPage() {
 
   return (
     <div>
-      <h3 className="text-2xl font-bold">
-        {data.game.awayTeam.teamName} @ {data.game.homeTeam.teamName}
-      </h3>
-
+      <h1 className="text-lg font-bold">
+        {data.game.awayTeam.teamName} {data.game.awayTeam.score}
+      </h1>
       <TeamBox team={data.game.awayTeam} />
+      <h1 className="text-lg font-bold">
+        {data.game.homeTeam.teamName} {data.game.homeTeam.score}
+      </h1>
       <TeamBox team={data.game.homeTeam} />
     </div>
   );
@@ -243,7 +245,10 @@ export const PrettyTable = <T extends { id: string }>({
             {columns.map((c) => {
               const { value, cell } = c.accessor(row);
               return (
-                <td className="px-1" key={`${row.id}-${c.header}`}>
+                <td
+                  className="whitespace-nowrap px-1"
+                  key={`${row.id}-${c.header}`}
+                >
                   {cell || value}
                 </td>
               );
