@@ -224,7 +224,7 @@ export const PrettyTable = <T extends { id: string }>({
   }, [data, sortByColumnDef, sortDir]);
 
   return (
-    <table className="table-zebra">
+    <table className="table-zebra table">
       <thead>
         <tr>
           {columnsWithExtras.map((c) => (
@@ -236,7 +236,6 @@ export const PrettyTable = <T extends { id: string }>({
               {c.header}
             </th>
           ))}
-          <th></th>
         </tr>
       </thead>
       <tbody>

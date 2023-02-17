@@ -22,11 +22,11 @@ export default function ScoreboardDay() {
   const data = useLoaderData<typeof loader>();
 
   return (
-    <div className="flex w-80 flex-row gap-5 px-3">
-      <ul className="menu">
+    <div className="flex w-80 flex-col gap-5 px-3 lg:flex-row">
+      <ul className="menu ">
         {data.games.map((g) => (
           <li key={g.gameId}>
-            <NavLink to={`game/${g.gameId}`}>
+            <NavLink className="rounded-lg" to={`game/${g.gameId}`}>
               <GameSummary g={g} />
             </NavLink>
           </li>
@@ -42,7 +42,7 @@ export default function ScoreboardDay() {
 export function GameSummary({ g }: { g: Game }) {
   return (
     <>
-      <table className="table-zebra min-w-full text-xs">
+      <table className="table-zebra table min-w-full text-xs">
         <thead>
           <tr>
             <th scope="col" className="px-3 py-1">
