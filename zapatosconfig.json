@@ -1,6 +1,0 @@
-{
-  "db": {
-    "connectionString": "postgresql://localhost/lisports"
-  },
-  "outDir": "./app/models"
-}

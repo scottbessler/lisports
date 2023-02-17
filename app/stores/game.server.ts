@@ -1,12 +1,12 @@
 import { getJSON } from "@xavdid/json-requests";
-// import memoize from "lodash.memoize";
 import type { BoxScore } from "../models/boxScore";
 import type { TodaysScoreboard } from "../models/todaysScoreboard";
-import type * as s from "zapatos/schema";
-import * as db from "zapatos/db";
-import { pgPool } from "./pgPool.server";
-import invariant from "tiny-invariant";
+
+import { existsSync } from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
+
 import { getTodayYMD } from "../utils";
+import path from "node:path";
 
 export const fetchTodaysGames = async () => {
   const result = await getJSON<TodaysScoreboard>(
@@ -15,22 +15,30 @@ export const fetchTodaysGames = async () => {
   return result.scoreboard.games;
 };
 
+const dataPath = process.env.DATA_PATH || "data";
+function toFileName(key: string) {
+  return path.join(dataPath, `${key}.json`);
+}
+
 const fetchFromCache = async (key: string) => {
-  const result = await db.sql<
-    s.json_cache.SQL,
-    s.json_cache.Selectable[]
-  >`select * from ${"json_cache"} where ${{ key }}`.run(pgPool);
-  invariant(
-    result.length <= 1,
-    "received multiple results for key, should be impossible"
-  );
-  return result[0];
+  try {
+    const filename = toFileName(key);
+    if (!existsSync(filename)) {
+      return undefined;
+    }
+    const result = await readFile(filename, { encoding: "utf-8" });
+    return JSON.parse(result);
+  } catch (err) {
+    console.error(err);
+    return undefined;
+  }
 };
 
 const saveToCache = async (key: string, value: any) => {
-  await db
-    .upsert("json_cache", { key, value, stored_at: new Date() }, ["key"])
-    .run(pgPool);
+  console.log(`storing cache to ${toFileName(key)}`);
+  await writeFile(toFileName(key), JSON.stringify(value), {
+    encoding: "utf-8",
+  });
 };
 
 export const fetchDaysGames = async (day: string) => {
@@ -39,9 +47,8 @@ export const fetchDaysGames = async (day: string) => {
   const cacheKey = `day:${day}`;
   const cacheResult = await fetchFromCache(cacheKey);
   if (cacheResult != null) {
-    // todo: check stored_at?
     // todo: validate response?
-    return (cacheResult.value as unknown as TodaysScoreboard).scoreboard.games;
+    return (cacheResult as unknown as TodaysScoreboard).scoreboard.games;
   }
   const result = await getJSON<TodaysScoreboard>(
     `https://stats.nba.com/stats/scoreboardv3?GameDate=${day}&LeagueID=00`,
@@ -72,7 +79,7 @@ export const fetchGame = async (id: string) => {
   const cacheKey = `game:${id}`;
   const cacheResult = await fetchFromCache(cacheKey);
   if (cacheResult != null) {
-    return (cacheResult.value as unknown as BoxScore).game;
+    return (cacheResult as unknown as BoxScore).game;
   }
   const result = await getJSON<BoxScore>(
     `https://cdn.nba.com/static/json/liveData/boxscore/boxscore_${id}.json`
