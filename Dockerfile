@@ -1,5 +1,5 @@
 # base node image
-FROM node:16-bullseye-slim as base
+FROM node:18-bullseye-slim as base
 
 # set for base and all layer that inherit from it
 ENV NODE_ENV production
@@ -9,17 +9,16 @@ FROM base as deps
 
 WORKDIR /myapp
 
-ADD package.json package-lock.json .npmrc ./
-RUN npm install --production=false
+ADD package.json yarn.lock .yarnrc.yml ./
+RUN yarn install
 
 # Setup production node_modules
 FROM base as production-deps
 
 WORKDIR /myapp
 
-COPY --from=deps /myapp/node_modules /myapp/node_modules
-ADD package.json package-lock.json .npmrc ./
-RUN npm prune --production
+ADD package.json yarn.lock .yarnrc.yml ./
+RUN yarn install --production
 
 # Build the app
 FROM base as build
@@ -29,7 +28,7 @@ WORKDIR /myapp
 COPY --from=deps /myapp/node_modules /myapp/node_modules
 
 ADD . .
-RUN npm run build
+RUN yarn run build
 
 # Finally, build the production image with minimal footprint
 FROM base
