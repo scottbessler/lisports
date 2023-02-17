@@ -8,5 +8,7 @@ node_modules
 /cypress/videos
 
 /app/styles/tailwind.css
-.yarn
+.yarn/*
+!.yarn/releases
+!.yarn/plugins
 data

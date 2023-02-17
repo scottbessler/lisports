@@ -6,5 +6,6 @@
 /public/build
 /build
 
-.yarn
+.yarn/*
 !.yarn/releases
+!.yarn/plugins
