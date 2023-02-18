@@ -46,23 +46,28 @@ export default function ScoreboardDay() {
   }
   return (
     <div className="flex flex-col gap-5 px-3 lg:flex-row">
-      <div>
-        <ul className="menu w-full">
-          {data.games.map((g) => (
-            <li
-              key={g.gameId}
-              className={classNames({
-                "hidden lg:block":
-                  hasSelectedGame && g.gameId !== params.gameId,
-              })}
-            >
-              <NavLink className="rounded-lg" to={`game/${g.gameId}`}>
-                <GameSummary g={g} />
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      </div>
+      <ul
+        className={classNames("menu flex", {
+          "w-full flex-row": !hasSelectedGame,
+          "flex-col lg:basis-[330px]": hasSelectedGame,
+        })}
+      >
+        {data.games.map((g) => (
+          <li
+            key={g.gameId}
+            className={classNames({
+              "w-[330px]": !hasSelectedGame,
+              "w-full": hasSelectedGame,
+              "hidden lg:block": hasSelectedGame && g.gameId !== params.gameId,
+            })}
+          >
+            <NavLink className="rounded-lg" to={`game/${g.gameId}`}>
+              <GameSummary g={g} />
+            </NavLink>
+          </li>
+        ))}
+      </ul>
+
       <div
         className={classNames({
           grow: hasSelectedGame,

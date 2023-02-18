@@ -2,20 +2,16 @@ import type { Game, Team } from "../models/todaysScoreboard";
 
 export function GameSummary({ g }: { g: Game }) {
   return (
-    <table className="table-zebra table min-w-full text-xs">
+    <table className="table-zebra table-compact table min-w-full text-xs">
       <thead>
         <tr>
-          <th scope="col" className="px-3 py-1">
-            Team
-          </th>
+          <th scope="col">Team</th>
           {g.awayTeam.periods.map((p) => (
-            <th scope="col" className="px-3 py-1" key={p.period}>
+            <th scope="col" key={p.period}>
               {p.period}
             </th>
           ))}
-          <th scope="col" className="px-3 py-1">
-            Tot
-          </th>
+          <th scope="col">Tot</th>
         </tr>
       </thead>
       <tbody>
@@ -32,11 +28,9 @@ export const GameSummaryTeamRow = ({ team }: { team: Team }) => {
       <th scope="row">{team.teamName}</th>
 
       {team.periods.map((p) => (
-        <td className="px-3 py-2" key={p.period}>
-          {p.score}
-        </td>
+        <td key={p.period}>{p.score}</td>
       ))}
-      <td className="px-3 py-2">{team.score}</td>
+      <td>{team.score}</td>
     </tr>
   );
 };
