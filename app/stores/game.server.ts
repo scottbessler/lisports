@@ -5,14 +5,20 @@ import type { TodaysScoreboard } from "../models/todaysScoreboard";
 import { existsSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 
-import { getTodayYMD } from "../utils";
 import path from "node:path";
 
-export const fetchTodaysGames = async () => {
+let todayData: { data: TodaysScoreboard; fetchedAt: number } | undefined =
+  undefined;
+
+export const fetchTodaysScoreboard = async () => {
+  if (todayData && Date.now() - todayData.fetchedAt < 30000) {
+    return todayData.data.scoreboard;
+  }
   const result = await getJSON<TodaysScoreboard>(
     "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json"
   );
-  return result.scoreboard.games;
+  todayData = { data: result, fetchedAt: Date.now() };
+  return result.scoreboard;
 };
 
 const dataPath = process.env.DATA_PATH || "data";
@@ -50,6 +56,7 @@ export const fetchDaysGames = async (day: string) => {
     // todo: validate response?
     return (cacheResult as unknown as TodaysScoreboard).scoreboard.games;
   }
+
   const result = await getJSON<TodaysScoreboard>(
     `https://stats.nba.com/stats/scoreboardv3?GameDate=${day}&LeagueID=00`,
     {
@@ -69,7 +76,8 @@ export const fetchDaysGames = async (day: string) => {
     }
   );
 
-  if (day < getTodayYMD()) {
+  // cache if all games are completed
+  if (result.scoreboard.games.every((g) => g.gameStatus === 3)) {
     await saveToCache(cacheKey, result);
   }
   return result.scoreboard.games;
