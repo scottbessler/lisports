@@ -48,7 +48,7 @@ export const PrettyTable = <T extends { id: string }>({
   }, [data, sortByColumnDef, sortDir]);
 
   return (
-    <table className="table-zebra table">
+    <table className="table-zebra table w-full">
       <thead>
         <tr>
           {columnsWithExtras.map((c) => (

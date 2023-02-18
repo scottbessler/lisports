@@ -1,30 +1,28 @@
-import { Game, Team } from "../models/todaysScoreboard";
+import type { Game, Team } from "../models/todaysScoreboard";
 
 export function GameSummary({ g }: { g: Game }) {
   return (
-    <>
-      <table className="table-zebra table min-w-full text-xs">
-        <thead>
-          <tr>
-            <th scope="col" className="px-3 py-1">
-              Team
+    <table className="table-zebra table min-w-full text-xs">
+      <thead>
+        <tr>
+          <th scope="col" className="px-3 py-1">
+            Team
+          </th>
+          {g.awayTeam.periods.map((p) => (
+            <th scope="col" className="px-3 py-1" key={p.period}>
+              {p.period}
             </th>
-            {g.awayTeam.periods.map((p) => (
-              <th scope="col" className="px-3 py-1" key={p.period}>
-                {p.period}
-              </th>
-            ))}
-            <th scope="col" className="px-3 py-1">
-              Tot
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <GameSummaryTeamRow team={g.awayTeam} />
-          <GameSummaryTeamRow team={g.homeTeam} />
-        </tbody>
-      </table>
-    </>
+          ))}
+          <th scope="col" className="px-3 py-1">
+            Tot
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <GameSummaryTeamRow team={g.awayTeam} />
+        <GameSummaryTeamRow team={g.homeTeam} />
+      </tbody>
+    </table>
   );
 }
 

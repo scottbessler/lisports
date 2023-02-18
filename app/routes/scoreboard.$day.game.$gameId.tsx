@@ -19,7 +19,7 @@ export default function GameDetailsPage() {
   const data = useLoaderData<typeof loader>();
 
   return (
-    <div>
+    <div className="w-full">
       <h1 className="text-lg font-bold">
         {data.game.awayTeam.teamName} {data.game.awayTeam.score}
       </h1>

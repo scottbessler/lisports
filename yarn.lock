@@ -2787,16 +2787,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node-fetch@npm:^2.6.2":
-  version: 2.6.2
-  resolution: "@types/node-fetch@npm:2.6.2"
-  dependencies:
-    "@types/node": "*"
-    form-data: ^3.0.0
-  checksum: 6f73b1470000d303d25a6fb92875ea837a216656cb7474f66cdd67bb014aa81a5a11e7ac9c21fe19bee9ecb2ef87c1962bceeaec31386119d1ac86e4c30ad7a6
-  languageName: node
-  linkType: hard
-
 "@types/node@npm:*, @types/node@npm:^18.11.18":
   version: 18.13.0
   resolution: "@types/node@npm:18.13.0"
@@ -3136,16 +3126,6 @@ __metadata:
   version: 1.0.0
   resolution: "@web3-storage/multipart-parser@npm:1.0.0"
   checksum: d8bbb5b9b0a5c07b4119c33c64ef4b7cc8d74ca4de2dd783f608f2653f81ef298bf04136b7cdb7ce97306d5fe2217572b5655236b70e1b625ed18d4a21a81913
-  languageName: node
-  linkType: hard
-
-"@xavdid/json-requests@npm:^0.1.0":
-  version: 0.1.0
-  resolution: "@xavdid/json-requests@npm:0.1.0"
-  dependencies:
-    "@types/node-fetch": ^2.6.2
-    node-fetch: ^2.6.8
-  checksum: f75d51b524c3b48119c34a66aa7692be39d9947a908dc8bde4c7dec4f2739c6f0fe77c823ec47bb73285abe4f2ebc9a044f1b5dd183dfe5c866c2163af898c6e
   languageName: node
   linkType: hard
 
@@ -6275,17 +6255,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"form-data@npm:^3.0.0":
-  version: 3.0.1
-  resolution: "form-data@npm:3.0.1"
-  dependencies:
-    asynckit: ^0.4.0
-    combined-stream: ^1.0.8
-    mime-types: ^2.1.12
-  checksum: b019e8d35c8afc14a2bd8a7a92fa4f525a4726b6d5a9740e8d2623c30e308fbb58dc8469f90415a856698933c8479b01646a9dff33c87cc4e76d72aedbbf860d
-  languageName: node
-  linkType: hard
-
 "form-data@npm:^4.0.0":
   version: 4.0.0
   resolution: "form-data@npm:4.0.0"
@@ -8054,7 +8023,6 @@ __metadata:
     "@types/react-dom": ^18.0.10
     "@vitejs/plugin-react": ^3.0.1
     "@vitest/coverage-c8": ^0.27.2
-    "@xavdid/json-requests": ^0.1.0
     autoprefixer: ^10.4.13
     bcryptjs: ^2.4.3
     binode: ^1.0.5
@@ -9294,7 +9262,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-fetch@npm:^2.6.7, node-fetch@npm:^2.6.8, node-fetch@npm:^2.x.x":
+"node-fetch@npm:^2.6.7, node-fetch@npm:^2.x.x":
   version: 2.6.9
   resolution: "node-fetch@npm:2.6.9"
   dependencies:

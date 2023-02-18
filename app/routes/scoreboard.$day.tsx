@@ -6,6 +6,7 @@ import {
   Outlet,
   useLoaderData,
   useMatches,
+  useParams,
   useResolvedPath,
 } from "@remix-run/react";
 import classNames from "classnames";
@@ -31,24 +32,43 @@ export async function loader({ request, params }: LoaderArgs) {
 export default function ScoreboardDay() {
   const data = useLoaderData<typeof loader>();
 
-  const lastMatch = useMatches().pop();
-  const resolvePath = useResolvedPath(".");
-  const isLeaf = resolvePath.pathname === lastMatch?.pathname;
+  const params = useParams();
+  const hasSelectedGame = params.gameId != null;
 
+  if (data.games.length === 0) {
+    return (
+      <div className="flex h-screen">
+        <div className="m-auto">
+          <h3>No Games Scheduled</h3>
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className="flex w-80 flex-col gap-5 px-3 lg:flex-row">
-      <ul
-        className={classNames("menu", { hidden: !isLeaf, "lg:block": !isLeaf })}
-      >
-        {data.games.map((g) => (
-          <li key={g.gameId}>
-            <NavLink className="rounded-lg" to={`game/${g.gameId}`}>
-              <GameSummary g={g} />
-            </NavLink>
-          </li>
-        ))}
-      </ul>
+    <div className="flex flex-col gap-5 px-3 lg:flex-row">
       <div>
+        <ul className="menu w-full">
+          {data.games.map((g) => (
+            <li
+              key={g.gameId}
+              className={classNames({
+                "hidden lg:block":
+                  hasSelectedGame && g.gameId !== params.gameId,
+              })}
+            >
+              <NavLink className="rounded-lg" to={`game/${g.gameId}`}>
+                <GameSummary g={g} />
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div
+        className={classNames({
+          grow: hasSelectedGame,
+          hidden: !hasSelectedGame,
+        })}
+      >
         <Outlet />
       </div>
     </div>
