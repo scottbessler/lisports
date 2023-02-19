@@ -5,7 +5,8 @@ import { pointsPerShot, usageRate } from "../models/stats";
 import { PrettyShooting } from "./PrettyShooting";
 import type { ColumnDef } from "./PrettyTable";
 import { PrettyTable } from "./PrettyTable";
-import classNames from "classnames";
+
+import { highlightGoodGte, highlightBadGte, highlightBadLte } from "./Stat";
 
 export const TeamBox = ({ team }: { team: Team }) => {
   const teamTotals = {
@@ -34,7 +35,18 @@ export const TeamBox = ({ team }: { team: Team }) => {
 
   const columns = useMemo<ColumnDef<Player & { id: string }>[]>(
     () => [
-      { header: "Name", accessor: (p) => ({ value: p.name }) },
+      {
+        header: "Name",
+        accessor: (p) => ({
+          value: p.name,
+          cell: (
+            <div>
+              {p.name}
+              {p.starter === "1" && "*"}
+            </div>
+          ),
+        }),
+      },
       {
         header: "MIN",
         accessor: (p) => ({
@@ -174,7 +186,7 @@ export const TeamBox = ({ team }: { team: Team }) => {
         sortDescFirst: true,
       },
     ],
-    []
+    [teamTotals]
   );
 
   const data = useMemo(
@@ -186,52 +198,4 @@ export const TeamBox = ({ team }: { team: Team }) => {
   );
 
   return <PrettyTable columns={columns} data={data} />;
-};
-
-export const highlightGoodGte = (value: number, goodGte: number) => {
-  return {
-    value,
-    cell: (
-      <div
-        className={classNames(" badge w-8", {
-          "badge-success": value >= goodGte,
-          "badge-outline": value < goodGte,
-        })}
-      >
-        {value}
-      </div>
-    ),
-  };
-};
-
-export const highlightBadGte = (value: number, badGte: number) => {
-  return {
-    value,
-    cell: (
-      <div
-        className={classNames("badge w-8", {
-          "badge-error": value >= badGte,
-          "badge-outline": value < badGte,
-        })}
-      >
-        {value}
-      </div>
-    ),
-  };
-};
-
-export const highlightBadLte = (value: number, badLte: number) => {
-  return {
-    value,
-    cell: (
-      <div
-        className={classNames("badge w-8", {
-          "badge-error": value <= badLte,
-          "badge-outline": value > badLte,
-        })}
-      >
-        {value}
-      </div>
-    ),
-  };
 };
