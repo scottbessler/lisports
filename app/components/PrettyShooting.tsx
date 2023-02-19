@@ -1,4 +1,3 @@
-import classNames from "classnames";
 import { BadValue, GoodValue, NeutralValue } from "./Stat";
 
 export const PrettyShooting = ({

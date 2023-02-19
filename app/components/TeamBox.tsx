@@ -8,35 +8,41 @@ import { PrettyTable } from "./PrettyTable";
 
 import { highlightGoodGte, highlightBadGte, highlightBadLte } from "./Stat";
 
-export const TeamBox = ({ team }: { team: Team }) => {
-  const teamTotals = {
-    teamFieldGoalsAttempted: team.players.reduce(
-      (prev, curr) => (prev += curr.statistics.fieldGoalsAttempted),
-      0
-    ),
-    teamFreeThrowsAttempted: team.players.reduce(
-      (prev, curr) => (prev += curr.statistics.freeThrowsAttempted),
-      0
-    ),
-    teamTurnovers: team.players.reduce(
-      (prev, curr) => (prev += curr.statistics.turnovers),
-      0
-    ),
-    teamMinutes: team.players.reduce(
-      (prev, curr) =>
-        (prev += Number(curr.statistics.minutesCalculated.slice(2, -1))),
-      0
-    ),
-    teamPlusMinus: team.players.reduce(
-      (prev, curr) => (prev += curr.statistics.plusMinusPoints),
-      0
-    ),
-  };
+export const TeamBox = ({
+  team,
+  isWinner,
+}: {
+  team: Team;
+  isWinner: boolean;
+}) => {
+  const teamTotals = useMemo(
+    () => ({
+      teamFieldGoalsAttempted: team.players.reduce(
+        (prev, curr) => (prev += curr.statistics.fieldGoalsAttempted),
+        0
+      ),
+      teamFreeThrowsAttempted: team.players.reduce(
+        (prev, curr) => (prev += curr.statistics.freeThrowsAttempted),
+        0
+      ),
+      teamTurnovers: team.players.reduce(
+        (prev, curr) => (prev += curr.statistics.turnovers),
+        0
+      ),
+      teamMinutes: team.players.reduce(
+        (prev, curr) =>
+          (prev += Number(curr.statistics.minutesCalculated.slice(2, -1))),
+        0
+      ),
+    }),
+    [team.players]
+  );
 
   const columns = useMemo<ColumnDef<Player & { id: string }>[]>(
     () => [
       {
         header: "Name",
+        isFrozen: true,
         accessor: (p) => ({
           value: p.name,
           cell: (
@@ -67,7 +73,7 @@ export const TeamBox = ({ team }: { team: Team }) => {
             minutes: Number(p.statistics.minutesCalculated.slice(2, -1)),
             ...teamTotals,
           });
-          return highlightGoodGte(value, 30);
+          return { value };
         },
         sortDescFirst: true,
       },
@@ -178,7 +184,7 @@ export const TeamBox = ({ team }: { team: Team }) => {
       {
         header: "+/-",
         accessor: (p) => {
-          if (teamTotals.teamPlusMinus > 0) {
+          if (isWinner) {
             return highlightBadLte(p.statistics.plusMinusPoints, 0);
           }
           return highlightGoodGte(p.statistics.plusMinusPoints, 0);
@@ -186,7 +192,7 @@ export const TeamBox = ({ team }: { team: Team }) => {
         sortDescFirst: true,
       },
     ],
-    [teamTotals]
+    [teamTotals, isWinner]
   );
 
   const data = useMemo(

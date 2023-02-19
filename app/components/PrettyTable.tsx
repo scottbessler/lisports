@@ -71,14 +71,25 @@ export const PrettyTable = <T extends { id: string }>({
           <tr key={row.id}>
             {columns.map((c) => {
               const { value, cell } = c.accessor(row);
-              return (
-                <td
-                  className="whitespace-nowrap px-1"
-                  key={`${row.id}-${c.header}`}
-                >
-                  {cell || value}
-                </td>
-              );
+              if (c.isFrozen) {
+                return (
+                  <th
+                    className="whitespace-nowrap px-1"
+                    key={`${row.id}-${c.header}`}
+                  >
+                    {cell || value}
+                  </th>
+                );
+              } else {
+                return (
+                  <td
+                    className="whitespace-nowrap px-1"
+                    key={`${row.id}-${c.header}`}
+                  >
+                    {cell || value}
+                  </td>
+                );
+              }
             })}
           </tr>
         ))}
@@ -89,6 +100,7 @@ export const PrettyTable = <T extends { id: string }>({
 
 export interface ColumnDef<T extends { id: string }> {
   header: string;
+  isFrozen?: boolean;
 
   accessor: (row: T) => {
     value: string | number | boolean | null | undefined;
