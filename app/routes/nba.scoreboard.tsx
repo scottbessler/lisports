@@ -1,4 +1,5 @@
 import type { LoaderArgs } from "@remix-run/node";
+import { redirect } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { NavLink, Outlet, useLoaderData } from "@remix-run/react";
 import dayjs from "dayjs";
@@ -6,6 +7,19 @@ import { fetchTodaysScoreboard } from "../stores/game.server";
 
 export async function loader({ request, params }: LoaderArgs) {
   const today = await fetchTodaysScoreboard();
+
+  const url = new URL(request.url);
+  if (url.pathname === "/nba/scoreboard") {
+    const isLiveGames = today.games.some((g) => g.gameStatus === 2);
+    if (isLiveGames) {
+      return redirect(`/nba/scoreboard/today`);
+    } else {
+      const yesterday = dayjs(today.gameDate)
+        .add(-1, "day")
+        .format("YYYY-MM-DD");
+      return redirect(`/nba/scoreboard/${yesterday}`);
+    }
+  }
 
   return json({ today: today.gameDate });
 }
@@ -25,9 +39,7 @@ export default function Scoreboard() {
       <ul className="menu menu-compact flex flex-row py-3 px-3">
         {days.map((d) => (
           <li key={d}>
-            <NavLink className="rounded" to={d.toLowerCase()}>
-              {d}
-            </NavLink>
+            <NavLink to={d.toLowerCase()}>{d}</NavLink>
           </li>
         ))}
       </ul>

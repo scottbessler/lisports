@@ -1,7 +1,7 @@
 import type { Player, Team } from "../models/boxScore";
 import { useMemo } from "react";
 
-import { pointsPerShot, trueShooting, usageRate } from "../models/stats";
+import { pointsPerShot, usageRate } from "../models/stats";
 import { PrettyShooting } from "./PrettyShooting";
 import type { ColumnDef } from "./PrettyTable";
 import { PrettyTable } from "./PrettyTable";
@@ -31,7 +31,7 @@ export const TeamBox = ({ team }: { team: Team }) => {
       0
     ),
   };
-  console.log(teamTotals);
+
   const columns = useMemo<ColumnDef<Player & { id: string }>[]>(
     () => [
       { header: "Name", accessor: (p) => ({ value: p.name }) },
@@ -193,8 +193,9 @@ export const highlightGoodGte = (value: number, goodGte: number) => {
     value,
     cell: (
       <div
-        className={classNames("badge w-8", {
+        className={classNames(" badge w-8", {
           "badge-success": value >= goodGte,
+          "badge-outline": value < goodGte,
         })}
       >
         {value}
@@ -210,6 +211,7 @@ export const highlightBadGte = (value: number, badGte: number) => {
       <div
         className={classNames("badge w-8", {
           "badge-error": value >= badGte,
+          "badge-outline": value < badGte,
         })}
       >
         {value}
@@ -225,6 +227,7 @@ export const highlightBadLte = (value: number, badLte: number) => {
       <div
         className={classNames("badge w-8", {
           "badge-error": value <= badLte,
+          "badge-outline": value > badLte,
         })}
       >
         {value}

@@ -1,7 +1,13 @@
 import type { LoaderArgs } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { NavLink, Outlet, useLoaderData, useParams } from "@remix-run/react";
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useLoaderData,
+  useParams,
+} from "@remix-run/react";
 import classNames from "classnames";
 
 import { fetchDaysGames, fetchTodaysScoreboard } from "../stores/game.server";
@@ -51,12 +57,17 @@ export default function ScoreboardDay() {
             className={classNames({
               "w-[330px]": !hasSelectedGame,
               "w-full": hasSelectedGame,
-              "hidden lg:block": hasSelectedGame && g.gameId !== params.gameId,
+              "hidden  lg:block": hasSelectedGame && g.gameId !== params.gameId,
             })}
           >
-            <NavLink className="rounded-lg" to={`game/${g.gameId}`}>
+            <Link
+              className={classNames("rounded-lg px-2 py-2", {
+                "bg-primary": g.gameId === params.gameId,
+              })}
+              to={`game/${g.gameId}`}
+            >
               <GameSummary g={g} />
-            </NavLink>
+            </Link>
           </li>
         ))}
       </ul>

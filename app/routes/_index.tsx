@@ -5,9 +5,8 @@ import dayjs from "dayjs";
 
 export const loader: LoaderFunction = async ({ request }) => {
   const url = new URL(request.url);
-  const yesterday = dayjs().add(-1, "day").format("YYYY-MM-DD");
   if (url.pathname === "/") {
-    return redirect(`/scoreboard/${yesterday}`);
+    return redirect(`/nba/scoreboard`);
   }
   return null;
 };
@@ -15,7 +14,7 @@ export const loader: LoaderFunction = async ({ request }) => {
 export default function IndexRoute() {
   return (
     <main>
-      <Link to="/scoreboard">Scoreboard</Link>
+      <Link to="/nba/scoreboard">Scoreboard</Link>
     </main>
   );
 }
