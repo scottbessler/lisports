@@ -1,14 +1,7 @@
 import type { LoaderArgs } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import {
-  NavLink,
-  Outlet,
-  useLoaderData,
-  useMatches,
-  useParams,
-  useResolvedPath,
-} from "@remix-run/react";
+import { NavLink, Outlet, useLoaderData, useParams } from "@remix-run/react";
 import classNames from "classnames";
 
 import { fetchDaysGames, fetchTodaysScoreboard } from "../stores/game.server";

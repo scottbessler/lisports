@@ -44,11 +44,15 @@ export const PrettyTable = <T extends { id: string }>({
     if (sortByColumnDef == null) {
       return data;
     }
-    return orderBy(data, (d) => sortByColumnDef.accessor(d).value, sortDir);
+    return orderBy(
+      data,
+      (d) => sortByColumnDef.accessor(d).value ?? 0,
+      sortDir
+    );
   }, [data, sortByColumnDef, sortDir]);
 
   return (
-    <table className="table-zebra table w-full">
+    <table className="table-zebra table-compact table w-full">
       <thead>
         <tr>
           {columnsWithExtras.map((c) => (
