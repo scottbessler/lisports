@@ -8,7 +8,9 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLocation,
 } from "@remix-run/react";
+import classNames from "classnames";
 import { ThemePicker } from "./components/ThemePicker";
 
 import tailwindStylesheetUrl from "./styles/tailwind.css";
@@ -24,6 +26,8 @@ export const meta: MetaFunction = () => ({
 });
 
 export default function App() {
+  const loc = useLocation();
+
   return (
     <html lang="en" className="h-full">
       <head>
@@ -35,9 +39,23 @@ export default function App() {
           <div className="navbar-start"></div>
           <div className="navbar-center flex flex-row gap-4">
             <div className="text-xl normal-case">LiSports</div>
-            <ul className="menu rounded-box menu-compact menu-horizontal shadow">
-              <li>
-                <NavLink to="/nba/scoreboard">NBA</NavLink>
+            <ul className=" menu rounded-box menu-compact menu-horizontal z-50 shadow">
+              <li tabIndex={0}>
+                <span
+                  className={classNames({
+                    active: loc.pathname.startsWith("/nba"),
+                  })}
+                >
+                  NBA
+                </span>
+                <ul className="rounded-box bg-base-100">
+                  <li>
+                    <NavLink to="/nba/scoreboard">Scoreboard</NavLink>
+                  </li>
+                  <li>
+                    <NavLink to="/nba/standings">Standings</NavLink>
+                  </li>
+                </ul>
               </li>
               <li>
                 <NavLink to="/mlb/scoreboard">MLB</NavLink>

@@ -1,12 +1,15 @@
+import classNames from "classnames";
 import orderBy from "lodash.orderby";
 import { useCallback, useMemo, useState } from "react";
 
 export const PrettyTable = <T extends { id: string }>({
   columns,
   data,
+  className,
 }: {
   columns: ColumnDef<T>[];
   data: T[];
+  className?: string;
 }) => {
   const [sortHeader, setSortHeader] = useState<string | undefined>();
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -52,7 +55,12 @@ export const PrettyTable = <T extends { id: string }>({
   }, [data, sortByColumnDef, sortDir]);
 
   return (
-    <table className="table-zebra table-compact table w-full">
+    <table
+      className={classNames(
+        "table-zebra table-compact table w-full",
+        className
+      )}
+    >
       <thead>
         <tr>
           {columnsWithExtras.map((c) => (

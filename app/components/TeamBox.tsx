@@ -191,7 +191,7 @@ export const TeamBox = ({
         sortDescFirst: true,
       },
     ],
-    [isWinner, team.statistics]
+    [isWinner, otherTeam.statistics, team.statistics]
   );
 
   const data = useMemo(

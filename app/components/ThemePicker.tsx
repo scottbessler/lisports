@@ -18,9 +18,9 @@ export const ThemePicker = () => {
           className="inline-block h-5 w-5 stroke-current md:h-6 md:w-6"
         >
           <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
             d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
           ></path>
         </svg>{" "}
@@ -40,7 +40,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="light"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="light"
@@ -72,7 +72,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="dark"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="dark"
@@ -104,7 +104,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="cupcake"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="cupcake"
@@ -136,7 +136,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="bumblebee"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="bumblebee"
@@ -168,7 +168,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="emerald"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="emerald"
@@ -200,7 +200,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="corporate"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="corporate"
@@ -232,7 +232,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="synthwave"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="synthwave"
@@ -264,7 +264,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="retro"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="retro"
@@ -296,7 +296,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="cyberpunk"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="cyberpunk"
@@ -328,7 +328,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="valentine"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="valentine"
@@ -360,7 +360,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="halloween"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="halloween"
@@ -392,7 +392,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="garden"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="garden"
@@ -424,7 +424,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="forest"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="forest"
@@ -456,7 +456,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="aqua"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="aqua"
@@ -488,7 +488,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="lofi"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="lofi"
@@ -520,7 +520,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="pastel"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="pastel"
@@ -552,7 +552,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="fantasy"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="fantasy"
@@ -584,7 +584,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="wireframe"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="wireframe"
@@ -616,7 +616,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="black"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="black"
@@ -648,7 +648,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="luxury"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="luxury"
@@ -680,7 +680,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="dracula"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="dracula"
@@ -712,7 +712,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="cmyk"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="cmyk"
@@ -744,7 +744,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="autumn"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="autumn"
@@ -776,7 +776,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="business"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="business"
@@ -808,7 +808,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="acid"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="acid"
@@ -840,7 +840,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="lemonade"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="lemonade"
@@ -872,7 +872,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="night"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="night"
@@ -904,7 +904,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="coffee"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="coffee"
@@ -936,7 +936,7 @@ export const ThemePicker = () => {
           <button
             className="overflow-hidden rounded-lg text-left outline-base-content"
             data-set-theme="winter"
-            data-act-className="[&amp;_svg]:visible"
+            data-act-classname="[&amp;_svg]:visible"
           >
             <div
               data-theme="winter"

@@ -38,7 +38,15 @@ export default function Scoreboard() {
       { header: "W", accessor: (row) => ({ value: row.WINS }) },
       { header: "L", accessor: (row) => ({ value: row.LOSSES }) },
       { header: "WIN%", accessor: (row) => ({ value: row.WinPCT }) },
-      { header: "GB", accessor: (row) => ({ value: row.ConferenceGamesBack }) },
+      {
+        header: "GB",
+        accessor: (row) => {
+          if (row.ConferenceGamesBack === 0) {
+            return { value: 0, cell: <div>-</div> };
+          }
+          return { value: row.ConferenceGamesBack };
+        },
+      },
 
       {
         header: "DIFF",
@@ -63,20 +71,34 @@ export default function Scoreboard() {
       { header: "ROAD", accessor: (row) => ({ value: row.ROAD }) },
       { header: "OT", accessor: (row) => ({ value: row.OT }) },
       { header: "LAST10", accessor: (row) => ({ value: row.L10 }) },
-      { header: "STREAK", accessor: (row) => ({ value: row.CurrentStreak }) },
+      {
+        header: "STREAK",
+        accessor: (row) => {
+          if (row.CurrentStreak < 0) {
+            return {
+              value: row.CurrentStreak,
+              cell: <div>L{Math.abs(row.CurrentStreak)}</div>,
+            };
+          }
+          return {
+            value: row.CurrentStreak,
+            cell: <div>W{Math.abs(row.CurrentStreak)}</div>,
+          };
+        },
+      },
     ],
     []
   );
 
   return (
-    <div>
-      <div>
+    <div className="flex w-full flex-row gap-2 px-2">
+      <div className="w-full">
         <h1>East</h1>
-        <PrettyTable columns={columns} data={east} />
+        <PrettyTable className="text-xs" columns={columns} data={east} />
       </div>
-      <div>
+      <div className="w-full">
         <h1>West</h1>
-        <PrettyTable columns={columns} data={west} />
+        <PrettyTable className="text-xs" columns={columns} data={west} />
       </div>
     </div>
   );
