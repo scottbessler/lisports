@@ -2,8 +2,8 @@ import type { LoaderArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import invariant from "tiny-invariant";
+import { GameDetails } from "../components/GameDetails";
 import { fetchGame } from "../stores/game.server";
-import { TeamBox } from "../components/TeamBox";
 
 export async function loader({ request, params }: LoaderArgs) {
   invariant(params.gameId, "gameId not found");
@@ -23,24 +23,5 @@ export default function GameDetailsPage() {
       </div>
     );
   }
-  return (
-    <div className="w-full">
-      <h1 className="text-lg font-bold">
-        {data.game.awayTeam.teamName} {data.game.awayTeam.score}{" "}
-        {data.game.awayTeam.score > data.game.homeTeam.score && "🏅"}
-      </h1>
-      <TeamBox
-        team={data.game.awayTeam}
-        isWinner={data.game.awayTeam.score > data.game.homeTeam.score}
-      />
-      <h1 className="text-lg font-bold">
-        {data.game.homeTeam.teamName} {data.game.homeTeam.score}{" "}
-        {data.game.awayTeam.score < data.game.homeTeam.score && "🏅"}
-      </h1>
-      <TeamBox
-        team={data.game.homeTeam}
-        isWinner={data.game.awayTeam.score < data.game.homeTeam.score}
-      />
-    </div>
-  );
+  return <GameDetails game={data.game} />;
 }
