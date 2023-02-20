@@ -1,11 +1,11 @@
 import type { LoaderArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import { result } from "lodash";
+
 import { useMemo } from "react";
 import invariant from "tiny-invariant";
-import type { ResultSet, Row } from "../components/PlayerStats";
-import { PLAYER_FIELD_DESCRIPTIONS } from "../components/PlayerStats";
+import type { ResultSet, Row } from "../models/PlayerStats";
+import { PLAYER_FIELD_DESCRIPTIONS } from "../models/PlayerStats";
 import type { ColumnDef } from "../components/PrettyTable";
 import { PrettyTable } from "../components/PrettyTable";
 import { fetchPlayerStats } from "../stores/player.server";
@@ -55,5 +55,10 @@ export function PlayerResultSet({ resultSet }: { resultSet: ResultSet }) {
     });
   }, [resultSet.headers]);
 
-  return <PrettyTable data={data} columns={columns} />;
+  return (
+    <div>
+      <h2>{resultSet.name}</h2>
+      <PrettyTable data={data} columns={columns} />
+    </div>
+  );
 }

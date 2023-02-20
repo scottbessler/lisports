@@ -1,42 +1,22 @@
 import type { Player, Team } from "../models/boxScore";
 import { useMemo } from "react";
 
-import { pointsPerShot, usageRate } from "../models/stats";
+import { pie, pointsPerShot, usageRate } from "../models/stats";
 import { PrettyShooting } from "./PrettyShooting";
 import type { ColumnDef } from "./PrettyTable";
 import { PrettyTable } from "./PrettyTable";
 
 import { highlightGoodGte, highlightBadGte, highlightBadLte } from "./Stat";
+import { Link } from "@remix-run/react";
 
 export const TeamBox = ({
   team,
-  isWinner,
+  otherTeam,
 }: {
   team: Team;
-  isWinner: boolean;
+  otherTeam: Team;
 }) => {
-  const teamTotals = useMemo(
-    () => ({
-      teamFieldGoalsAttempted: team.players.reduce(
-        (prev, curr) => (prev += curr.statistics.fieldGoalsAttempted),
-        0
-      ),
-      teamFreeThrowsAttempted: team.players.reduce(
-        (prev, curr) => (prev += curr.statistics.freeThrowsAttempted),
-        0
-      ),
-      teamTurnovers: team.players.reduce(
-        (prev, curr) => (prev += curr.statistics.turnovers),
-        0
-      ),
-      teamMinutes: team.players.reduce(
-        (prev, curr) =>
-          (prev += Number(curr.statistics.minutesCalculated.slice(2, -1))),
-        0
-      ),
-    }),
-    [team.players]
-  );
+  const isWinner = team.score > otherTeam.score;
 
   const columns = useMemo<ColumnDef<Player & { id: string }>[]>(
     () => [
@@ -47,8 +27,10 @@ export const TeamBox = ({
           value: p.name,
           cell: (
             <div>
-              {p.name}
-              {p.starter === "1" && "*"}
+              <Link to={`/nba/player/${p.personId}`}>
+                {p.name}
+                {p.starter === "1" && "*"}
+              </Link>
             </div>
           ),
         }),
@@ -68,11 +50,28 @@ export const TeamBox = ({
       {
         header: "USG",
         accessor: (p) => {
-          const value = usageRate({
-            ...p.statistics,
-            minutes: Number(p.statistics.minutesCalculated.slice(2, -1)),
-            ...teamTotals,
-          });
+          const value = usageRate(
+            {
+              ...p.statistics,
+              minutes: Number(p.statistics.minutesCalculated.slice(2, -1)),
+            },
+            {
+              ...team.statistics,
+              minutes: Number(team.statistics.minutesCalculated.slice(2, -1)),
+            }
+          );
+          return { value };
+        },
+        sortDescFirst: true,
+      },
+      {
+        header: "PIE",
+        accessor: (p) => {
+          const value = pie(
+            p.statistics,
+            team.statistics,
+            otherTeam.statistics
+          );
           return { value };
         },
         sortDescFirst: true,
@@ -192,7 +191,7 @@ export const TeamBox = ({
         sortDescFirst: true,
       },
     ],
-    [teamTotals, isWinner]
+    [isWinner, team.statistics]
   );
 
   const data = useMemo(

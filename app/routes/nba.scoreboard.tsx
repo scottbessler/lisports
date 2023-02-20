@@ -3,7 +3,7 @@ import { redirect } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { NavLink, Outlet, useLoaderData } from "@remix-run/react";
 import dayjs from "dayjs";
-import { fetchTodaysScoreboard } from "../stores/game.server";
+import { fetchTodaysScoreboard } from "../stores/scoreboard.server";
 
 export async function loader({ request, params }: LoaderArgs) {
   const today = await fetchTodaysScoreboard();

@@ -1,6 +1,12 @@
 export interface PlayerStats {
   resource: string;
-  parameters: Parameters;
+  parameters: PlayerStatsParameters;
+  resultSets: ResultSet[];
+}
+
+export interface Standings {
+  resource: string;
+  parameters: unknown;
   resultSets: ResultSet[];
 }
 
@@ -12,7 +18,7 @@ export interface ResultSet {
 
 export type Row = (number | string)[];
 
-export interface Parameters {
+export interface PlayerStatsParameters {
   PerMode: string;
   PlusMinus: string;
   PaceAdjust: string;
@@ -41,6 +47,7 @@ export const PLAYER_FIELD_DESCRIPTIONS: {
   [key: string]: { title: string; abbrev: string };
 } = {
   AST_PCT: { title: "Assist Percentage", abbrev: "AST%" },
+  GROUP_VALUE: { title: "Year", abbrev: "YR" },
   AST_RATIO: { title: "Assist Ratio", abbrev: "AST Ratio" },
   AST_TO: { title: "Assist to Turnover Ratio", abbrev: "AST/TO" },
   AST: { title: "Assists", abbrev: "AST" },

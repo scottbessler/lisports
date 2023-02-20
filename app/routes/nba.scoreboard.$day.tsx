@@ -1,16 +1,13 @@
 import type { LoaderArgs } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import {
-  Link,
-  NavLink,
-  Outlet,
-  useLoaderData,
-  useParams,
-} from "@remix-run/react";
+import { Link, Outlet, useLoaderData, useParams } from "@remix-run/react";
 import classNames from "classnames";
 
-import { fetchDaysGames, fetchTodaysScoreboard } from "../stores/game.server";
+import {
+  fetchDaysGames,
+  fetchTodaysScoreboard,
+} from "../stores/scoreboard.server";
 import { GameSummary } from "../components/GameSummary";
 
 export async function loader({ request, params }: LoaderArgs) {

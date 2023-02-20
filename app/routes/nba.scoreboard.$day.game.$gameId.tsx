@@ -3,7 +3,7 @@ import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import invariant from "tiny-invariant";
 import { GameDetails } from "../components/GameDetails";
-import { fetchGame } from "../stores/game.server";
+import { fetchGame } from "../stores/scoreboard.server";
 
 export async function loader({ request, params }: LoaderArgs) {
   invariant(params.gameId, "gameId not found");

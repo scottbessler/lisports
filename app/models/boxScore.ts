@@ -35,10 +35,10 @@ export interface Team {
   timeoutsRemaining: number;
   periods: Period[];
   players: Player[];
-  statistics: Statistics2;
+  statistics: TeamStatistics;
 }
 
-export interface Statistics2 {
+export interface TeamStatistics {
   assists: number;
   assistsTurnoverRatio: number;
   benchPoints: number;

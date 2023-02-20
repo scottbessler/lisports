@@ -2741,12 +2741,30 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/lodash.partition@npm:^4.6.7":
+  version: 4.6.7
+  resolution: "@types/lodash.partition@npm:4.6.7"
+  dependencies:
+    "@types/lodash": "*"
+  checksum: 9a97f7b58bed499074854642b7baa6642978665be0b01b46b4031419d6f2c1e115da354a6e655dabca8d624d0242065820638b12da1a085fbf2a06539e65c276
+  languageName: node
+  linkType: hard
+
 "@types/lodash.sortby@npm:^4.7.7":
   version: 4.7.7
   resolution: "@types/lodash.sortby@npm:4.7.7"
   dependencies:
     "@types/lodash": "*"
   checksum: 94164b49810e37cc3795c133a6375245cdfc0e6804680e34d7039889954e7201c820d658fff89fcda0a1ce68774286f49ce95f83004d8188c4434cdfc2ca55c4
+  languageName: node
+  linkType: hard
+
+"@types/lodash.zipobject@npm:^4.1.7":
+  version: 4.1.7
+  resolution: "@types/lodash.zipobject@npm:4.1.7"
+  dependencies:
+    "@types/lodash": "*"
+  checksum: 551a52e800d54618934bad9844ae3e42f9d13c859c8e13c0583d8d623e8c3e235669f04ec858c39311e3162f720dfd565e664999397f7c0c953a58052da865d6
   languageName: node
   linkType: hard
 
@@ -8017,7 +8035,9 @@ __metadata:
     "@types/eslint": ^8.4.10
     "@types/lodash.memoize": ^4.1.7
     "@types/lodash.orderby": ^4.6.7
+    "@types/lodash.partition": ^4.6.7
     "@types/lodash.sortby": ^4.7.7
+    "@types/lodash.zipobject": ^4.1.7
     "@types/node": ^18.11.18
     "@types/react": ^18.0.26
     "@types/react-dom": ^18.0.10
@@ -8040,7 +8060,9 @@ __metadata:
     isbot: ^3.6.5
     lodash.memoize: ^4.1.2
     lodash.orderby: ^4.6.0
+    lodash.partition: ^4.6.0
     lodash.sortby: ^4.7.0
+    lodash.zipobject: ^4.1.3
     msw: ^0.49.2
     npm-run-all: ^4.1.5
     postcss: ^8.4.21
@@ -8184,10 +8206,24 @@ __metadata:
   languageName: node
   linkType: hard
 
+"lodash.partition@npm:^4.6.0":
+  version: 4.6.0
+  resolution: "lodash.partition@npm:4.6.0"
+  checksum: 57c01e3b790c4c4352bffd8be281bd98ed09f6076985d764163478b5a27db3183454cc8c9c25231210d3c69ae2bea37b78911a794bc82c296865eba8b6bd314f
+  languageName: node
+  linkType: hard
+
 "lodash.sortby@npm:^4.7.0":
   version: 4.7.0
   resolution: "lodash.sortby@npm:4.7.0"
   checksum: db170c9396d29d11fe9a9f25668c4993e0c1331bcb941ddbd48fb76f492e732add7f2a47cfdf8e9d740fa59ac41bbfaf931d268bc72aab3ab49e9f89354d718c
+  languageName: node
+  linkType: hard
+
+"lodash.zipobject@npm:^4.1.3":
+  version: 4.1.3
+  resolution: "lodash.zipobject@npm:4.1.3"
+  checksum: 1ab635b665c0488a905779705a6683e9024115176e9e947d75d2a6b1e8673230fdb11c417788fbaf26d71e1cac5ad8e59a558924612cbf7d6615780836048883
   languageName: node
   linkType: hard
 

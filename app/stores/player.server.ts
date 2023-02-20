@@ -1,6 +1,6 @@
-import type { PlayerStats } from "../components/PlayerStats";
+import type { PlayerStats } from "../models/PlayerStats";
 import { getJSON, successOrThrow } from "../reqs";
-import { NBAStatsRequestInit } from "./game.server";
+import { NBAStatsRequestInit } from "./scoreboard.server";
 import { fetchFromCache, saveToCache } from "./simpleCache.server";
 
 export async function fetchPlayerStats(playerId: string): Promise<PlayerStats> {
