@@ -40,8 +40,9 @@ export default function ScoreboardDay() {
       </div>
     );
   }
+  const isAllCompleted = data.games.every((g) => g.gameStatus === 3);
   return (
-    <div className="flex flex-col gap-5 px-3 lg:flex-row">
+    <div className="flex flex-col gap-2 px-3 lg:flex-row">
       <ul
         className={classNames("menu flex", {
           "w-full flex-row": !hasSelectedGame,
@@ -57,13 +58,14 @@ export default function ScoreboardDay() {
               "hidden  lg:block": hasSelectedGame && g.gameId !== params.gameId,
             })}
           >
-            <Link
-              className={classNames("rounded-lg px-2 py-2", {
-                "bg-primary": g.gameId === params.gameId,
-              })}
-              to={`game/${g.gameId}`}
-            >
-              <GameSummary g={g} />
+            <Link to={`game/${g.gameId}`}>
+              <GameSummary
+                className={classNames({
+                  "shadow-lg shadow-primary": g.gameId === params.gameId,
+                })}
+                g={g}
+                showStatus={!isAllCompleted}
+              />
             </Link>
           </li>
         ))}

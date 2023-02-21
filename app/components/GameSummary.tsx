@@ -1,32 +1,48 @@
+import classNames from "classnames";
 import type { Game, Team } from "../models/todaysScoreboard";
 
-export function GameSummary({ g }: { g: Game }) {
+export function GameSummary({
+  g,
+  showStatus,
+  className,
+}: {
+  g: Game;
+  showStatus: boolean;
+  className?: string;
+}) {
   return (
-    <div className="min-w-full">
-      <table className="table-zebra table-compact table min-w-full text-xs">
-        <thead>
-          <tr>
-            <th scope="col">Team</th>
-            {g.awayTeam.periods.map((p) => (
-              <th scope="col" key={p.period}>
-                {p.period}
-              </th>
-            ))}
-            <th scope="col">Tot</th>
-          </tr>
-        </thead>
-        <tbody>
-          <GameSummaryTeamRow
-            team={g.awayTeam}
-            isWinner={g.awayTeam.score > g.homeTeam.score}
-          />
-          <GameSummaryTeamRow
-            team={g.homeTeam}
-            isWinner={g.awayTeam.score < g.homeTeam.score}
-          />
-        </tbody>
-      </table>
-      <div className="badge">{g.gameStatusText}</div>
+    <div
+      className={classNames(
+        className,
+        "card card-compact w-full bg-base-100 shadow-xl"
+      )}
+    >
+      <div className="card-body">
+        <table className="table-zebra table-compact table min-w-full text-xs">
+          <thead>
+            <tr>
+              <th scope="col">Team</th>
+              {g.awayTeam.periods.map((p) => (
+                <th scope="col" key={p.period}>
+                  {p.period}
+                </th>
+              ))}
+              <th scope="col">Tot</th>
+            </tr>
+          </thead>
+          <tbody>
+            <GameSummaryTeamRow
+              team={g.awayTeam}
+              isWinner={g.awayTeam.score > g.homeTeam.score}
+            />
+            <GameSummaryTeamRow
+              team={g.homeTeam}
+              isWinner={g.awayTeam.score < g.homeTeam.score}
+            />
+          </tbody>
+        </table>
+        {showStatus && <h3>{g.gameStatusText}</h3>}
+      </div>
     </div>
   );
 }

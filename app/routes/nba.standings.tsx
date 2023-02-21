@@ -9,6 +9,7 @@ import type { ColumnDef } from "../components/PrettyTable";
 import { PrettyTable } from "../components/PrettyTable";
 import type { StandingsTeam } from "../models/standings";
 import { useMemo } from "react";
+import { BadValue, GoodValue, NeutralValue } from "../components/Stat";
 
 export async function loader({ request, params }: LoaderArgs) {
   const standings = await fetchStandings();
@@ -67,10 +68,29 @@ export default function Scoreboard() {
         }),
       },
       { header: "CONF", accessor: (row) => ({ value: row.ConferenceRecord }) },
-      { header: "HOME", accessor: (row) => ({ value: row.HOME }) },
-      { header: "ROAD", accessor: (row) => ({ value: row.ROAD }) },
-      { header: "OT", accessor: (row) => ({ value: row.OT }) },
-      { header: "LAST10", accessor: (row) => ({ value: row.L10 }) },
+      {
+        header: "HOME",
+        accessor: (row) => ({
+          value: row.HOME,
+          cell: <DashedRecord val={row.HOME} />,
+        }),
+      },
+      {
+        header: "ROAD",
+        accessor: (row) => ({
+          value: row.ROAD,
+          cell: <DashedRecord val={row.ROAD} />,
+        }),
+      },
+      // { header: "OT", accessor: (row) => ({ value: row.OT }) },
+      {
+        header: "L10",
+        accessor: (row) => ({
+          value: row.L10,
+          cell: <DashedRecord val={row.L10} />,
+        }),
+      },
+
       {
         header: "STREAK",
         accessor: (row) => {
@@ -92,14 +112,32 @@ export default function Scoreboard() {
 
   return (
     <div className="flex w-full flex-row gap-2 px-2">
-      <div className="w-full">
-        <h1>East</h1>
-        <PrettyTable className="text-xs" columns={columns} data={east} />
+      <div className="card  w-full bg-base-100 shadow-xl">
+        <div className="card-body">
+          <h2 className="card-title">East</h2>
+          <PrettyTable className="text-xs" columns={columns} data={east} />
+        </div>
       </div>
-      <div className="w-full">
-        <h1>West</h1>
-        <PrettyTable className="text-xs" columns={columns} data={west} />
+      <div className="card  w-full bg-base-100 shadow-xl">
+        <div className="card-body">
+          <h2 className="card-title">West</h2>
+          <PrettyTable className="text-xs" columns={columns} data={west} />
+        </div>
       </div>
     </div>
   );
+}
+
+export function DashedRecord({ val }: { val: string }) {
+  const [wins, losses] = val.split("-").map(Number);
+
+  const wp = wins / (wins + losses);
+
+  if (wp > 0.6) {
+    return <GoodValue>{val}</GoodValue>;
+  }
+  if (wp < 0.4) {
+    return <BadValue>{val}</BadValue>;
+  }
+  return <NeutralValue>{val}</NeutralValue>;
 }
