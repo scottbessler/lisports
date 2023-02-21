@@ -3,9 +3,9 @@ import type { Game } from "../models/boxScore";
 
 export function GameDetails({ game }: { game: Game }) {
   return (
-    <div className="flex w-full flex-col gap-2">
+    <div className="flex min-w-full flex-col gap-2">
       <div className="card card-compact bg-base-100 shadow-xl">
-        <div className="card-body">
+        <div className="card-body overflow-x-scroll">
           <h1 className="card-title">
             {game.awayTeam.teamName} {game.awayTeam.score}{" "}
             {game.awayTeam.score > game.homeTeam.score && "🏅"}

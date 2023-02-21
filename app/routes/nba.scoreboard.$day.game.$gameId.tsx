@@ -16,7 +16,7 @@ export default function GameDetailsPage() {
   const data = useLoaderData<typeof loader>();
   if (!data.game) {
     return (
-      <div className="flex h-screen">
+      <div className="flex">
         <div className="mx-auto">
           <h3>Game has not started yet.</h3>
         </div>

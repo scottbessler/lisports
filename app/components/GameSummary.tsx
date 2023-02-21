@@ -14,7 +14,7 @@ export function GameSummary({
     <div
       className={classNames(
         className,
-        "card card-compact w-full bg-base-100 shadow-xl"
+        "card card-compact max-w-[500px] bg-base-100 shadow-xl"
       )}
     >
       <div className="card-body">

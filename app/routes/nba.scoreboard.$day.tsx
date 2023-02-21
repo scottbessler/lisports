@@ -33,7 +33,7 @@ export default function ScoreboardDay() {
 
   if (data.games.length === 0) {
     return (
-      <div className="flex h-screen">
+      <div className="flex flex-1">
         <div className="m-auto">
           <h3>No Games Scheduled</h3>
         </div>
@@ -42,27 +42,31 @@ export default function ScoreboardDay() {
   }
   const isAllCompleted = data.games.every((g) => g.gameStatus === 3);
   return (
-    <div className="flex flex-col gap-2 px-3 lg:flex-row">
+    <div className="flex flex-1 flex-col gap-2 px-3 xl:flex-row">
       <ul
-        className={classNames("menu flex", {
-          "w-full flex-row": !hasSelectedGame,
-          "flex-col lg:basis-[330px]": hasSelectedGame,
+        className={classNames("menu flex content-start", {
+          "min-w-full flex-row": !hasSelectedGame,
+          "flex-col xl:basis-[330px]": hasSelectedGame,
         })}
       >
         {data.games.map((g) => (
           <li
             key={g.gameId}
             className={classNames({
-              "w-[330px]": !hasSelectedGame,
-              "w-full": hasSelectedGame,
-              "hidden  lg:block": hasSelectedGame && g.gameId !== params.gameId,
+              "hidden xl:block": hasSelectedGame && g.gameId !== params.gameId,
             })}
           >
-            <Link to={`game/${g.gameId}`}>
+            <Link
+              className="flex hover:bg-inherit focus:bg-inherit"
+              to={`game/${g.gameId}`}
+            >
               <GameSummary
-                className={classNames({
-                  "shadow-lg shadow-primary": g.gameId === params.gameId,
-                })}
+                className={classNames(
+                  "mx-auto w-[330px] hover:shadow-xl hover:shadow-primary",
+                  {
+                    "shadow-lg shadow-primary": g.gameId === params.gameId,
+                  }
+                )}
                 g={g}
                 showStatus={!isAllCompleted}
               />
@@ -73,7 +77,7 @@ export default function ScoreboardDay() {
 
       <div
         className={classNames({
-          grow: hasSelectedGame,
+          // grow: hasSelectedGame,
           hidden: !hasSelectedGame,
         })}
       >

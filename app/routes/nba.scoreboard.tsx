@@ -35,7 +35,7 @@ export default function Scoreboard() {
   days.push("Today");
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-1 flex-col">
       <ul className="menu menu-compact mb-1 flex flex-row py-3 px-3 shadow">
         {days.map((d) => (
           <li key={d}>

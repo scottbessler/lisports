@@ -57,7 +57,7 @@ export const PrettyTable = <T extends { id: string }>({
   return (
     <table
       className={classNames(
-        "table-zebra table-compact table w-full",
+        "table-zebra table-compact table min-w-full",
         className
       )}
     >
