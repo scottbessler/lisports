@@ -37,13 +37,25 @@ export const highlightBadLte = (value: number, badLte: number) => {
 };
 
 export const NeutralValue = ({ children }: { children: ReactNode }) => {
-  return <div className="badge-outline badge">{children}</div>;
+  return <div className="">{children}</div>;
 };
 
 export const GoodValue = ({ children }: { children: ReactNode }) => {
-  return <div className="badge-success badge">{children}</div>;
+  return (
+    <div>
+      <span className="relative inline-block before:absolute before:-inset-1 before:block before:-skew-y-3 before:bg-green-400 before:opacity-25">
+        <span className="text-content relative">{children}</span>
+      </span>
+    </div>
+  );
 };
 
 export const BadValue = ({ children }: { children: ReactNode }) => {
-  return <div className="badge-error badge">{children}</div>;
+  return (
+    <div>
+      <span className="relative inline-block before:absolute before:-inset-1 before:block before:skew-y-3 before:bg-red-400 before:opacity-25">
+        <span className="text-content relative">{children}</span>
+      </span>
+    </div>
+  );
 };

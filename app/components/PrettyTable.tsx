@@ -65,7 +65,7 @@ export const PrettyTable = <T extends { id: string }>({
         <tr>
           {columnsWithExtras.map((c) => (
             <th
-              className="cursor-pointer px-1"
+              className="cursor-pointer text-center"
               key={c.header}
               onClick={c.onClick}
             >
@@ -82,7 +82,7 @@ export const PrettyTable = <T extends { id: string }>({
               if (c.isFrozen) {
                 return (
                   <th
-                    className="whitespace-nowrap px-1"
+                    className="whitespace-nowrap text-left"
                     key={`${row.id}-${c.header}`}
                   >
                     {cell || value}
@@ -91,7 +91,7 @@ export const PrettyTable = <T extends { id: string }>({
               } else {
                 return (
                   <td
-                    className="whitespace-nowrap px-1"
+                    className="whitespace-nowrap text-right"
                     key={`${row.id}-${c.header}`}
                   >
                     {cell || value}
