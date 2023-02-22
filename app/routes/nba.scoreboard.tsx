@@ -28,18 +28,23 @@ export default function Scoreboard() {
   const data = useLoaderData<typeof loader>();
 
   const today = dayjs(data.today);
-  const days: string[] = [];
-  for (let i = 0; i < 7; i++) {
-    days.push(today.add(-7 + i, "day").format("YYYY-MM-DD"));
+  const days: { ymd: string; label: string }[] = [];
+  for (let i = 0; i < 6; i++) {
+    const d = today.add(-7 + i, "day");
+    days.push({ ymd: d.format("YYYY-MM-DD"), label: d.format("ddd, MMM DD") });
   }
-  days.push("Today");
+  days.push({ ymd: "today", label: "Today" });
+  for (let i = 0; i < 6; i++) {
+    const d = today.add(1 + i, "day");
+    days.push({ ymd: d.format("YYYY-MM-DD"), label: d.format("ddd, MMM DD") });
+  }
 
   return (
     <div className="flex flex-1 flex-col">
-      <ul className="menu menu-compact mb-1 flex flex-row py-3 px-3 shadow">
+      <ul className="menu menu-compact mb-1 flex flex-row gap-2 py-3 px-3 shadow">
         {days.map((d) => (
-          <li key={d}>
-            <NavLink to={d.toLowerCase()}>{d}</NavLink>
+          <li key={d.ymd}>
+            <NavLink to={d.ymd}>{d.label}</NavLink>
           </li>
         ))}
       </ul>

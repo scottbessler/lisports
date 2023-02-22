@@ -111,14 +111,14 @@ export default function Scoreboard() {
   );
 
   return (
-    <div className="flex w-full flex-row gap-2 px-2">
-      <div className="card  w-full bg-base-100 shadow-xl">
+    <div className="flex w-full flex-row flex-wrap gap-2 px-2">
+      <div className="card bg-base-100 shadow-xl">
         <div className="card-body">
           <h2 className="card-title">East</h2>
           <PrettyTable className="text-xs" columns={columns} data={east} />
         </div>
       </div>
-      <div className="card  w-full bg-base-100 shadow-xl">
+      <div className="card bg-base-100 shadow-xl">
         <div className="card-body">
           <h2 className="card-title">West</h2>
           <PrettyTable className="text-xs" columns={columns} data={west} />

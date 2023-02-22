@@ -76,7 +76,7 @@ export default function ScoreboardDay() {
       </ul>
 
       <div
-        className={classNames({
+        className={classNames("flex flex-1", {
           // grow: hasSelectedGame,
           hidden: !hasSelectedGame,
         })}
