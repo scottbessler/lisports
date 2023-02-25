@@ -15,21 +15,21 @@ export function GameDetails({ game }: { game: Game }) {
         </a>
       </div>
       <div className="card-compact card bg-base-100 shadow-xl">
-        <div className="card-body max-w-[800px] overflow-x-scroll">
+        <div className="card-body max-w-[650px] overflow-x-scroll md:max-w-[800px]">
           <h1 className="card-title">
             <TeamLogo className="w-6" team={game.awayTeam} />
-            {game.awayTeam.teamName} {game.awayTeam.score}{" "}
-            <Winner game={game} isHome={false} />
+            {game.awayTeam.teamCity} {game.awayTeam.teamName}
+            {game.awayTeam.score} <Winner game={game} isHome={false} />
           </h1>
           <TeamBox team={game.awayTeam} otherTeam={game.homeTeam} />
         </div>
       </div>
       <div className="card-compact card bg-base-100 shadow-xl">
-        <div className="card-body max-w-[800px] overflow-x-scroll">
+        <div className="card-body max-w-[650px] overflow-x-scroll md:max-w-[800px]">
           <h1 className="card-title">
             <TeamLogo className="w-6" team={game.homeTeam} />
-            {game.homeTeam.teamName} {game.homeTeam.score}{" "}
-            <Winner game={game} isHome={true} />
+            {game.homeTeam.teamCity} {game.homeTeam.teamName}{" "}
+            {game.homeTeam.score} <Winner game={game} isHome={true} />
           </h1>
           <TeamBox team={game.homeTeam} otherTeam={game.awayTeam} />
         </div>

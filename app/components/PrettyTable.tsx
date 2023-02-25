@@ -55,17 +55,14 @@ export const PrettyTable = <T extends { id: string }>({
   }, [data, sortByColumnDef, sortDir]);
 
   return (
-    <table
-      className={classNames(
-        "table-zebra table-compact table min-w-full",
-        className
-      )}
-    >
+    <table className={classNames("table-compact table min-w-full", className)}>
       <thead>
         <tr>
           {columnsWithExtras.map((c) => (
             <th
-              className="cursor-pointer px-1 text-right"
+              className={classNames("cursor-pointer px-1 text-right", {
+                "hidden md:table-cell": c.isFrozen,
+              })}
               key={c.header}
               onClick={c.onClick}
             >
@@ -74,32 +71,52 @@ export const PrettyTable = <T extends { id: string }>({
           ))}
         </tr>
       </thead>
-      <tbody>
+      <tbody className="divide-y">
         {sortedData.map((row, i) => (
-          <tr key={row.id}>
-            {columns.map((c) => {
-              const { value, cell } = c.accessor(row);
-              if (c.isFrozen) {
-                return (
-                  <th
-                    className="whitespace-nowrap px-1 text-right"
-                    key={`${row.id}-${c.header}`}
-                  >
-                    {cell || value}
-                  </th>
-                );
-              } else {
-                return (
-                  <td
-                    className="whitespace-nowrap px-1 text-right"
-                    key={`${row.id}-${c.header}`}
-                  >
-                    {cell || value}
-                  </td>
-                );
-              }
-            })}
-          </tr>
+          <>
+            <tr className="md:hidden" key={`${row.id}-h`}>
+              {columns.map((c) => {
+                const { value, cell } = c.accessor(row);
+                if (c.isFrozen) {
+                  return (
+                    <th
+                      colSpan={columns.length}
+                      className="whitespace-nowrap py-1 px-1 text-left"
+                      key={`${row.id}-${c.header}`}
+                    >
+                      {cell || value}
+                    </th>
+                  );
+                } else {
+                  return null;
+                }
+              })}
+            </tr>
+            <tr key={row.id}>
+              {columns.map((c) => {
+                const { value, cell } = c.accessor(row);
+                if (c.isFrozen) {
+                  return (
+                    <th
+                      className="hidden whitespace-nowrap py-1 px-1 text-right md:table-cell md:py-2"
+                      key={`${row.id}-${c.header}`}
+                    >
+                      {cell || value}
+                    </th>
+                  );
+                } else {
+                  return (
+                    <td
+                      className="whitespace-nowrap py-1 px-1 text-right md:py-2"
+                      key={`${row.id}-${c.header}`}
+                    >
+                      {cell || value}
+                    </td>
+                  );
+                }
+              })}
+            </tr>
+          </>
         ))}
       </tbody>
     </table>
