@@ -4,7 +4,9 @@ export const highlightGoodGte = (value: number, goodGte: number) => {
   return {
     value,
     cell:
-      value >= goodGte ? (
+      value === 0 ? (
+        " "
+      ) : value >= goodGte ? (
         <GoodValue>{value}</GoodValue>
       ) : (
         <NeutralValue>{value}</NeutralValue>
@@ -16,7 +18,9 @@ export const highlightBadGte = (value: number, badGte: number) => {
   return {
     value,
     cell:
-      value >= badGte ? (
+      value === 0 ? (
+        " "
+      ) : value >= badGte ? (
         <BadValue>{value}</BadValue>
       ) : (
         <NeutralValue>{value}</NeutralValue>
@@ -28,7 +32,9 @@ export const highlightBadLte = (value: number, badLte: number) => {
   return {
     value,
     cell:
-      value <= badLte ? (
+      value === 0 ? (
+        " "
+      ) : value <= badLte ? (
         <BadValue>{value}</BadValue>
       ) : (
         <NeutralValue>{value}</NeutralValue>
