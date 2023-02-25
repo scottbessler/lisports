@@ -1,5 +1,7 @@
 import classNames from "classnames";
 import type { Game, Team } from "../models/todaysScoreboard";
+import { TeamLogo } from "./TeamLogo";
+import { Winner } from "./Winner";
 
 export function GameSummary({
   g,
@@ -14,7 +16,7 @@ export function GameSummary({
     <div
       className={classNames(
         className,
-        "card card-compact max-w-[500px] bg-base-100 shadow-xl"
+        "card-compact card max-w-[500px] bg-base-100 shadow-xl"
       )}
     >
       <div className="card-body">
@@ -31,14 +33,8 @@ export function GameSummary({
             </tr>
           </thead>
           <tbody>
-            <GameSummaryTeamRow
-              team={g.awayTeam}
-              isWinner={g.awayTeam.score > g.homeTeam.score}
-            />
-            <GameSummaryTeamRow
-              team={g.homeTeam}
-              isWinner={g.awayTeam.score < g.homeTeam.score}
-            />
+            <GameSummaryTeamRow game={g} />
+            <GameSummaryTeamRow game={g} isHome />
           </tbody>
         </table>
         {showStatus && <h3>{g.gameStatusText}</h3>}
@@ -48,17 +44,23 @@ export function GameSummary({
 }
 
 export const GameSummaryTeamRow = ({
-  team,
-  isWinner,
+  game,
+  isHome = false,
 }: {
-  team: Team;
-  isWinner: boolean;
+  game: Game;
+  isHome?: boolean;
 }) => {
+  const team = getTeam(game, isHome);
   return (
     <tr>
-      <th scope="row">
-        {team.teamName}
-        {isWinner && <span className="text-bold">🏅</span>}
+      <th scope="row whitespace-nowrap">
+        <div className="flex flex-row">
+          <TeamLogo className="mr-1 w-5" team={team} />
+          <span title={`${team.teamCity} ${team.teamName}`}>
+            {team.teamTricode}
+          </span>
+          <Winner game={game} isHome={isHome} />
+        </div>
       </th>
 
       {team.periods.map((p) => (
@@ -68,3 +70,8 @@ export const GameSummaryTeamRow = ({
     </tr>
   );
 };
+
+export function getTeam(game: Game, isHome: boolean) {
+  if (isHome) return game.homeTeam;
+  return game.awayTeam;
+}

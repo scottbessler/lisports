@@ -30,6 +30,10 @@ export const NBAStatsRequestInit = {
   },
 };
 
+// TODO: https://cdn.nba.com/static/json/liveData/odds/odds_todaysGames.json
+// TODO?: https://cdn.nba.com/static/json/liveData/channels/v2/channels_00.json 
+// https://cdn.nba.com/logos/nba/1610612748/primary/L/logo.svg
+
 export const fetchDaysGames = async (day: string) => {
   // todo: validate day
 
