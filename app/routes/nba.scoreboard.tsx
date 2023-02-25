@@ -10,8 +10,8 @@ export async function loader({ request, params }: LoaderArgs) {
 
   const url = new URL(request.url);
   if (url.pathname === "/nba/scoreboard") {
-    const isLiveGames = today.games.some((g) => g.gameStatus === 2);
-    if (isLiveGames) {
+    const isLiveOrCompletedGames = today.games.some((g) => g.gameStatus >= 2);
+    if (isLiveOrCompletedGames) {
       return redirect(`/nba/scoreboard/today`);
     } else {
       const yesterday = dayjs(today.gameDate)
@@ -26,11 +26,11 @@ export async function loader({ request, params }: LoaderArgs) {
 
 export default function Scoreboard() {
   const data = useLoaderData<typeof loader>();
-
+  console.log(data.today);
   const today = dayjs(data.today);
   const days: { ymd: string; label: string }[] = [];
-  for (let i = 0; i < 6; i++) {
-    const d = today.add(-7 + i, "day");
+  for (let i = -6; i < 0; i++) {
+    const d = today.add(i, "day");
     days.push({ ymd: d.format("YYYY-MM-DD"), label: d.format("ddd, MMM DD") });
   }
   days.push({ ymd: "today", label: "Today" });
