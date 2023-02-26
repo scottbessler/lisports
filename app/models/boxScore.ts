@@ -1,9 +1,9 @@
 export interface BoxScore {
   meta: Meta;
-  game: Game;
+  game: BoxScoreGame;
 }
 
-export interface Game {
+export interface BoxScoreGame {
   gameId: string;
   gameTimeLocal: string;
   gameTimeUTC: string;
@@ -21,11 +21,11 @@ export interface Game {
   sellout: string;
   arena: Arena;
   officials: Official[];
-  homeTeam: Team;
-  awayTeam: Team;
+  homeTeam: BoxScoreTeam;
+  awayTeam: BoxScoreTeam;
 }
 
-export interface Team {
+export interface BoxScoreTeam {
   teamId: number;
   teamName: string;
   teamCity: string;

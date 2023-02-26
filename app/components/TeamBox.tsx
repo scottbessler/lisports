@@ -1,4 +1,4 @@
-import type { Player, Team } from "../models/boxScore";
+import type { Player, BoxScoreTeam } from "../models/boxScore";
 import { useMemo } from "react";
 
 import { pie, pointsPerShot, usageRate } from "../models/stats";
@@ -6,15 +6,16 @@ import { PrettyShooting } from "./PrettyShooting";
 import type { ColumnDef } from "./PrettyTable";
 import { PrettyTable } from "./PrettyTable";
 
-import { highlightGoodGte, highlightBadGte, highlightBadLte } from "./Stat";
+import { GoodGte, BadGte, BadLte, Highlighter } from "./Stat";
 import { Link } from "@remix-run/react";
+import { PLAYER_FIELD_DESCRIPTIONS } from "../models/PlayerStats";
 
 export const TeamBox = ({
   team,
   otherTeam,
 }: {
-  team: Team;
-  otherTeam: Team;
+  team: BoxScoreTeam;
+  otherTeam: BoxScoreTeam;
 }) => {
   const isWinner = team.score > otherTeam.score;
 
@@ -23,6 +24,7 @@ export const TeamBox = ({
       {
         header: "Name",
         isFrozen: true,
+        isHiddenWhenSmall: true,
         accessor: (p) => ({
           value: p.name,
           cell: (
@@ -44,35 +46,21 @@ export const TeamBox = ({
       },
       {
         header: "PTS",
-        accessor: (p) => highlightGoodGte(p.statistics.points, 20),
+        accessor: (p) => GoodGte(p.statistics.points, 20),
         sortDescFirst: true,
       },
-      {
-        header: "USG",
-        accessor: (p) => {
-          const value = usageRate(
-            {
-              ...p.statistics,
-              minutes: Number(p.statistics.minutesCalculated.slice(2, -1)),
-            },
-            {
-              ...team.statistics,
-              minutes: Number(team.statistics.minutesCalculated.slice(2, -1)),
-            }
-          );
-          return { value };
-        },
-        sortDescFirst: true,
-      },
+
       {
         header: "PIE",
+        isHiddenWhenSmall: true,
+        description: "Player Impact Estimate",
         accessor: (p) => {
           const value = pie(
             p.statistics,
             team.statistics,
             otherTeam.statistics
           );
-          return { value };
+          return GoodGte(value, 10);
         },
         sortDescFirst: true,
       },
@@ -119,12 +107,14 @@ export const TeamBox = ({
       },
       {
         header: "PPS",
+        isHiddenWhenSmall: true,
+        description: "Points per Shot'",
         accessor: (p) => {
           const v = pointsPerShot(p.statistics);
           if (!v) {
             return { value: undefined };
           }
-          return highlightGoodGte(v, 1.5);
+          return GoodGte(v, 1.5);
         },
         sortDescFirst: true,
       },
@@ -151,42 +141,63 @@ export const TeamBox = ({
       //   sortDescFirst: true,
       // },
       {
-        header: "REB",
-        accessor: (p) => highlightGoodGte(p.statistics.reboundsTotal, 10),
+        header: "RB",
+        accessor: (p) => GoodGte(p.statistics.reboundsTotal, 10),
         sortDescFirst: true,
       },
       {
-        header: "AST",
-        accessor: (p) => highlightGoodGte(p.statistics.assists, 8),
+        header: "AS",
+        accessor: (p) => GoodGte(p.statistics.assists, 8),
         sortDescFirst: true,
       },
       {
         header: "TO",
-        accessor: (p) => highlightBadGte(p.statistics.turnovers, 3),
+        accessor: (p) => BadGte(p.statistics.turnovers, 3),
         sortDescFirst: true,
       },
       {
-        header: "STL",
-        accessor: (p) => highlightGoodGte(p.statistics.steals, 3),
+        header: "ST",
+        accessor: (p) => GoodGte(p.statistics.steals, 3),
         sortDescFirst: true,
       },
       {
-        header: "BLK",
-        accessor: (p) => highlightGoodGte(p.statistics.blocks, 3),
+        header: "BK",
+        accessor: (p) => GoodGte(p.statistics.blocks, 3),
         sortDescFirst: true,
       },
       {
         header: "PF",
-        accessor: (p) => highlightBadGte(p.statistics.foulsPersonal, 5),
+        accessor: (p) => BadGte(p.statistics.foulsPersonal, 5),
         sortDescFirst: true,
       },
       {
         header: "+/-",
+        isHiddenWhenSmall: true,
+        description: PLAYER_FIELD_DESCRIPTIONS.PLUS_MINUS.title,
         accessor: (p) => {
           if (isWinner) {
-            return highlightBadLte(p.statistics.plusMinusPoints, 0);
+            return BadLte(p.statistics.plusMinusPoints, 0);
           }
-          return highlightGoodGte(p.statistics.plusMinusPoints, 0);
+          return GoodGte(p.statistics.plusMinusPoints, 0);
+        },
+        sortDescFirst: true,
+      },
+      {
+        header: "USG",
+        isHiddenWhenSmall: true,
+        description: PLAYER_FIELD_DESCRIPTIONS.USG_PCT.title,
+        accessor: (p) => {
+          const value = usageRate(
+            {
+              ...p.statistics,
+              minutes: Number(p.statistics.minutesCalculated.slice(2, -1)),
+            },
+            {
+              ...team.statistics,
+              minutes: Number(team.statistics.minutesCalculated.slice(2, -1)),
+            }
+          );
+          return { value };
         },
         sortDescFirst: true,
       },
@@ -202,5 +213,54 @@ export const TeamBox = ({
     [team.players]
   );
 
-  return <PrettyTable columns={columns} data={data} />;
+  const summaryCol = useMemo<ColumnDef<Player & { id: string }>>(
+    () => ({
+      header: "Summary",
+      accessor: (p) => {
+        const pieVal = pie(p.statistics, team.statistics, otherTeam.statistics);
+        const pps = pointsPerShot(p.statistics);
+        return {
+          value: p.name,
+          cell: (
+            <div className="flex flex-row gap-4">
+              <span className="basis-24">
+                {p.name}
+                {p.starter === "1" && "*"}
+              </span>
+              <div>
+                <Highlighter isGood={pieVal >= 10} isBad={pieVal < 0}>
+                  PIE:{pieVal}
+                </Highlighter>
+              </div>
+              <span>
+                <Highlighter isGood={(pps ?? 0) > 1.5}>
+                  {pps ? `${pps}pps` : ""}
+                </Highlighter>
+              </span>
+              <span>
+                <Highlighter
+                  isGood={!isWinner && p.statistics.plusMinusPoints > 0}
+                  isBad={isWinner && p.statistics.plusMinusPoints < 0}
+                >
+                  {p.statistics.plusMinusPoints > 0
+                    ? `+${p.statistics.plusMinusPoints}`
+                    : p.statistics.plusMinusPoints}
+                </Highlighter>
+              </span>
+            </div>
+          ),
+        };
+      },
+    }),
+    []
+  );
+
+  return (
+    <PrettyTable
+      className="text-xs sm:text-sm"
+      columns={columns}
+      summaryColumn={summaryCol}
+      data={data}
+    />
+  );
 };

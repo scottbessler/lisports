@@ -5,11 +5,17 @@ import { fetchStandings } from "../stores/nba.standings.server";
 
 import zipObject from "lodash.zipobject";
 import partition from "lodash.partition";
-import type { ColumnDef } from "../components/PrettyTable";
+import type { ColumnDef, CustomRowFormatter } from "../components/PrettyTable";
 import { PrettyTable } from "../components/PrettyTable";
 import type { StandingsTeam } from "../models/standings";
-import { useMemo } from "react";
-import { BadValue, GoodValue, NeutralValue } from "../components/Stat";
+import { useCallback, useMemo } from "react";
+import {
+  BadValue,
+  GoodValue,
+  Highlighter,
+  NeutralValue,
+} from "../components/Stat";
+import { TeamLogo } from "../components/TeamLogo";
 
 export async function loader({ request, params }: LoaderArgs) {
   const standings = await fetchStandings();
@@ -27,18 +33,44 @@ export default function Scoreboard() {
   const withId = zipped.map((z) => ({ ...z, id: String(z.TeamID) }));
 
   const [west, east] = partition(withId, (t) => t.Conference === "West");
+  type StandingsWithId = StandingsTeam & { id: string };
 
-  const columns = useMemo<ColumnDef<StandingsTeam & { id: string }>[]>(
+  const columns = useMemo<ColumnDef<StandingsWithId>[]>(
     () => [
-      { header: "#", accessor: (row) => ({ value: row.PlayoffRank }) },
+      {
+        header: "#",
+        sortAscFirst: true,
+        accessor: (row) => ({
+          value: row.PlayoffRank,
+          cell: (
+            <div>
+              {row.PlayoffRank <= 6 ? "*" : row.PlayoffRank <= 10 ? "+" : null}
+              {row.PlayoffRank}
+            </div>
+          ),
+        }),
+      },
       {
         header: "Team",
-        accessor: (row) => ({ value: row.TeamName }),
+        headerCell: <div className="text-left">Team</div>,
+        sortAscFirst: true,
+        accessor: (row) => ({
+          value: row.TeamName,
+          cell: (
+            <div className="flex w-[120px] flex-row items-center gap-1">
+              <TeamLogo
+                className="w-5"
+                team={{ teamId: row.TeamID, teamName: row.TeamName }}
+              />
+              <div>{row.TeamName}</div>
+            </div>
+          ),
+        }),
         isFrozen: true,
       },
       { header: "W", accessor: (row) => ({ value: row.WINS }) },
       { header: "L", accessor: (row) => ({ value: row.LOSSES }) },
-      { header: "WIN%", accessor: (row) => ({ value: row.WinPCT }) },
+      { header: "%", accessor: (row) => ({ value: row.WinPCT }) },
       {
         header: "GB",
         accessor: (row) => {
@@ -50,12 +82,6 @@ export default function Scoreboard() {
       },
 
       {
-        header: "DIFF",
-        accessor: (row) => ({
-          value: row.DiffPointsPG,
-        }),
-      },
-      {
         header: "PPG",
         accessor: (row) => ({
           value: row.PointsPG,
@@ -63,20 +89,35 @@ export default function Scoreboard() {
       },
       {
         header: "OPPG",
+        sortAscFirst: true,
         accessor: (row) => ({
           value: row.OppPointsPG,
         }),
       },
-      { header: "CONF", accessor: (row) => ({ value: row.ConferenceRecord }) },
       {
-        header: "HOME",
+        header: "DIFF",
+        accessor: (row) => ({
+          value: row.DiffPointsPG,
+          cell: (
+            <Highlighter
+              isGood={row.DiffPointsPG > 1}
+              isBad={row.DiffPointsPG < -1}
+            >
+              {row.DiffPointsPG}
+            </Highlighter>
+          ),
+        }),
+      },
+      // { header: "CONF", accessor: (row) => ({ value: row.ConferenceRecord }) },
+      {
+        header: "HM",
         accessor: (row) => ({
           value: row.HOME,
           cell: <DashedRecord val={row.HOME} />,
         }),
       },
       {
-        header: "ROAD",
+        header: "RD",
         accessor: (row) => ({
           value: row.ROAD,
           cell: <DashedRecord val={row.ROAD} />,
@@ -92,7 +133,7 @@ export default function Scoreboard() {
       },
 
       {
-        header: "STREAK",
+        header: "STR",
         accessor: (row) => {
           if (row.CurrentStreak < 0) {
             return {
@@ -110,19 +151,52 @@ export default function Scoreboard() {
     []
   );
 
+  const customRowFormatter = useCallback<CustomRowFormatter<StandingsWithId>>(
+    ({ rowIndex, sortDir, sortHeader }) => {
+      if ((sortHeader == null || sortHeader === "#") && sortDir === "desc") {
+        if (rowIndex === 9) {
+          return {
+            trStyle: {
+              borderBottomColor: "black",
+              borderBottomStyle: "dotted",
+              borderBottomWidth: "2px",
+            },
+          };
+        }
+        if (rowIndex === 5) {
+          return {
+            trStyle: {
+              borderBottomColor: "black",
+              borderBottomStyle: "solid",
+              borderBottomWidth: "2px",
+            },
+          };
+        }
+      }
+      return {};
+    },
+    []
+  );
+
   return (
     <div className="flex w-full flex-row flex-wrap gap-2 px-2">
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body">
-          <h2 className="card-title">East</h2>
-          <PrettyTable className="text-xs" columns={columns} data={east} />
-        </div>
+      <div className="bg-base-100 p-2 shadow-xl">
+        <h2 className="">East</h2>
+        <PrettyTable
+          className="text-xs"
+          columns={columns}
+          data={east}
+          customRowFormatter={customRowFormatter}
+        />
       </div>
-      <div className="card bg-base-100 shadow-xl">
-        <div className="card-body">
-          <h2 className="card-title">West</h2>
-          <PrettyTable className="text-xs" columns={columns} data={west} />
-        </div>
+      <div className="bg-base-100 p-2 shadow-xl">
+        <h2 className="">West</h2>
+        <PrettyTable
+          className="text-xs"
+          columns={columns}
+          data={west}
+          customRowFormatter={customRowFormatter}
+        />
       </div>
     </div>
   );
@@ -133,7 +207,7 @@ export function DashedRecord({ val }: { val: string }) {
 
   const wp = wins / (wins + losses);
 
-  if (wp > 0.6) {
+  if (wp > 0.55) {
     return <GoodValue>{val}</GoodValue>;
   }
   if (wp < 0.4) {

@@ -1,38 +1,21 @@
-import { TeamBox } from "../components/TeamBox";
-import type { Game } from "../models/boxScore";
-import { TeamLogo } from "./TeamLogo";
-import { Winner } from "./Winner";
+import { Link } from "@remix-run/react";
+import type { BoxScoreGame } from "../models/boxScore";
+import { TeamGameDetails } from "./TeamGameDetails";
 
-export function GameDetails({ game }: { game: Game }) {
+export function GameDetails({ game }: { game: BoxScoreGame }) {
   return (
-    //https://www.nba.com/game/den-vs-cle-0022200886?watchFullGame
-    <div className="flex flex-col gap-2">
+    <div className="mb-2 flex flex-col md:gap-2">
+      <div className="flex flex-row flex-wrap gap-2">
+        <TeamGameDetails game={game}></TeamGameDetails>
+        <TeamGameDetails game={game} isHome></TeamGameDetails>
+      </div>
       <div>
-        <a
-          href={`https://www.nba.com/game/${game.awayTeam.teamTricode}-vs-${game.homeTeam.teamTricode}-${game.gameId}?watchFullGame`}
+        <Link
+          className="link"
+          to={`https://www.nba.com/game/${game.awayTeam.teamTricode}-vs-${game.homeTeam.teamTricode}-${game.gameId}?watchFullGame`}
         >
-          League Pass
-        </a>
-      </div>
-      <div className="card-compact card bg-base-100 shadow-xl">
-        <div className="card-body max-w-[650px] overflow-x-scroll md:max-w-[800px]">
-          <h1 className="card-title">
-            <TeamLogo className="w-6" team={game.awayTeam} />
-            {game.awayTeam.teamCity} {game.awayTeam.teamName}
-            {game.awayTeam.score} <Winner game={game} isHome={false} />
-          </h1>
-          <TeamBox team={game.awayTeam} otherTeam={game.homeTeam} />
-        </div>
-      </div>
-      <div className="card-compact card bg-base-100 shadow-xl">
-        <div className="card-body max-w-[650px] overflow-x-scroll md:max-w-[800px]">
-          <h1 className="card-title">
-            <TeamLogo className="w-6" team={game.homeTeam} />
-            {game.homeTeam.teamCity} {game.homeTeam.teamName}{" "}
-            {game.homeTeam.score} <Winner game={game} isHome={true} />
-          </h1>
-          <TeamBox team={game.homeTeam} otherTeam={game.awayTeam} />
-        </div>
+          Watch on League Pass
+        </Link>
       </div>
     </div>
   );

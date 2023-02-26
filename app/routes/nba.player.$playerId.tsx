@@ -39,7 +39,8 @@ export function PlayerResultSet({ resultSet }: { resultSet: ResultSet }) {
   );
   const columns = useMemo<ColumnDef<{ id: string; data: Row }>[]>(() => {
     return resultSet.headers.flatMap((h, i) => {
-      const def = PLAYER_FIELD_DESCRIPTIONS[h];
+      const def =
+        PLAYER_FIELD_DESCRIPTIONS[h as keyof typeof PLAYER_FIELD_DESCRIPTIONS];
       if (def == null) {
         return [];
       }

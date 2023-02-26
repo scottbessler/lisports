@@ -2723,6 +2723,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/lodash.keyby@npm:^4.6.7":
+  version: 4.6.7
+  resolution: "@types/lodash.keyby@npm:4.6.7"
+  dependencies:
+    "@types/lodash": "*"
+  checksum: 599ecefd8d4a1eb06c277b5f3f14e82ef9e58a1b7d8fc75490f0d5ee5e43069bae08f0408cb54675e7c1005c9f280ee57a537eafe69a22da5271cd6b815e4e1f
+  languageName: node
+  linkType: hard
+
 "@types/lodash.memoize@npm:^4.1.7":
   version: 4.1.7
   resolution: "@types/lodash.memoize@npm:4.1.7"
@@ -8033,6 +8042,7 @@ __metadata:
     "@testing-library/user-event": ^14.4.3
     "@types/bcryptjs": ^2.4.2
     "@types/eslint": ^8.4.10
+    "@types/lodash.keyby": ^4.6.7
     "@types/lodash.memoize": ^4.1.7
     "@types/lodash.orderby": ^4.6.7
     "@types/lodash.partition": ^4.6.7
@@ -8058,6 +8068,7 @@ __metadata:
     eslint-plugin-cypress: ^2.12.1
     happy-dom: ^8.1.4
     isbot: ^3.6.5
+    lodash.keyby: ^4.6.0
     lodash.memoize: ^4.1.2
     lodash.orderby: ^4.6.0
     lodash.partition: ^4.6.0
@@ -8175,6 +8186,13 @@ __metadata:
   version: 4.0.6
   resolution: "lodash.isplainobject@npm:4.0.6"
   checksum: 29c6351f281e0d9a1d58f1a4c8f4400924b4c79f18dfc4613624d7d54784df07efaff97c1ff2659f3e085ecf4fff493300adc4837553104cef2634110b0d5337
+  languageName: node
+  linkType: hard
+
+"lodash.keyby@npm:^4.6.0":
+  version: 4.6.0
+  resolution: "lodash.keyby@npm:4.6.0"
+  checksum: 9dd96cc8b83e05a71dc328f8e489056105bc84b57b4d7f8155d6bf5744dcdb0a5534acdf6e4e89e5ddf71f2bc6b93969b12c6da09d69fdf3b1cca65a8ed61e2b
   languageName: node
   linkType: hard
 

@@ -1,5 +1,5 @@
 import classNames from "classnames";
-import type { Game, Team } from "../models/todaysScoreboard";
+import type { Game } from "../models/todaysScoreboard";
 import { TeamLogo } from "./TeamLogo";
 import { Winner } from "./Winner";
 
@@ -13,32 +13,36 @@ export function GameSummary({
   className?: string;
 }) {
   return (
-    <div
-      className={classNames(
-        className,
-        "card-compact card max-w-[500px] bg-base-100 shadow-xl"
-      )}
-    >
-      <div className="card-body">
-        <table className="table-zebra table-compact table min-w-full text-xs">
-          <thead>
+    <div className={classNames(className, "")}>
+      <table className={"divide-y-gray-200 divide-y-2"}>
+        <thead>
+          <tr>
+            <th scope="col"></th>
+            {g.awayTeam.periods.map((p) => (
+              <th className="text-center" scope="col" key={p.period}>
+                {p.period}
+              </th>
+            ))}
+            <th className="text-center" scope="col">
+              T
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y-gray-200 divide-y-2">
+          <GameSummaryTeamRow game={g} />
+          <GameSummaryTeamRow game={g} isHome />
+          {showStatus && (
             <tr>
-              <th scope="col">Team</th>
-              {g.awayTeam.periods.map((p) => (
-                <th scope="col" key={p.period}>
-                  {p.period}
-                </th>
-              ))}
-              <th scope="col">Tot</th>
+              <th
+                className="text-right"
+                colSpan={g.awayTeam.periods.length + 2}
+              >
+                {g.gameStatusText}
+              </th>
             </tr>
-          </thead>
-          <tbody>
-            <GameSummaryTeamRow game={g} />
-            <GameSummaryTeamRow game={g} isHome />
-          </tbody>
-        </table>
-        {showStatus && <h3>{g.gameStatusText}</h3>}
-      </div>
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -53,25 +57,30 @@ export const GameSummaryTeamRow = ({
   const team = getTeam(game, isHome);
   return (
     <tr>
-      <th scope="row whitespace-nowrap">
-        <div className="flex flex-row">
-          <TeamLogo className="mr-1 w-5" team={team} />
-          <span title={`${team.teamCity} ${team.teamName}`}>
+      <th scope="row whitespace-nowrap p-1">
+        <div className="mr-2 flex flex-row gap-1">
+          <TeamLogo className="w-5" team={team} />
+          <div title={`${team.teamCity} ${team.teamName}`}>
             {team.teamTricode}
-          </span>
+          </div>
           <Winner game={game} isHome={isHome} />
         </div>
       </th>
 
       {team.periods.map((p) => (
-        <td key={p.period}>{p.score}</td>
+        <td className="p-1 text-right" key={p.period}>
+          {p.score}
+        </td>
       ))}
-      <td>{team.score}</td>
+      <td className="text-right">{team.score}</td>
     </tr>
   );
 };
 
-export function getTeam(game: Game, isHome: boolean) {
+export function getTeam<T extends { homeTeam: unknown; awayTeam: unknown }>(
+  game: T,
+  isHome: boolean
+): T["homeTeam"] {
   if (isHome) return game.homeTeam;
   return game.awayTeam;
 }

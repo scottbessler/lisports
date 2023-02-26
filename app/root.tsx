@@ -29,7 +29,7 @@ export default function App() {
         <Meta />
         <Links />
       </head>
-      <body className="flex min-h-full flex-col-reverse justify-end bg-gradient-to-r from-base-300 to-base-100">
+      <body className="flex min-h-full flex-col-reverse justify-end bg-base-300">
         <Outlet />
         <NavBar />
         <ScrollRestoration />

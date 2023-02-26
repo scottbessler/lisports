@@ -41,7 +41,7 @@ export default function Scoreboard() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <ul className="menu menu-compact mb-1 flex flex-row gap-2 py-3 px-3 shadow">
+      <ul className="menu menu-compact mb-1 flex flex-row gap-2">
         {days.map((d) => (
           <li key={d.ymd}>
             <NavLink to={d.ymd}>{d.label}</NavLink>

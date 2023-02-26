@@ -42,29 +42,30 @@ export default function ScoreboardDay() {
   }
   const isAllCompleted = data.games.every((g) => g.gameStatus === 3);
   return (
-    <div className="flex flex-1 flex-col gap-2 px-3 xl:flex-row">
+    <div className="flex flex-1 flex-col gap-2 lg:flex-row lg:px-3">
       <ul
-        className={classNames("menu flex content-start", {
-          "min-w-full flex-row": !hasSelectedGame,
-          "flex-col xl:basis-[330px]": hasSelectedGame,
+        className={classNames("flex flex-wrap gap-4", {
+          "min-w-full flex-row content-start": !hasSelectedGame,
+          "flex-col  content-center ": hasSelectedGame,
         })}
       >
         {data.games.map((g) => (
           <li
             key={g.gameId}
             className={classNames({
-              "hidden xl:block": hasSelectedGame && g.gameId !== params.gameId,
+              "hidden lg:block": hasSelectedGame && g.gameId !== params.gameId,
             })}
           >
             <Link
-              className="flex hover:bg-inherit focus:bg-inherit"
+              className="flex hover:bg-inherit hover:shadow hover:shadow-primary focus:bg-inherit"
               to={`game/${g.gameId}`}
             >
               <GameSummary
                 className={classNames(
-                  "mx-auto w-[330px] hover:shadow-xl hover:shadow-primary",
+                  "mx-auto flex min-w-full justify-center bg-base-100 p-2 text-sm",
                   {
-                    "shadow-lg shadow-primary": g.gameId === params.gameId,
+                    "shadow shadow-primary":
+                      !hasSelectedGame && g.gameId === params.gameId,
                   }
                 )}
                 g={g}

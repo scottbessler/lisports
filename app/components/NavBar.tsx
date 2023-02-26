@@ -9,7 +9,7 @@ export function NavBar() {
       <div className="navbar-start"></div>
       <div className="navbar-center flex flex-row gap-4">
         <div className="text-xl normal-case">LiSports</div>
-        <ul className=" menu menu-compact menu-horizontal  shadow">
+        <ul className="menu menu-compact menu-horizontal">
           <li tabIndex={0}>
             <span
               className={classNames({
@@ -18,7 +18,7 @@ export function NavBar() {
             >
               NBA
             </span>
-            <ul className="bg-base-300">
+            <ul className="bg-base-100">
               <li>
                 <NavLink to="/nba/scoreboard">Scoreboard</NavLink>
               </li>
