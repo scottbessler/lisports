@@ -14,7 +14,7 @@ export function GameSummary({
 }) {
   return (
     <div className={classNames(className, "")}>
-      <table className={"divide-y-gray-200 divide-y-2"}>
+      <table className={"divide-y-gray-200 min-w-full divide-y-2"}>
         <thead>
           <tr>
             <th scope="col"></th>
