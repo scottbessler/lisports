@@ -20,7 +20,7 @@ export function NavBar() {
             </span>
             <ul className="bg-base-100">
               <li>
-                <NavLink to="/nba/scoreboard">Scoreboard</NavLink>
+                <NavLink to={`/nba/scoreboard/today`}>Scoreboard</NavLink>
               </li>
               <li>
                 <NavLink to="/nba/standings">Standings</NavLink>

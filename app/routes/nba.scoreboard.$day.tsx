@@ -1,13 +1,17 @@
-import type { LoaderArgs } from "@remix-run/node";
+import type { LoaderArgs, SerializeFrom } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { Link, Outlet, useLoaderData, useParams } from "@remix-run/react";
+import {
+  Link,
+  Outlet,
+  useLoaderData,
+  useParams,
+  useRouteLoaderData,
+} from "@remix-run/react";
 import classNames from "classnames";
 
-import {
-  fetchDaysGames,
-  fetchTodaysScoreboard,
-} from "../stores/scoreboard.server";
+import type { loader as todayLoader } from "./nba.scoreboard";
+import { fetchDaysGames } from "../stores/scoreboard.server";
 import { GameSummary } from "../components/GameSummary";
 
 export async function loader({ request, params }: LoaderArgs) {
@@ -17,21 +21,22 @@ export async function loader({ request, params }: LoaderArgs) {
   }
   // todo: validate day
 
-  const games =
-    day === "today"
-      ? (await fetchTodaysScoreboard()).games
-      : await fetchDaysGames(day);
-
-  return json({ games });
+  return json({ games: await fetchDaysGames(day) });
 }
 
 export default function ScoreboardDay() {
+  const { day } = useParams();
   const data = useLoaderData<typeof loader>();
-
+  const { todaysScoreboard } = useRouteLoaderData(
+    "routes/nba.scoreboard"
+  ) as SerializeFrom<typeof todayLoader>;
   const params = useParams();
   const hasSelectedGame = params.gameId != null;
 
-  if (data.games.length === 0) {
+  let games =
+    todaysScoreboard.gameDate === day ? todaysScoreboard.games : data.games;
+
+  if (games.length === 0) {
     return (
       <div className="flex flex-1">
         <div className="m-auto">
@@ -40,7 +45,7 @@ export default function ScoreboardDay() {
       </div>
     );
   }
-  const isAllCompleted = data.games.every((g) => g.gameStatus === 3);
+  const isAllCompleted = games.every((g) => g.gameStatus === 3);
   return (
     <div className="flex flex-1 flex-col gap-2 lg:flex-row lg:px-3">
       <ul
@@ -49,7 +54,7 @@ export default function ScoreboardDay() {
           "flex-col  content-center ": hasSelectedGame,
         })}
       >
-        {data.games.map((g) => (
+        {games.map((g) => (
           <li
             key={g.gameId}
             className={classNames({

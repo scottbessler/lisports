@@ -46,3 +46,18 @@ export function useMatchesData(
 export function getTodayYMD() {
   return dayjs().format("YYYY-MM-DD");
 }
+
+export const getCurrentBreakpoint = () => {
+  if (document.getElementById("breakpoint-0")?.offsetParent != null) return "0";
+  if (document.getElementById("breakpoint-sm")?.offsetParent != null)
+    return "sm";
+  if (document.getElementById("breakpoint-md")?.offsetParent != null)
+    return "md";
+  if (document.getElementById("breakpoint-lg")?.offsetParent != null)
+    return "lg";
+  if (document.getElementById("breakpoint-xl")?.offsetParent != null)
+    return "xl";
+  if (document.getElementById("breakpoint-2xl")?.offsetParent != null)
+    return "2xl";
+  return "unknown";
+};
