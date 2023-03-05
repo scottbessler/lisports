@@ -49,7 +49,16 @@ export const TeamBox = ({
         accessor: (p) => GoodGte(p.statistics.points, 20),
         sortDescFirst: true,
       },
-
+      {
+        header: "RB",
+        accessor: (p) => GoodGte(p.statistics.reboundsTotal, 10),
+        sortDescFirst: true,
+      },
+      {
+        header: "AS",
+        accessor: (p) => GoodGte(p.statistics.assists, 8),
+        sortDescFirst: true,
+      },
       {
         header: "PIE",
         isHiddenWhenSmall: true,
@@ -140,16 +149,7 @@ export const TeamBox = ({
       //   accessor: (p) => ({ value: p.statistics.reboundsDefensive }),
       //   sortDescFirst: true,
       // },
-      {
-        header: "RB",
-        accessor: (p) => GoodGte(p.statistics.reboundsTotal, 10),
-        sortDescFirst: true,
-      },
-      {
-        header: "AS",
-        accessor: (p) => GoodGte(p.statistics.assists, 8),
-        sortDescFirst: true,
-      },
+
       {
         header: "TO",
         accessor: (p) => BadGte(p.statistics.turnovers, 3),
@@ -223,36 +223,23 @@ export const TeamBox = ({
           value: p.name,
           cell: (
             <div className="flex flex-row gap-4">
-              <span className="basis-24">
+              <span className="flex-1 font-bold">
                 {p.name}
                 {p.starter === "1" && "*"}
               </span>
-              <div>
-                <Highlighter isGood={pieVal >= 10} isBad={pieVal < 0}>
-                  PIE:{pieVal}
-                </Highlighter>
-              </div>
-              <span>
-                <Highlighter isGood={(pps ?? 0) > 1.5}>
-                  {pps ? `${pps}pps` : ""}
-                </Highlighter>
-              </span>
-              <span>
-                <Highlighter
-                  isGood={!isWinner && p.statistics.plusMinusPoints > 0}
-                  isBad={isWinner && p.statistics.plusMinusPoints < 0}
-                >
-                  {p.statistics.plusMinusPoints > 0
-                    ? `+${p.statistics.plusMinusPoints}`
-                    : p.statistics.plusMinusPoints}
-                </Highlighter>
+              <div className="basis-12">PIE:{pieVal}</div>
+              <span className="basis-12">{pps ? `${pps}pps` : ""}</span>
+              <span className="basis-12">
+                {p.statistics.plusMinusPoints > 0
+                  ? `+${p.statistics.plusMinusPoints}`
+                  : p.statistics.plusMinusPoints}
               </span>
             </div>
           ),
         };
       },
     }),
-    []
+    [otherTeam.statistics, team.statistics]
   );
 
   return (

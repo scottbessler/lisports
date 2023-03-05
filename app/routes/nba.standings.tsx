@@ -40,6 +40,7 @@ export default function Scoreboard() {
       {
         header: "#",
         sortAscFirst: true,
+        isHiddenWhenSmall: true,
         accessor: (row) => ({
           value: row.PlayoffRank,
           cell: (
@@ -54,6 +55,7 @@ export default function Scoreboard() {
         header: "Team",
         headerCell: <div className="text-left">Team</div>,
         sortAscFirst: true,
+        isHiddenWhenSmall: true,
         accessor: (row) => ({
           value: row.TeamName,
           cell: (
@@ -178,6 +180,26 @@ export default function Scoreboard() {
     []
   );
 
+  const summaryCol = useMemo<ColumnDef<StandingsWithId & { id: string }>>(
+    () => ({
+      header: "Summary",
+      accessor: (p) => {
+        return {
+          value: p.PlayoffRank,
+          cell: (
+            <div className="flex flex-row gap-4">
+              <span className="flex-1 font-bold">
+                {p.PlayoffRank <= 6 ? "*" : p.PlayoffRank <= 10 ? "+" : null}{" "}
+                {p.PlayoffRank} {p.TeamName}
+              </span>
+            </div>
+          ),
+        };
+      },
+    }),
+    []
+  );
+
   return (
     <div className="flex w-full flex-row flex-wrap gap-2 px-2">
       <div className="bg-base-100 p-2 shadow-xl">
@@ -186,6 +208,7 @@ export default function Scoreboard() {
           className="text-xs"
           columns={columns}
           data={east}
+          summaryColumn={summaryCol}
           customRowFormatter={customRowFormatter}
         />
       </div>
@@ -195,6 +218,7 @@ export default function Scoreboard() {
           className="text-xs"
           columns={columns}
           data={west}
+          summaryColumn={summaryCol}
           customRowFormatter={customRowFormatter}
         />
       </div>

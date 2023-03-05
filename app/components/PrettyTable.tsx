@@ -74,13 +74,13 @@ export const PrettyTable = <T extends { id: string }>({
 
   return (
     <table
-      className={classNames("min-w-full divide-y-2 divide-gray-200", className)}
+      className={classNames("min-w-full divide-y divide-gray-200", className)}
     >
       <thead>
-        <tr>
+        <tr className="divide-x divide-base-300">
           {columnsWithExtras.map((c) => (
             <th
-              className={classNames("cursor-pointer px-1 text-right", {
+              className={classNames("cursor-pointer px-1 text-right ", {
                 "hidden md:table-cell": c.isHiddenWhenSmall,
               })}
               title={c.description}
@@ -92,7 +92,7 @@ export const PrettyTable = <T extends { id: string }>({
           ))}
         </tr>
       </thead>
-      <tbody className="divide-y divide-gray-200">
+      <tbody className="divide-y divide-base-300">
         {sortedData.map((row, i) => {
           const { trStyle } =
             customRowFormatter?.({
@@ -113,12 +113,16 @@ export const PrettyTable = <T extends { id: string }>({
                   <ColumnValue row={row} columnDef={summaryColumn} />
                 </td>
               </tr>
-              <tr key={row.id} style={trStyle}>
+              <tr
+                key={row.id}
+                style={trStyle}
+                className="divide-x divide-base-300"
+              >
                 {columns.map((c) => {
                   return (
                     <td
                       className={classNames(
-                        "whitespace-nowrap py-1 px-1 text-right md:py-2",
+                        "whitespace-nowrap py-1 px-1 text-right  md:py-2",
                         {
                           "font-bold": c.isFrozen,
                           "hidden md:table-cell": c.isHiddenWhenSmall,

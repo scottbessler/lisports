@@ -10,6 +10,13 @@ export const PrettyShooting = ({
   if (attempted <= 0) {
     return null;
   }
+  if (attempted <= 3) {
+    return (
+      <NeutralValue>
+        {made}/{attempted}
+      </NeutralValue>
+    );
+  }
   if (made / attempted > 0.6) {
     return (
       <GoodValue>
