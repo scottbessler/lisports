@@ -58,10 +58,13 @@ export const GameSummaryTeamRow = ({
   return (
     <tr>
       <th scope="row whitespace-nowrap p-1">
-        <div className="mr-2 flex flex-row gap-1">
+        <div className="mr-2 flex flex-row items-center gap-1 ">
           <TeamLogo className="w-5" team={team} />
           <div title={`${team.teamCity} ${team.teamName}`}>
             {team.teamTricode}
+          </div>
+          <div className="text-xs font-light">
+            ({team.wins}-{team.losses})
           </div>
           <Winner game={game} isHome={isHome} />
         </div>
@@ -69,7 +72,7 @@ export const GameSummaryTeamRow = ({
 
       {team.periods.map((p) => (
         <td className="p-1 text-right" key={p.period}>
-          {p.score}
+          {p.score === 0 ? "-" : p.score}
         </td>
       ))}
       <td className="text-right">{team.score}</td>
