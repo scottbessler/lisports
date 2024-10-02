@@ -1,5 +1,4 @@
-import type { LoaderArgs } from "@remix-run/node";
-import { json } from "@remix-run/node";
+import { json, LoaderFunction, LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 
 import { useMemo } from "react";
@@ -10,12 +9,12 @@ import type { ColumnDef } from "../components/PrettyTable";
 import { PrettyTable } from "../components/PrettyTable";
 import { fetchPlayerStats } from "../stores/player.server";
 
-export async function loader({ request, params }: LoaderArgs) {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   invariant(params.playerId, "playerId not found");
 
   const result = await fetchPlayerStats(params.playerId);
   return json({ playerStats: result });
-}
+};
 
 export default function PlayerDetail() {
   const { playerStats } = useLoaderData<typeof loader>();

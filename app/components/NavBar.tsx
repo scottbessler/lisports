@@ -11,21 +11,22 @@ export function NavBar() {
         <div className="text-xl normal-case">LiSports</div>
         <ul className="menu menu-compact menu-horizontal">
           <li tabIndex={0}>
-            <span
-              className={classNames({
-                active: loc.pathname.startsWith("/nba"),
-              })}
-            >
-              NBA
-            </span>
-            <ul className="bg-base-100">
-              <li>
-                <NavLink to={`/nba/scoreboard`}>Scoreboard</NavLink>
-              </li>
-              <li>
-                <NavLink to="/nba/standings">Standings</NavLink>
-              </li>
-            </ul>
+            <div tabIndex={0} className="dropdown dropdown-end dropdown-bottom">
+              <div tabIndex={0} role="button">
+                NBA
+              </div>
+              <ul
+                tabIndex={0}
+                className="bg-base-100 dropdown-content menu rounded-box z-[1]  shadow"
+              >
+                <li>
+                  <NavLink to={`/nba/scoreboard`}>Scoreboard</NavLink>
+                </li>
+                <li>
+                  <NavLink to="/nba/standings">Standings</NavLink>
+                </li>
+              </ul>
+            </div>
           </li>
           <li>
             <NavLink to="/mlb/scoreboard">MLB</NavLink>

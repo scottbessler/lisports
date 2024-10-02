@@ -2,7 +2,6 @@ import type { LinksFunction, MetaFunction } from "@remix-run/node";
 
 import {
   Links,
-  LiveReload,
   Meta,
   Outlet,
   Scripts,
@@ -10,17 +9,15 @@ import {
 } from "@remix-run/react";
 import { NavBar } from "./components/NavBar";
 
-import tailwindStylesheetUrl from "./styles/tailwind.css";
+import "./styles/tailwind.css";
 
-export const links: LinksFunction = () => {
-  return [{ rel: "stylesheet", href: tailwindStylesheetUrl }];
-};
-
-export const meta: MetaFunction = () => ({
-  charset: "utf-8",
-  title: "LiSports",
-  viewport: "width=device-width,initial-scale=1",
-});
+export const meta: MetaFunction = () => [
+  {
+    charset: "utf-8",
+    title: "LiSports",
+    viewport: "width=device-width,initial-scale=1",
+  },
+];
 
 export default function App() {
   return (
@@ -29,7 +26,7 @@ export default function App() {
         <Meta />
         <Links />
       </head>
-      <body className="flex min-h-full flex-col-reverse justify-end bg-base-300">
+      <body className="bg-base-300 flex min-h-full flex-col-reverse justify-end">
         <div id="breakpoint-0" className="h-0 w-0 sm:hidden"></div>
         <div
           id="breakpoint-sm"
@@ -45,15 +42,14 @@ export default function App() {
         ></div>
         <div
           id="breakpoint-xl"
-          className="xl:max-2xl:block hidden h-0 w-0"
+          className="hidden h-0 w-0 xl:max-2xl:block"
         ></div>
-        <div id="breakpoint-2xl" className="2xl:block hidden h-0 w-0"></div>
+        <div id="breakpoint-2xl" className="hidden h-0 w-0 2xl:block"></div>
 
         <Outlet />
         <NavBar />
         <ScrollRestoration />
         <Scripts />
-        <LiveReload />
       </body>
     </html>
   );

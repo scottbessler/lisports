@@ -1,22 +1,21 @@
-import type { LoaderArgs } from "@remix-run/node";
+import type { LoaderFunctionArgs } from "@remix-run/node";
 import { redirect } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import {
   NavLink,
   Outlet,
   useLoaderData,
-  useLocation,
   useNavigate,
   useParams,
 } from "@remix-run/react";
 import classNames from "classnames";
 import dayjs from "dayjs";
-import type { ChangeEventHandler, MouseEventHandler } from "react";
+import type { ChangeEventHandler } from "react";
 import { useCallback, useRef, useState } from "react";
 import { fetchTodaysScoreboard } from "../stores/scoreboard.server";
 import { getCurrentBreakpoint } from "../utils";
 
-export async function loader({ request, params }: LoaderArgs) {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const todaysScoreboard = await fetchTodaysScoreboard();
   const today = todaysScoreboard.gameDate;
 
@@ -37,7 +36,7 @@ export async function loader({ request, params }: LoaderArgs) {
   }
 
   return json({ todaysScoreboard, today });
-}
+};
 
 const YMD_FORMAT = "YYYY-MM-DD";
 export default function Scoreboard() {

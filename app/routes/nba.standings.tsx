@@ -1,4 +1,4 @@
-import type { LoaderArgs } from "@remix-run/node";
+import type { LoaderFunction, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { fetchStandings } from "../stores/nba.standings.server";
@@ -17,11 +17,11 @@ import {
 } from "../components/Stat";
 import { TeamLogo } from "../components/TeamLogo";
 
-export async function loader({ request, params }: LoaderArgs) {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const standings = await fetchStandings();
 
   return json({ standings });
-}
+};
 
 export default function Scoreboard() {
   const data = useLoaderData<typeof loader>();

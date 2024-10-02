@@ -1,4 +1,8 @@
-import type { LoaderArgs, SerializeFrom } from "@remix-run/node";
+import type {
+  LoaderFunction,
+  LoaderFunctionArgs,
+  SerializeFrom,
+} from "@remix-run/node";
 import { redirect } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import {
@@ -14,7 +18,7 @@ import type { loader as todayLoader } from "./nba.scoreboard";
 import { fetchDaysGames } from "../stores/scoreboard.server";
 import { GameSummary } from "../components/GameSummary";
 
-export async function loader({ request, params }: LoaderArgs) {
+export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const day = params.day;
   if (day == null) {
     return redirect("/");
@@ -22,7 +26,7 @@ export async function loader({ request, params }: LoaderArgs) {
   // todo: validate day
 
   return json({ games: await fetchDaysGames(day) });
-}
+};
 
 export default function ScoreboardDay() {
   const { day } = useParams();
