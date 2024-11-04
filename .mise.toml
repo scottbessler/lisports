@@ -1,0 +1,25 @@
+[env]
+# Use the project name derived from the current directory
+PROJECT_NAME = "{{ cwd | basename }}"
+
+_.path = [
+  "./node_modules/.bin",  
+  "./scripts",  
+]
+
+# NODE_ENV = "{{ env.NODE_ENV | default(value='development') }}"
+
+[tools]
+bun = "1.1.30"
+node = "22.9.0"
+rust = "latest"
+"cargo:xh" = "latest"
+
+# Install npm dependencies
+
+[tasks.install]
+alias = "i"
+run = "bun install"
+
+# [settings]
+# experimental = true

@@ -1,30 +1,30 @@
-import { TeamBox } from "../components/TeamBox";
-import type { BoxScoreGame } from "../models/boxScore";
-import { getTeam } from "./GameSummary";
-import { TeamLogo } from "./TeamLogo";
-import { Winner } from "./Winner";
+import { TeamBox } from '../components/TeamBox';
+import type { BoxScoreGame } from '../models/boxScore';
+import { getTeam } from './GameSummary';
+import { TeamLogo } from './TeamLogo';
+import { Winner } from './Winner';
 
 export function TeamGameDetails({
-  game,
-  isHome = false,
+	game,
+	isHome = false,
 }: {
-  game: BoxScoreGame;
-  isHome?: boolean;
+	game: BoxScoreGame;
+	isHome?: boolean;
 }) {
-  const team = getTeam(game, isHome);
-  const otherTeam = getTeam(game, !isHome);
-  console.log(game);
-  return (
-    <div className="bg-base-100 min-w-full p-2 md:min-w-[700px] md:max-w-[700px]">
-      <h1 className="flex flex-row items-center gap-2">
-        <TeamLogo className="w-6" team={team} />
-        <span className="">
-          {team.teamCity} {team.teamName}{" "}
-        </span>
-        <span className=" font-bold">{team.score}</span>{" "}
-        <Winner className="" game={game} isHome={isHome} />
-      </h1>
-      <TeamBox team={team} otherTeam={otherTeam} />
-    </div>
-  );
+	const team = getTeam(game, isHome);
+	const otherTeam = getTeam(game, !isHome);
+	console.log(game);
+	return (
+		<div className="bg-base-100 min-w-full p-2 md:min-w-[700px] md:max-w-[700px]">
+			<h1 className="flex flex-row items-center gap-2">
+				<TeamLogo className="w-6" team={team} />
+				<span className="">
+					{team.teamCity} {team.teamName}{' '}
+				</span>
+				<span className=" font-bold">{team.score}</span>{' '}
+				<Winner className="" game={game} isHome={isHome} />
+			</h1>
+			<TeamBox team={team} otherTeam={otherTeam} />
+		</div>
+	);
 }
