@@ -67,7 +67,7 @@ export const fetchGame = async (id: string) => {
 
 	const result = successOrUndefined<BoxScore>(
 		await getJSON(
-			`https://cdn.nba.com/static/json/liveData/boxscore/boxscore_${id}.json`,
+			`https://cdn.nba.com/static/json/liveData/boxscore/boxscore_${id}.json?x=${Math.random()}`,
 		),
 	);
 	if (!result) {
