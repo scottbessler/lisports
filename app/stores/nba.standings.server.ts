@@ -6,7 +6,7 @@ import { fetchFromCache, saveToCache } from './simpleCache.server';
 
 export async function fetchStandings(): Promise<Standings> {
 	const url =
-		'https://stats.nba.com/stats/leaguestandingsv3?LeagueID=00&Season=2023-24&SeasonType=Regular%20Season';
+		'https://stats.nba.com/stats/leaguestandingsv3?LeagueID=00&Season=2024-25&SeasonType=Regular%20Season';
 
 	const cacheKey = `standings:${dayjs().format('YYYY-MM-DD')}`;
 	const cacheResult = await fetchFromCache(cacheKey);
