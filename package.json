@@ -4,7 +4,7 @@
 	"sideEffects": false,
 	"type": "module",
 	"scripts": {
-		"build": "remix vite:build",
+		"buildx": "remix vite:build",
 		"dev": "remix vite:dev",
 		"lint": "eslint --ignore-path .gitignore --cache --cache-location ./node_modules/.cache/eslint .",
 		"start": "remix-serve ./build/server/index.js",
@@ -77,13 +77,5 @@
 		"typescript": "^4.9.4",
 		"vite": "^5.1.0",
 		"vite-tsconfig-paths": "^4.2.1"
-	},
-	"engines": {
-		"node": ">=14"
-	},
-	"volta": {
-		"node": "22.9.0",
-		"yarn": "4.5.0"
-	},
-	"packageManager": "yarn@4.5.0"
+	}
 }

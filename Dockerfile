@@ -1,5 +1,5 @@
 # base node image
-FROM node:18-bullseye-slim as base
+FROM oven/bun:1.1.34-debian as base
 
 # set for base and all layer that inherit from it
 ENV NODE_ENV production
@@ -9,18 +9,16 @@ FROM base as deps
 
 WORKDIR /myapp
 
-ADD .yarn ./.yarn
-ADD package.json yarn.lock .yarnrc.yml ./
-RUN yarn install
+ADD package.json bun.lockb ./
+RUN bun install
 
 # Setup production node_modules
 FROM base as production-deps
 
 WORKDIR /myapp
 
-ADD .yarn ./.yarn
-ADD package.json yarn.lock .yarnrc.yml ./
-RUN yarn workspaces focus --all --production
+ADD package.json bun.lockb ./
+RUN bun install --production
 
 # Build the app
 FROM base as build
@@ -30,7 +28,7 @@ WORKDIR /myapp
 COPY --from=deps /myapp/node_modules /myapp/node_modules
 
 ADD . .
-RUN yarn run build
+RUN bun build
 
 # Finally, build the production image with minimal footprint
 FROM base
