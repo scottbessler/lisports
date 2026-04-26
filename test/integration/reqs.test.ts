@@ -24,7 +24,7 @@ describe('getJSON', () => {
 		expect(result.response.status).toBeGreaterThanOrEqual(400);
 	});
 
-	it('forwards custom headers', async () => {
+	it.skipIf(!!process.env.CI)('forwards custom headers', async () => {
 		const result = await getJSON(
 			'https://stats.nba.com/stats/leaguestandingsv3?LeagueID=00&Season=2024-25&SeasonType=Regular%20Season',
 			{

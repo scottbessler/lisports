@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BoxScoreGame } from '~/models/boxScore';
-import type { Game } from '~/models/todaysScoreboard';
-import type { TodaysScoreboard } from '~/models/todaysScoreboard';
+import type { Game, TodaysScoreboard } from '~/models/todaysScoreboard';
 import { getJSON, successOrThrow } from '~/reqs';
 import { NBAStatsRequestInit } from '~/stores/scoreboard.server';
 
@@ -67,7 +66,8 @@ describe('fetchTodaysScoreboard', () => {
 	});
 });
 
-describe('fetchDaysGames (scoreboardv3 API)', () => {
+// stats.nba.com blocks datacenter IPs used by CI runners
+describe.skipIf(!!process.env.CI)('fetchDaysGames (scoreboardv3 API)', () => {
 	it('returns games for a known date with NBA games', async () => {
 		const result = await getJSON(
 			'https://stats.nba.com/stats/scoreboardv3?GameDate=2025-01-15&LeagueID=00',
@@ -104,23 +104,9 @@ describe('fetchDaysGames (scoreboardv3 API)', () => {
 
 describe('fetchGame (box score API)', () => {
 	it('returns a valid box score for a known completed game', async () => {
-		// Use a known completed game ID from Jan 15, 2025
-		const gamesResult = await getJSON(
-			'https://stats.nba.com/stats/scoreboardv3?GameDate=2025-01-15&LeagueID=00',
-			NBAStatsRequestInit,
-		);
-
-		const gamesData = successOrThrow<TodaysScoreboard>(gamesResult);
-		const completedGame = gamesData.scoreboard.games.find(
-			(g) => g.gameStatus === 3,
-		);
-
-		if (!completedGame) {
-			return;
-		}
-
+		// Known completed game from Jan 15, 2025 (LAL vs MIA: 0022400573)
 		const boxResult = await getJSON(
-			`https://cdn.nba.com/static/json/liveData/boxscore/boxscore_${completedGame.gameId}.json`,
+			'https://cdn.nba.com/static/json/liveData/boxscore/boxscore_0022400573.json',
 		);
 
 		expect(boxResult.success).toBe(true);

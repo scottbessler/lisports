@@ -10,7 +10,8 @@ function buildPlayerStatsUrl(playerId: string): string {
 	return `${PLAYER_STATS_BASE_URL}?DateFrom=&DateTo=&GameSegment=&LastNGames=0&LeagueID=00&Location=&MeasureType=Base&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=PerGame&Period=0&PlayerID=${playerId}&PlusMinus=N&Rank=N&Season=2023-24&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&VsConference=&VsDivision=`;
 }
 
-describe('fetchPlayerStats', () => {
+// stats.nba.com blocks datacenter IPs used by CI runners
+describe.skipIf(!!process.env.CI)('fetchPlayerStats', () => {
 	// LeBron James player ID
 	const LEBRON_ID = '2544';
 	// Stephen Curry player ID

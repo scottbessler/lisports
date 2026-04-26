@@ -6,7 +6,8 @@ import { NBAStatsRequestInit } from '~/stores/scoreboard.server';
 const STANDINGS_URL =
 	'https://stats.nba.com/stats/leaguestandingsv3?LeagueID=00&Season=2024-25&SeasonType=Regular%20Season';
 
-describe('fetchStandings', () => {
+// stats.nba.com blocks datacenter IPs used by CI runners
+describe.skipIf(!!process.env.CI)('fetchStandings', () => {
 	it('returns valid standings data', async () => {
 		const result = await getJSON(STANDINGS_URL, NBAStatsRequestInit);
 
