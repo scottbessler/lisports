@@ -1,5 +1,5 @@
-import { LoaderFunction, type LoaderFunctionArgs, json } from '@remix-run/node';
-import { useLoaderData } from '@remix-run/react';
+import type { LoaderFunctionArgs } from 'react-router';
+import { useLoaderData } from 'react-router';
 
 import { useMemo } from 'react';
 import invariant from 'tiny-invariant';
@@ -13,7 +13,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	invariant(params.playerId, 'playerId not found');
 
 	const result = await fetchPlayerStats(params.playerId);
-	return json({ playerStats: result });
+	return { playerStats: result };
 };
 
 export default function PlayerDetail() {
@@ -38,8 +38,7 @@ export function PlayerResultSet({ resultSet }: { resultSet: ResultSet }) {
 	);
 	const columns = useMemo<ColumnDef<{ id: string; data: Row }>[]>(() => {
 		return resultSet.headers.flatMap((h, i) => {
-			const def =
-				PLAYER_FIELD_DESCRIPTIONS[h as keyof typeof PLAYER_FIELD_DESCRIPTIONS];
+			const def = PLAYER_FIELD_DESCRIPTIONS[h as keyof typeof PLAYER_FIELD_DESCRIPTIONS];
 			if (def == null) {
 				return [];
 			}

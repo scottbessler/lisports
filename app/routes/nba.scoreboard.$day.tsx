@@ -1,7 +1,5 @@
-import type { LoaderFunctionArgs } from '@remix-run/node';
-import { redirect } from '@remix-run/node';
-import { json } from '@remix-run/node';
-import { Link, Outlet, useLoaderData, useParams } from '@remix-run/react';
+import type { LoaderFunctionArgs } from 'react-router';
+import { redirect, Link, Outlet, useLoaderData, useParams } from 'react-router';
 import classNames from 'classnames';
 
 import { GameSummary } from '../components/GameSummary';
@@ -14,7 +12,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	}
 	// todo: validate day
 
-	return json({ games: await fetchDaysGames(day) });
+	return { games: await fetchDaysGames(day) };
 };
 
 export default function ScoreboardDay() {
@@ -57,8 +55,7 @@ export default function ScoreboardDay() {
 								className={classNames(
 									'mx-auto flex min-w-full justify-center bg-base-100 p-2 text-sm',
 									{
-										'shadow shadow-primary':
-											!hasSelectedGame && g.gameId === params.gameId,
+										'shadow shadow-primary': !hasSelectedGame && g.gameId === params.gameId,
 									},
 								)}
 								g={g}

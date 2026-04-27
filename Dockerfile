@@ -30,7 +30,7 @@ WORKDIR /myapp
 COPY --from=deps /myapp/node_modules /myapp/node_modules
 
 ADD . .
-RUN bun buildx
+RUN bun run buildx
 
 # Finally, build the production image with minimal footprint
 FROM base

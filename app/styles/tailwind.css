@@ -1,3 +1,24 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+@plugin "daisyui/index.js" {
+	themes:
+		lofi, light, dark, cupcake, bumblebee, emerald, corporate, synthwave, retro, cyberpunk,
+		valentine, halloween, garden, forest, aqua, pastel, fantasy, wireframe, black, luxury, dracula,
+		cmyk, autumn, business, acid, lemonade, night, coffee, winter;
+}
+
+@theme {
+	--breakpoint-sm: 430px;
+	--breakpoint-md: 695px;
+	--breakpoint-lg: 960px;
+	--breakpoint-xl: 1440px;
+}
+
+h1 {
+	font-size: var(--text-2xl);
+}
+h2 {
+	font-size: var(--text-xl);
+}
+h3 {
+	font-size: var(--text-lg);
+}

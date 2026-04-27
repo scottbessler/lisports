@@ -7,13 +7,14 @@ on:
 
 jobs:
   lint:
-    name: Lint
+    name: Lint & Format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - run: npx biome check .
+      - run: bun run lint
+      - run: bun run fmt:check
 
   typecheck:
     name: Typecheck
@@ -32,11 +33,4 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: mkdir -p data
-      - run: |
-          mkdir -p app/styles
-          cat > app/styles/tailwind.css << 'EOF'
-          @tailwind base;
-          @tailwind components;
-          @tailwind utilities;
-          EOF
       - run: bun run test:integration

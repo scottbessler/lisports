@@ -1,14 +1,14 @@
-import { type LoaderFunction, json } from '@remix-run/node';
-import { useLoaderData } from '@remix-run/react';
+import type { LoaderFunctionArgs } from 'react-router';
+import { useLoaderData } from 'react-router';
 import invariant from 'tiny-invariant';
 import { GameDetails } from '../components/GameDetails';
 import { fetchGame } from '../stores/scoreboard.server';
 
-export const loader: LoaderFunction = async ({ request, params }) => {
+export const loader = async ({ params }: LoaderFunctionArgs) => {
 	invariant(params.gameId, 'gameId not found');
 
 	const result = await fetchGame(params.gameId);
-	return json({ game: result });
+	return { game: result };
 };
 
 export default function GameDetailsPage() {

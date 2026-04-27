@@ -46,22 +46,16 @@ export async function getJSONWithTimeout(
 
 export function successOrThrow<TResult>(input: ReqResult): TResult {
 	if (!input.success) {
-		console.error(
-			`request failed: ${input.response.status} ${input.response.statusText}`,
-		);
+		console.error(`request failed: ${input.response.status} ${input.response.statusText}`);
 		throw new Error('request failed');
 	}
 	// TODO: validate its TResult?
 	return input.data as TResult;
 }
 
-export function successOrUndefined<TResult>(
-	input: ReqResult,
-): TResult | undefined {
+export function successOrUndefined<TResult>(input: ReqResult): TResult | undefined {
 	if (!input.success) {
-		console.error(
-			`request failed: ${input.response.status} ${input.response.statusText}`,
-		);
+		console.error(`request failed: ${input.response.status} ${input.response.statusText}`);
 		return undefined;
 	}
 	// TODO: validate its TResult?

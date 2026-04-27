@@ -33,10 +33,7 @@ export function GameSummary({
 					<GameSummaryTeamRow game={g} isHome />
 					{showStatus && (
 						<tr>
-							<th
-								className="text-right"
-								colSpan={g.awayTeam.periods.length + 2}
-							>
+							<th className="text-right" colSpan={g.awayTeam.periods.length + 2}>
 								{g.gameStatusText}
 							</th>
 						</tr>
@@ -47,22 +44,14 @@ export function GameSummary({
 	);
 }
 
-export const GameSummaryTeamRow = ({
-	game,
-	isHome = false,
-}: {
-	game: Game;
-	isHome?: boolean;
-}) => {
+export const GameSummaryTeamRow = ({ game, isHome = false }: { game: Game; isHome?: boolean }) => {
 	const team = getTeam(game, isHome);
 	return (
 		<tr>
 			<th scope="row whitespace-nowrap p-1">
 				<div className="mr-2 flex flex-row items-center gap-1 ">
 					<TeamLogo className="w-5" team={team} />
-					<div title={`${team.teamCity} ${team.teamName}`}>
-						{team.teamTricode}
-					</div>
+					<div title={`${team.teamCity} ${team.teamName}`}>{team.teamTricode}</div>
 					<div className="text-xs font-light">
 						({team.wins}-{team.losses})
 					</div>

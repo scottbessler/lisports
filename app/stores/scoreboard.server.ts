@@ -1,17 +1,11 @@
 import type { BoxScore } from '../models/boxScore';
 import type { TodaysScoreboard } from '../models/todaysScoreboard';
 
-import {
-	getJSON,
-	getJSONWithTimeout,
-	successOrThrow,
-	successOrUndefined,
-} from '../reqs';
+import { getJSON, getJSONWithTimeout, successOrThrow, successOrUndefined } from '../reqs';
 import { fetchDaysGamesESPN, fetchGameESPN } from './espn.server';
 import { fetchFromCache, saveToCache } from './simpleCache.server';
 
-let todayData: { data: TodaysScoreboard; fetchedAt: number } | undefined =
-	undefined;
+let todayData: { data: TodaysScoreboard; fetchedAt: number } | undefined = undefined;
 
 export const fetchTodaysScoreboard = async () => {
 	if (todayData && Date.now() - todayData.fetchedAt < 30000) {

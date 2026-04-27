@@ -1,6 +1,5 @@
-import type { LoaderFunction, LoaderFunctionArgs } from '@remix-run/node';
-import { json } from '@remix-run/node';
-import { useLoaderData } from '@remix-run/react';
+import type { LoaderFunctionArgs } from 'react-router';
+import { useLoaderData } from 'react-router';
 import { fetchStandings } from '../stores/nba.standings.server';
 
 import partition from 'lodash.partition';
@@ -8,28 +7,21 @@ import zipObject from 'lodash.zipobject';
 import { useCallback, useMemo } from 'react';
 import type { ColumnDef, CustomRowFormatter } from '../components/PrettyTable';
 import { PrettyTable } from '../components/PrettyTable';
-import {
-	BadValue,
-	GoodValue,
-	Highlighter,
-	NeutralValue,
-} from '../components/Stat';
+import { BadValue, GoodValue, Highlighter, NeutralValue } from '../components/Stat';
 import { TeamLogo } from '../components/TeamLogo';
 import type { StandingsTeam } from '../models/standings';
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const standings = await fetchStandings();
 
-	return json({ standings });
+	return { standings };
 };
 
 export default function Scoreboard() {
 	const data = useLoaderData<typeof loader>();
 
 	const rs = data.standings.resultSets[0];
-	const zipped = rs.rowSet.map((r) =>
-		zipObject(rs.headers, r),
-	) as unknown[] as StandingsTeam[];
+	const zipped = rs.rowSet.map((r) => zipObject(rs.headers, r)) as unknown[] as StandingsTeam[];
 	const withId = zipped.map((z) => ({ ...z, id: String(z.TeamID) }));
 
 	const [west, east] = partition(withId, (t) => t.Conference === 'West');
@@ -60,10 +52,7 @@ export default function Scoreboard() {
 					value: row.TeamName,
 					cell: (
 						<div className="flex w-[120px] flex-row items-center gap-1">
-							<TeamLogo
-								className="w-5"
-								team={{ teamId: row.TeamID, teamName: row.TeamName }}
-							/>
+							<TeamLogo className="w-5" team={{ teamId: row.TeamID, teamName: row.TeamName }} />
 							<div>{row.TeamName}</div>
 						</div>
 					),
@@ -101,10 +90,7 @@ export default function Scoreboard() {
 				accessor: (row) => ({
 					value: row.DiffPointsPG,
 					cell: (
-						<Highlighter
-							isGood={row.DiffPointsPG > 1}
-							isBad={row.DiffPointsPG < -1}
-						>
+						<Highlighter isGood={row.DiffPointsPG > 1} isBad={row.DiffPointsPG < -1}>
 							{row.DiffPointsPG}
 						</Highlighter>
 					),
@@ -189,8 +175,8 @@ export default function Scoreboard() {
 					cell: (
 						<div className="flex flex-row gap-4">
 							<span className="flex-1 font-bold">
-								{p.PlayoffRank <= 6 ? '*' : p.PlayoffRank <= 10 ? '+' : null}{' '}
-								{p.PlayoffRank} {p.TeamName}
+								{p.PlayoffRank <= 6 ? '*' : p.PlayoffRank <= 10 ? '+' : null} {p.PlayoffRank}{' '}
+								{p.TeamName}
 							</span>
 						</div>
 					),

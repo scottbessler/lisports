@@ -3,8 +3,7 @@ import type { PlayerStats } from '~/models/PlayerStats';
 import { getJSON, successOrThrow } from '~/reqs';
 import { NBAStatsRequestInit } from '~/stores/scoreboard.server';
 
-const PLAYER_STATS_BASE_URL =
-	'https://stats.nba.com/stats/playerdashboardbyyearoveryearcombined';
+const PLAYER_STATS_BASE_URL = 'https://stats.nba.com/stats/playerdashboardbyyearoveryearcombined';
 
 function buildPlayerStatsUrl(playerId: string): string {
 	return `${PLAYER_STATS_BASE_URL}?DateFrom=&DateTo=&GameSegment=&LastNGames=0&LeagueID=00&Location=&MeasureType=Base&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=PerGame&Period=0&PlayerID=${playerId}&PlusMinus=N&Rank=N&Season=2023-24&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&VsConference=&VsDivision=`;
@@ -18,10 +17,7 @@ describe.skipIf(!!process.env.CI)('fetchPlayerStats', () => {
 	const CURRY_ID = '201939';
 
 	it('returns valid player stats for LeBron James', async () => {
-		const result = await getJSON(
-			buildPlayerStatsUrl(LEBRON_ID),
-			NBAStatsRequestInit,
-		);
+		const result = await getJSON(buildPlayerStatsUrl(LEBRON_ID), NBAStatsRequestInit);
 
 		expect(result.success).toBe(true);
 		const stats = successOrThrow<PlayerStats>(result);
@@ -35,10 +31,7 @@ describe.skipIf(!!process.env.CI)('fetchPlayerStats', () => {
 	});
 
 	it('returns result sets with headers and rowSet', async () => {
-		const result = await getJSON(
-			buildPlayerStatsUrl(LEBRON_ID),
-			NBAStatsRequestInit,
-		);
+		const result = await getJSON(buildPlayerStatsUrl(LEBRON_ID), NBAStatsRequestInit);
 
 		const stats = successOrThrow<PlayerStats>(result);
 
@@ -56,10 +49,7 @@ describe.skipIf(!!process.env.CI)('fetchPlayerStats', () => {
 	});
 
 	it('returns stats for a different player (Curry)', async () => {
-		const result = await getJSON(
-			buildPlayerStatsUrl(CURRY_ID),
-			NBAStatsRequestInit,
-		);
+		const result = await getJSON(buildPlayerStatsUrl(CURRY_ID), NBAStatsRequestInit);
 
 		const stats = successOrThrow<PlayerStats>(result);
 
@@ -69,16 +59,11 @@ describe.skipIf(!!process.env.CI)('fetchPlayerStats', () => {
 	});
 
 	it('includes ByYearBasePlayerDashboard result set', async () => {
-		const result = await getJSON(
-			buildPlayerStatsUrl(LEBRON_ID),
-			NBAStatsRequestInit,
-		);
+		const result = await getJSON(buildPlayerStatsUrl(LEBRON_ID), NBAStatsRequestInit);
 
 		const stats = successOrThrow<PlayerStats>(result);
 
-		const byYear = stats.resultSets.find(
-			(rs) => rs.name === 'ByYearBasePlayerDashboard',
-		);
+		const byYear = stats.resultSets.find((rs) => rs.name === 'ByYearBasePlayerDashboard');
 		expect(byYear).toBeDefined();
 		if (byYear) {
 			expect(byYear.headers).toContain('GROUP_VALUE');
