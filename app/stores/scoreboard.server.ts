@@ -1,7 +1,13 @@
 import type { BoxScore } from '../models/boxScore';
 import type { TodaysScoreboard } from '../models/todaysScoreboard';
 
-import { getJSON, successOrThrow, successOrUndefined } from '../reqs';
+import {
+	getJSON,
+	getJSONWithTimeout,
+	successOrThrow,
+	successOrUndefined,
+} from '../reqs';
+import { fetchDaysGamesESPN } from './espn.server';
 import { fetchFromCache, saveToCache } from './simpleCache.server';
 
 let todayData: { data: TodaysScoreboard; fetchedAt: number } | undefined =
@@ -35,27 +41,50 @@ export const NBAStatsRequestInit = {
 // https://cdn.nba.com/logos/nba/1610612748/primary/L/logo.svg
 
 export const fetchDaysGames = async (day: string) => {
-	// todo: validate day
-
 	const cacheKey = `day:${day}`;
 	const cacheResult = await fetchFromCache(cacheKey);
 	if (cacheResult != null) {
-		// todo: validate response?
 		return (cacheResult as unknown as TodaysScoreboard).scoreboard.games;
 	}
 
-	const result = successOrThrow<TodaysScoreboard>(
-		await getJSON(
-			`https://stats.nba.com/stats/scoreboardv3?GameDate=${day}&LeagueID=00`,
-			NBAStatsRequestInit,
-		),
-	);
+	// Try stats.nba.com first with a short timeout, fall back to ESPN
+	try {
+		const result = successOrThrow<TodaysScoreboard>(
+			await getJSONWithTimeout(
+				`https://stats.nba.com/stats/scoreboardv3?GameDate=${day}&LeagueID=00`,
+				5000,
+				NBAStatsRequestInit,
+			),
+		);
 
-	// cache if all games are completed
-	if (result.scoreboard.games.every((g) => g.gameStatus === 3)) {
-		await saveToCache(cacheKey, result);
+		if (result.scoreboard.games.every((g) => g.gameStatus === 3)) {
+			await saveToCache(cacheKey, result);
+		}
+		return result.scoreboard.games;
+	} catch (err) {
+		console.warn('stats.nba.com scoreboard failed, falling back to ESPN:', err);
 	}
-	return result.scoreboard.games;
+
+	const games = await fetchDaysGamesESPN(day);
+
+	if (games.every((g) => g.gameStatus === 3)) {
+		const wrapped: TodaysScoreboard = {
+			meta: {
+				version: 1,
+				request: 'espn-fallback',
+				time: new Date().toISOString(),
+				code: 200,
+			},
+			scoreboard: {
+				gameDate: day,
+				leagueId: '00',
+				leagueName: 'National Basketball Association',
+				games,
+			},
+		};
+		await saveToCache(cacheKey, wrapped);
+	}
+	return games;
 };
 
 export const fetchGame = async (id: string) => {
