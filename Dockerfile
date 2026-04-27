@@ -1,5 +1,5 @@
 # base node image
-FROM oven/bun:1.1.34-debian as base
+FROM oven/bun:1.3-debian as base
 
 # set for base and all layer that inherit from it
 ENV NODE_ENV production
