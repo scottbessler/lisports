@@ -30,6 +30,7 @@ WORKDIR /myapp
 COPY --from=deps /myapp/node_modules /myapp/node_modules
 
 ADD . .
+RUN mkdir -p app/styles && echo '@tailwind base;\n@tailwind components;\n@tailwind utilities;' > app/styles/tailwind.css
 RUN bun buildx
 
 # Finally, build the production image with minimal footprint
