@@ -1,4 +1,4 @@
-import type { Standings } from '../models/PlayerStats';
+import type { PlayerStats, ResultSet, Standings } from '../models/PlayerStats';
 import type {
 	BoxScoreGame,
 	BoxScoreTeam,
@@ -8,6 +8,7 @@ import type {
 } from '../models/boxScore';
 import type { StandingsTeam } from '../models/standings';
 import type { Game, Leaders, Period, Team } from '../models/todaysScoreboard';
+import { getJSON, successOrUndefined } from '../reqs';
 
 // ESPN abbreviation → { nbaTricode, nbaTeamId, city, name }
 const ESPN_TO_NBA_TEAM: Record<
@@ -991,5 +992,177 @@ export async function fetchStandingsESPN(): Promise<Standings> {
 				rowSet,
 			},
 		],
+	};
+}
+
+// --- ESPN Player Stats ---
+
+interface ESPNPlayerStatsResponse {
+	categories: ESPNStatsCategory[];
+}
+
+interface ESPNStatsCategory {
+	name: string;
+	displayName: string;
+	labels: string[];
+	names: string[];
+	statistics: ESPNSeasonStats[];
+	totals: string[];
+}
+
+interface ESPNSeasonStats {
+	season: { year: number; displayName: string };
+	stats: string[];
+}
+
+interface ESPNAthleteResponse {
+	athlete: {
+		displayName: string;
+		jersey?: string;
+		headshot?: { href: string };
+		position?: { displayName: string; abbreviation: string };
+		team?: { displayName: string; abbreviation: string };
+	};
+}
+
+export interface ESPNPlayerInfo {
+	name: string;
+	headshot?: string;
+	jersey?: string;
+	position?: string;
+	team?: string;
+}
+
+export async function fetchPlayerInfoESPN(playerId: string): Promise<ESPNPlayerInfo | undefined> {
+	const url = `https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/${playerId}`;
+	const result = successOrUndefined<ESPNAthleteResponse>(await getJSON(url));
+	if (!result?.athlete) return undefined;
+	const a = result.athlete;
+	return {
+		name: a.displayName,
+		headshot: a.headshot?.href,
+		jersey: a.jersey,
+		position: a.position?.displayName,
+		team: a.team?.displayName,
+	};
+}
+
+export async function fetchPlayerStatsESPN(playerId: string): Promise<PlayerStats | undefined> {
+	const url = `https://site.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/${playerId}/stats`;
+	const result = successOrUndefined<ESPNPlayerStatsResponse>(await getJSON(url));
+	if (!result?.categories) return undefined;
+
+	const resultSets: ResultSet[] = result.categories.map((cat) => {
+		const headers = ['Season', ...cat.labels];
+		const parseStats = (stats: string[]) =>
+			stats.map((v) => {
+				const n = Number(v);
+				return Number.isNaN(n) ? v : n;
+			});
+		const rowSet: (string | number)[][] = cat.statistics.map((s) => [
+			s.season.displayName,
+			...parseStats(s.stats),
+		]);
+		if (cat.totals.length > 0) {
+			rowSet.push(['Career', ...parseStats(cat.totals)]);
+		}
+		return {
+			name: cat.displayName,
+			headers,
+			rowSet,
+		};
+	});
+
+	return {
+		resource: 'espn-player-stats',
+		parameters: {
+			PerMode: 'PerGame',
+			PlusMinus: 'N',
+			PaceAdjust: 'N',
+			Rank: 'N',
+			LeagueID: '00',
+			Season: '',
+			SeasonType: 'Regular Season',
+			PORound: 0,
+			PlayerID: Number.parseInt(playerId, 10) || 0,
+			Month: 0,
+			OpponentTeamID: 0,
+			Period: 0,
+			LastNGames: 0,
+		},
+		resultSets,
+	};
+}
+
+// --- ESPN Player Game Log ---
+
+interface ESPNGameLogResponse {
+	labels: string[];
+	events: Record<
+		string,
+		{
+			id: string;
+			atVs: string;
+			gameDate: string;
+			score: string;
+			homeTeamScore: number;
+			awayTeamScore: number;
+			gameResult: string;
+			opponent: { abbreviation: string; displayName: string };
+		}
+	>;
+	seasonTypes: {
+		displayName: string;
+		categories: {
+			events?: { eventId: string; stats: string[] }[];
+		}[];
+	}[];
+}
+
+export interface GameLogEntry {
+	date: string;
+	atVs: string;
+	opponent: string;
+	result: string;
+	score: string;
+	stats: string[];
+}
+
+export interface PlayerGameLog {
+	labels: string[];
+	games: GameLogEntry[];
+}
+
+export async function fetchPlayerGameLogESPN(
+	playerId: string,
+	limit = 10,
+): Promise<PlayerGameLog | undefined> {
+	const url = `https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/${playerId}/gamelog`;
+	const result = successOrUndefined<ESPNGameLogResponse>(await getJSON(url));
+	if (!result?.seasonTypes || !result?.events) return undefined;
+
+	const allGames: GameLogEntry[] = [];
+	for (const st of result.seasonTypes) {
+		const cat = st.categories[0];
+		if (!cat) continue;
+		for (const ev of cat.events ?? []) {
+			const meta = result.events[ev.eventId];
+			if (!meta) continue;
+			allGames.push({
+				date: meta.gameDate,
+				atVs: meta.atVs,
+				opponent: meta.opponent?.abbreviation ?? '',
+				result: meta.gameResult,
+				score: meta.score,
+				stats: ev.stats,
+			});
+		}
+	}
+
+	allGames.sort((a, b) => b.date.localeCompare(a.date));
+
+	return {
+		labels: result.labels,
+		games: allGames.slice(0, limit),
 	};
 }
