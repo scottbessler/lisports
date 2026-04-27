@@ -7,7 +7,6 @@ node_modules
 /cypress/screenshots
 /cypress/videos
 
-/app/styles/tailwind.css
 .yarn/*
 !.yarn/releases
 !.yarn/plugins
