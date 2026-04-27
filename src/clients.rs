@@ -210,7 +210,7 @@ impl SportsData for EspnSportsData {
     }
 
     async fn mlb_standings(&self) -> Result<MlbStandingsTable, AppError> {
-        let cache_key = format!("mlb-standings:{}", chrono::Utc::now().date_naive());
+        let cache_key = format!("mlb-standings2:{}", chrono::Utc::now().date_naive());
         if let Some(cached) = self.cache.get_json::<MlbStandingsTable>(&cache_key).await? {
             return Ok(cached);
         }

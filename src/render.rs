@@ -401,9 +401,15 @@ pub fn mlb_standings_page(standings: &MlbStandingsTable) -> String {
     layout(
         "MLB Standings",
         &format!(
-            r#"<main class="page standings"><section>{}</section><section>{}</section></main>"#,
-            mlb_standings_table("American League", &standings.al),
-            mlb_standings_table("National League", &standings.nl)
+            r#"<main class="page standings mlb-standings">{}</main>"#,
+            standings
+                .divisions
+                .iter()
+                .map(|division| mlb_standings_table(
+                    &format!("{} {}", division.league, division.division),
+                    &division.teams
+                ))
+                .collect::<String>()
         ),
     )
 }

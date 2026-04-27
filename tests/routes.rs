@@ -10,9 +10,9 @@ use lisports::{
     clients::SportsData,
     error::AppError,
     models::{
-        BoxScore, BoxScoreTeam, Game, Leaders, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsTable,
-        MlbStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard, StandingsTable,
-        StandingsTeam, Statistics, Table, Team, TeamStatistics,
+        BoxScore, BoxScoreTeam, Game, Leaders, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsDivision,
+        MlbStandingsTable, MlbStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard,
+        StandingsTable, StandingsTeam, Statistics, Table, Team, TeamStatistics,
     },
 };
 use tower::ServiceExt;
@@ -72,8 +72,24 @@ impl SportsData for FakeSportsData {
 
     async fn mlb_standings(&self) -> Result<MlbStandingsTable, AppError> {
         Ok(MlbStandingsTable {
-            al: vec![mlb_standing_team(1, "New York Yankees", "NYY", "AL")],
-            nl: vec![mlb_standing_team(1, "Atlanta Braves", "ATL", "NL")],
+            divisions: vec![
+                MlbStandingsDivision {
+                    league: "AL".to_string(),
+                    division: "East".to_string(),
+                    teams: vec![mlb_standing_team(
+                        1,
+                        "New York Yankees",
+                        "NYY",
+                        "AL",
+                        "East",
+                    )],
+                },
+                MlbStandingsDivision {
+                    league: "NL".to_string(),
+                    division: "East".to_string(),
+                    teams: vec![mlb_standing_team(1, "Atlanta Braves", "ATL", "NL", "East")],
+                },
+            ],
         })
     }
 }
@@ -146,7 +162,8 @@ async fn mlb_standings_render_sortable_tables() {
     let (status, body) = request("/mlb/standings").await;
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("MLB Standings"));
-    assert!(body.contains("American League"));
+    assert!(body.contains("AL East"));
+    assert!(body.contains("NL East"));
     assert!(body.contains("New York Yankees"));
     assert!(body.contains("table class=\"sortable\""));
 }
@@ -406,12 +423,19 @@ fn standing_team(rank: i64, name: &str, conference: &str) -> StandingsTeam {
     }
 }
 
-fn mlb_standing_team(rank: i64, name: &str, tricode: &str, league: &str) -> MlbStandingsTeam {
+fn mlb_standing_team(
+    rank: i64,
+    name: &str,
+    tricode: &str,
+    league: &str,
+    division: &str,
+) -> MlbStandingsTeam {
     MlbStandingsTeam {
         team_id: rank,
         team_name: name.to_string(),
         team_tricode: tricode.to_string(),
         league: league.to_string(),
+        division: division.to_string(),
         playoff_rank: rank,
         wins: 18,
         losses: 10,

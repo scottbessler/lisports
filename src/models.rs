@@ -167,8 +167,14 @@ pub struct MlbBoxScoreTeam {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct MlbStandingsTable {
-    pub al: Vec<MlbStandingsTeam>,
-    pub nl: Vec<MlbStandingsTeam>,
+    pub divisions: Vec<MlbStandingsDivision>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MlbStandingsDivision {
+    pub league: String,
+    pub division: String,
+    pub teams: Vec<MlbStandingsTeam>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -177,6 +183,7 @@ pub struct MlbStandingsTeam {
     pub team_name: String,
     pub team_tricode: String,
     pub league: String,
+    pub division: String,
     pub playoff_rank: i64,
     pub wins: i64,
     pub losses: i64,

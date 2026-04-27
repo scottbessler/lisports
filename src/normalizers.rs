@@ -7,9 +7,9 @@ use crate::{
     },
     error::AppError,
     models::{
-        BoxScore, BoxScoreTeam, Game, Leaders, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsTable,
-        MlbStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard, StandingsTable,
-        StandingsTeam, Statistics, Table, Team, TeamStatistics,
+        BoxScore, BoxScoreTeam, Game, Leaders, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsDivision,
+        MlbStandingsTable, MlbStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard,
+        StandingsTable, StandingsTeam, Statistics, Table, Team, TeamStatistics,
     },
 };
 
@@ -184,23 +184,57 @@ pub fn espn_standings(data: EspnStandingsDto) -> StandingsTable {
 }
 
 pub fn espn_mlb_standings(data: EspnStandingsDto) -> MlbStandingsTable {
-    let mut al = Vec::new();
-    let mut nl = Vec::new();
+    let mut divisions = vec![
+        MlbStandingsDivision {
+            league: "AL".to_string(),
+            division: "East".to_string(),
+            teams: Vec::new(),
+        },
+        MlbStandingsDivision {
+            league: "AL".to_string(),
+            division: "Central".to_string(),
+            teams: Vec::new(),
+        },
+        MlbStandingsDivision {
+            league: "AL".to_string(),
+            division: "West".to_string(),
+            teams: Vec::new(),
+        },
+        MlbStandingsDivision {
+            league: "NL".to_string(),
+            division: "East".to_string(),
+            teams: Vec::new(),
+        },
+        MlbStandingsDivision {
+            league: "NL".to_string(),
+            division: "Central".to_string(),
+            teams: Vec::new(),
+        },
+        MlbStandingsDivision {
+            league: "NL".to_string(),
+            division: "West".to_string(),
+            teams: Vec::new(),
+        },
+    ];
     for group in data.children {
-        let abbr = str_at(&group, &["abbreviation"])
-            .unwrap_or_else(|| str_at(&group, &["name"]).unwrap_or_default());
-        let league = if abbr.to_lowercase().contains("nl")
-            || str_at(&group, &["name"])
-                .unwrap_or_default()
-                .to_lowercase()
-                .contains("national")
-        {
-            "NL"
-        } else {
-            "AL"
-        };
         for entry in array_at(&group, &["standings", "entries"]) {
             let stats = array_at(&entry, &["stats"]);
+            let team_tricode = str_at(&entry, &["team", "abbreviation"]).unwrap_or_default();
+            let (league, division) = mlb_division(&team_tricode).unwrap_or_else(|| {
+                let abbr = str_at(&group, &["abbreviation"])
+                    .unwrap_or_else(|| str_at(&group, &["name"]).unwrap_or_default());
+                let league = if abbr.to_lowercase().contains("nl")
+                    || str_at(&group, &["name"])
+                        .unwrap_or_default()
+                        .to_lowercase()
+                        .contains("national")
+                {
+                    "NL"
+                } else {
+                    "AL"
+                };
+                (league, "Other")
+            });
             let row = MlbStandingsTeam {
                 team_id: str_at(&entry, &["team", "id"])
                     .map(|s| i64_from_str(&s))
@@ -208,28 +242,53 @@ pub fn espn_mlb_standings(data: EspnStandingsDto) -> MlbStandingsTable {
                 team_name: str_at(&entry, &["team", "displayName"])
                     .or_else(|| str_at(&entry, &["team", "name"]))
                     .unwrap_or_default(),
-                team_tricode: str_at(&entry, &["team", "abbreviation"]).unwrap_or_default(),
+                team_tricode,
                 league: league.to_string(),
+                division: division.to_string(),
                 playoff_rank: stat_value(&stats, "playoffSeed")
                     .or_else(|| stat_value(&stats, "rank"))
                     .unwrap_or(0.0) as i64,
                 wins: stat_value(&stats, "wins").unwrap_or(0.0) as i64,
                 losses: stat_value(&stats, "losses").unwrap_or(0.0) as i64,
                 win_pct: stat_display(&stats, "winPercent").unwrap_or_default(),
-                games_back: stat_display(&stats, "gamesBehind").unwrap_or_default(),
+                games_back: String::new(),
                 runs_scored: stat_value(&stats, "pointsFor").unwrap_or(0.0) as i64,
                 runs_allowed: stat_value(&stats, "pointsAgainst").unwrap_or(0.0) as i64,
                 run_diff: stat_display(&stats, "pointDifferential").unwrap_or_default(),
                 streak: stat_display(&stats, "streak").unwrap_or_default(),
             };
-            if league == "NL" {
-                nl.push(row);
-            } else {
-                al.push(row);
+            if let Some(group) = divisions
+                .iter_mut()
+                .find(|group| group.league == league && group.division == division)
+            {
+                group.teams.push(row);
             }
         }
     }
-    MlbStandingsTable { al, nl }
+    for division in &mut divisions {
+        division.teams.sort_by(|left, right| {
+            win_pct_value(&right)
+                .partial_cmp(&win_pct_value(&left))
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| right.wins.cmp(&left.wins))
+                .then_with(|| left.losses.cmp(&right.losses))
+        });
+        let Some(leader) = division.teams.first().cloned() else {
+            continue;
+        };
+        let mut last_record: Option<(i64, i64)> = None;
+        let mut display_rank = 0;
+        for (index, team) in division.teams.iter_mut().enumerate() {
+            let record = (team.wins, team.losses);
+            if last_record != Some(record) {
+                display_rank = index as i64 + 1;
+                last_record = Some(record);
+            }
+            team.playoff_rank = display_rank;
+            team.games_back = format_games_back(games_back_from(&leader, team));
+        }
+    }
+    MlbStandingsTable { divisions }
 }
 
 pub fn espn_player_gamelog(player_id: &str, data: EspnPlayerGamelogDto) -> PlayerStatsPage {
@@ -699,6 +758,18 @@ fn team_mapping(abbr: &str) -> Option<(&'static str, i64, &'static str, &'static
     })
 }
 
+fn mlb_division(abbr: &str) -> Option<(&'static str, &'static str)> {
+    Some(match abbr {
+        "BAL" | "BOS" | "NYY" | "TB" | "TOR" => ("AL", "East"),
+        "CHW" | "CWS" | "CLE" | "DET" | "KC" | "KCR" | "MIN" => ("AL", "Central"),
+        "HOU" | "LAA" | "ATH" | "OAK" | "SEA" | "TEX" => ("AL", "West"),
+        "ATL" | "MIA" | "NYM" | "PHI" | "WSH" | "WAS" => ("NL", "East"),
+        "CHC" | "CIN" | "MIL" | "PIT" | "STL" => ("NL", "Central"),
+        "ARI" | "AZ" | "COL" | "LAD" | "SD" | "SDP" | "SF" | "SFG" => ("NL", "West"),
+        _ => return None,
+    })
+}
+
 fn stat_num(stats: &[Value], name: &str) -> i64 {
     stats
         .iter()
@@ -819,6 +890,29 @@ fn i64_from_str(s: &str) -> i64 {
     s.parse::<i64>().unwrap_or(0)
 }
 
+fn win_pct_value(team: &MlbStandingsTeam) -> f64 {
+    let games = team.wins + team.losses;
+    if games == 0 {
+        0.0
+    } else {
+        team.wins as f64 / games as f64
+    }
+}
+
+fn games_back_from(leader: &MlbStandingsTeam, team: &MlbStandingsTeam) -> f64 {
+    ((leader.wins - team.wins) as f64 + (team.losses - leader.losses) as f64) / 2.0
+}
+
+fn format_games_back(value: f64) -> String {
+    if value <= 0.0 {
+        "-".to_string()
+    } else if value.fract() == 0.0 {
+        format!("{}", value as i64)
+    } else {
+        format!("{value:.1}")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -922,10 +1016,11 @@ mod tests {
     }
 
     #[test]
-    fn espn_mlb_standings_conversion_produces_al_and_nl_tables() {
+    fn espn_mlb_standings_conversion_groups_by_division() {
         let data: EspnStandingsDto = serde_json::from_value(serde_json::json!({
             "children": [
-                {"abbreviation": "AL", "standings": {"entries": [{"team": {"id": "10", "displayName": "New York Yankees", "abbreviation": "NYY"}, "stats": [
+                {"abbreviation": "AL", "standings": {"entries": [
+                  {"team": {"id": "10", "displayName": "New York Yankees", "abbreviation": "NYY"}, "stats": [
                     {"name": "playoffSeed", "value": 1, "displayValue": "1"},
                     {"name": "wins", "value": 18, "displayValue": "18"},
                     {"name": "losses", "value": 10, "displayValue": "10"},
@@ -935,7 +1030,30 @@ mod tests {
                     {"name": "pointsAgainst", "value": 99, "displayValue": "99"},
                     {"name": "pointDifferential", "value": 47, "displayValue": "+47"},
                     {"name": "streak", "value": -1, "displayValue": "L1"}
-                ]}]}},
+                  ]},
+                  {"team": {"id": "30", "displayName": "Tampa Bay Rays", "abbreviation": "TB"}, "stats": [
+                    {"name": "playoffSeed", "value": 4, "displayValue": "4"},
+                    {"name": "wins", "value": 18, "displayValue": "18"},
+                    {"name": "losses", "value": 10, "displayValue": "10"},
+                    {"name": "winPercent", "value": 0.643, "displayValue": ".643"},
+                    {"name": "gamesBehind", "value": 0, "displayValue": "-"},
+                    {"name": "pointsFor", "value": 130, "displayValue": "130"},
+                    {"name": "pointsAgainst", "value": 101, "displayValue": "101"},
+                    {"name": "pointDifferential", "value": 29, "displayValue": "+29"},
+                    {"name": "streak", "value": 1, "displayValue": "W1"}
+                  ]},
+                  {"team": {"id": "1", "displayName": "Baltimore Orioles", "abbreviation": "BAL"}, "stats": [
+                    {"name": "playoffSeed", "value": 8, "displayValue": "8"},
+                    {"name": "wins", "value": 16, "displayValue": "16"},
+                    {"name": "losses", "value": 12, "displayValue": "12"},
+                    {"name": "winPercent", "value": 0.571, "displayValue": ".571"},
+                    {"name": "gamesBehind", "value": 2, "displayValue": "2"},
+                    {"name": "pointsFor", "value": 120, "displayValue": "120"},
+                    {"name": "pointsAgainst", "value": 110, "displayValue": "110"},
+                    {"name": "pointDifferential", "value": 10, "displayValue": "+10"},
+                    {"name": "streak", "value": -1, "displayValue": "L1"}
+                  ]}
+                ]}},
                 {"abbreviation": "NL", "standings": {"entries": [{"team": {"id": "15", "displayName": "Atlanta Braves", "abbreviation": "ATL"}, "stats": [
                     {"name": "playoffSeed", "value": 1, "displayValue": "1"},
                     {"name": "wins", "value": 20, "displayValue": "20"},
@@ -951,9 +1069,25 @@ mod tests {
         }))
         .unwrap();
         let standings = espn_mlb_standings(data);
-        assert_eq!(standings.al[0].team_name, "New York Yankees");
-        assert_eq!(standings.al[0].team_tricode, "NYY");
-        assert_eq!(standings.nl[0].team_name, "Atlanta Braves");
-        assert_eq!(standings.nl[0].run_diff, "+65");
+        let al_east = standings
+            .divisions
+            .iter()
+            .find(|division| division.league == "AL" && division.division == "East")
+            .unwrap();
+        let nl_east = standings
+            .divisions
+            .iter()
+            .find(|division| division.league == "NL" && division.division == "East")
+            .unwrap();
+        assert_eq!(al_east.teams[0].team_name, "New York Yankees");
+        assert_eq!(al_east.teams[0].team_tricode, "NYY");
+        assert_eq!(al_east.teams[0].playoff_rank, 1);
+        assert_eq!(al_east.teams[0].games_back, "-");
+        assert_eq!(al_east.teams[1].playoff_rank, 1);
+        assert_eq!(al_east.teams[1].games_back, "-");
+        assert_eq!(al_east.teams[2].playoff_rank, 3);
+        assert_eq!(al_east.teams[2].games_back, "2");
+        assert_eq!(nl_east.teams[0].team_name, "Atlanta Braves");
+        assert_eq!(nl_east.teams[0].run_diff, "+65");
     }
 }

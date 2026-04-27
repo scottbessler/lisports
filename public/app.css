@@ -136,24 +136,32 @@ thead th {
 	color: var(--muted);
 	text-align: center;
 }
+.game-card thead th:not(:first-child) {
+	padding-right: 14px;
+	text-align: right;
+}
 table.sortable thead th {
 	cursor: pointer;
 	user-select: none;
 	white-space: nowrap;
 }
-table.sortable thead th::after {
-	content: '';
+table.sortable thead th[aria-sort='ascending']::before {
+	content: '▲';
 	display: inline-block;
-	width: 1em;
+	font-size: 10px;
+	margin-right: 2px;
 	color: var(--muted);
 }
-table.sortable thead th[aria-sort='ascending']::after {
-	content: '▲';
-	font-size: 10px;
-}
-table.sortable thead th[aria-sort='descending']::after {
+table.sortable thead th[aria-sort='descending']::before {
 	content: '▼';
+	display: inline-block;
 	font-size: 10px;
+	margin-right: 2px;
+	color: var(--muted);
+}
+table.sortable thead th.num {
+	padding-right: 14px;
+	text-align: right;
 }
 .status {
 	text-align: right;
