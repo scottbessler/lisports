@@ -1,22 +1,18 @@
-import type { LoaderFunctionArgs } from "react-router";
-import { useLoaderData } from "react-router";
+import type { LoaderFunctionArgs } from 'react-router';
+import { useLoaderData } from 'react-router';
 
-import dayjs from "dayjs";
-import { useMemo } from "react";
-import invariant from "tiny-invariant";
-import type { ColumnDef } from "../components/PrettyTable";
-import { PrettyTable } from "../components/PrettyTable";
-import type { ResultSet, Row } from "../models/PlayerStats";
-import { PLAYER_FIELD_DESCRIPTIONS } from "../models/PlayerStats";
-import type { GameLogEntry } from "../stores/espn.server";
-import {
-	fetchPlayerGameLog,
-	fetchPlayerInfo,
-	fetchPlayerStats,
-} from "../stores/player.server";
+import dayjs from 'dayjs';
+import { useMemo } from 'react';
+import invariant from 'tiny-invariant';
+import type { ColumnDef } from '../components/PrettyTable';
+import { PrettyTable } from '../components/PrettyTable';
+import type { ResultSet, Row } from '../models/PlayerStats';
+import { PLAYER_FIELD_DESCRIPTIONS } from '../models/PlayerStats';
+import type { GameLogEntry } from '../stores/espn.server';
+import { fetchPlayerGameLog, fetchPlayerInfo, fetchPlayerStats } from '../stores/player.server';
 
 export const loader = async ({ params }: LoaderFunctionArgs) => {
-	invariant(params.playerId, "playerId not found");
+	invariant(params.playerId, 'playerId not found');
 
 	const [playerStats, playerInfo, gameLog] = await Promise.all([
 		fetchPlayerStats(params.playerId),
@@ -47,9 +43,7 @@ export default function PlayerDetail() {
 					<div>
 						<h1 className="text-2xl font-bold">{playerInfo.name}</h1>
 						<p className="text-base-content/70">
-							{[playerInfo.position, playerInfo.team]
-								.filter(Boolean)
-								.join(" · ")}
+							{[playerInfo.position, playerInfo.team].filter(Boolean).join(' · ')}
 							{playerInfo.jersey && ` · #${playerInfo.jersey}`}
 						</p>
 					</div>
@@ -65,44 +59,32 @@ export default function PlayerDetail() {
 	);
 }
 
-function PlayerGameLogTable({
-	labels,
-	games,
-}: { labels: string[]; games: GameLogEntry[] }) {
-	const data = useMemo(
-		() => games.map((g, i) => ({ id: String(i), ...g })),
-		[games],
-	);
+function PlayerGameLogTable({ labels, games }: { labels: string[]; games: GameLogEntry[] }) {
+	const data = useMemo(() => games.map((g, i) => ({ id: String(i), ...g })), [games]);
 
 	const columns = useMemo<ColumnDef<GameLogEntry & { id: string }>[]>(() => {
 		const cols: ColumnDef<GameLogEntry & { id: string }>[] = [
 			{
-				header: "Date",
+				header: 'Date',
 				accessor: (g) => ({
 					value: g.date,
-					cell: dayjs(g.date).format("M/D"),
+					cell: dayjs(g.date).format('M/D'),
 				}),
 			},
 			{
-				header: "Opp",
+				header: 'Opp',
 				accessor: (g) => ({
 					value: g.opponent,
-					cell: `${g.atVs === "@" ? "@" : "vs"} ${g.opponent}`,
+					cell: `${g.atVs === '@' ? '@' : 'vs'} ${g.opponent}`,
 				}),
 			},
 			{
-				header: "Result",
+				header: 'Result',
 				accessor: (g) => ({
 					value: g.result,
 					cell: (
 						<span
-							className={
-								g.result === "W"
-									? "text-success"
-									: g.result === "L"
-										? "text-error"
-										: ""
-							}
+							className={g.result === 'W' ? 'text-success' : g.result === 'L' ? 'text-error' : ''}
 						>
 							{g.result} {g.score}
 						</span>
@@ -141,10 +123,9 @@ export function PlayerResultSet({ resultSet }: { resultSet: ResultSet }) {
 	);
 	const columns = useMemo<ColumnDef<{ id: string; data: Row }>[]>(() => {
 		return resultSet.headers.map((h, i) => {
-			const def =
-				PLAYER_FIELD_DESCRIPTIONS[h as keyof typeof PLAYER_FIELD_DESCRIPTIONS];
+			const def = PLAYER_FIELD_DESCRIPTIONS[h as keyof typeof PLAYER_FIELD_DESCRIPTIONS];
 			return {
-				header: def ? def.abbrev.split("<br>").join(" ") : h,
+				header: def ? def.abbrev.split('<br>').join(' ') : h,
 				description: def?.title,
 				accessor: (r) => ({
 					value: r.data[i],

@@ -1,12 +1,12 @@
-import type { PlayerStats } from "../models/PlayerStats";
+import type { PlayerStats } from '../models/PlayerStats';
 import {
 	type ESPNPlayerInfo,
 	type PlayerGameLog,
 	fetchPlayerGameLogESPN,
 	fetchPlayerInfoESPN,
 	fetchPlayerStatsESPN,
-} from "./espn.server";
-import { fetchFromCache, saveToCache } from "./simpleCache.server";
+} from './espn.server';
+import { fetchFromCache, saveToCache } from './simpleCache.server';
 
 export async function fetchPlayerStats(playerId: string): Promise<PlayerStats> {
 	const cacheKey = `player:${playerId}`;
@@ -24,9 +24,7 @@ export async function fetchPlayerStats(playerId: string): Promise<PlayerStats> {
 	return result;
 }
 
-export async function fetchPlayerInfo(
-	playerId: string,
-): Promise<ESPNPlayerInfo | undefined> {
+export async function fetchPlayerInfo(playerId: string): Promise<ESPNPlayerInfo | undefined> {
 	const cacheKey = `playerinfo:${playerId}`;
 	const cacheResult = await fetchFromCache(cacheKey);
 	if (cacheResult != null) {
@@ -40,9 +38,7 @@ export async function fetchPlayerInfo(
 	return info;
 }
 
-export async function fetchPlayerGameLog(
-	playerId: string,
-): Promise<PlayerGameLog | undefined> {
+export async function fetchPlayerGameLog(playerId: string): Promise<PlayerGameLog | undefined> {
 	const cacheKey = `gamelog:${playerId}`;
 	const cacheResult = await fetchFromCache(cacheKey);
 	if (cacheResult != null) {
