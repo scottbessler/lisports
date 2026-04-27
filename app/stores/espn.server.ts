@@ -443,10 +443,7 @@ function pct(made: number, attempted: number): number {
 	return attempted > 0 ? Math.round((made / attempted) * 1000) / 10 : 0;
 }
 
-function espnPlayerStatsToStatistics(
-	keys: string[],
-	stats: string[],
-): Statistics {
+function espnPlayerStatsToStatistics(keys: string[], stats: string[]): Statistics {
 	const get = (key: string): string => {
 		const idx = keys.indexOf(key);
 		return idx >= 0 ? stats[idx] : '0';
@@ -454,15 +451,11 @@ function espnPlayerStatsToStatistics(
 
 	const minutes = get('minutes');
 	const minuteNum = Number.parseInt(minutes, 10) || 0;
-	const [fgm, fga] = parseMadeAttempted(
-		get('fieldGoalsMade-fieldGoalsAttempted'),
-	);
+	const [fgm, fga] = parseMadeAttempted(get('fieldGoalsMade-fieldGoalsAttempted'));
 	const [tpm, tpa] = parseMadeAttempted(
 		get('threePointFieldGoalsMade-threePointFieldGoalsAttempted'),
 	);
-	const [ftm, fta] = parseMadeAttempted(
-		get('freeThrowsMade-freeThrowsAttempted'),
-	);
+	const [ftm, fta] = parseMadeAttempted(get('freeThrowsMade-freeThrowsAttempted'));
 	const reb = Number(get('rebounds')) || 0;
 	const oreb = Number(get('offensiveRebounds')) || 0;
 	const dreb = Number(get('defensiveRebounds')) || 0;
@@ -506,10 +499,7 @@ function espnPlayerStatsToStatistics(
 	};
 }
 
-function getTeamStatNum(
-	stats: { name: string; displayValue: string }[],
-	name: string,
-): number {
+function getTeamStatNum(stats: { name: string; displayValue: string }[], name: string): number {
 	const stat = stats.find((s) => s.name === name);
 	if (!stat) return 0;
 	return Number(stat.displayValue) || 0;
@@ -529,18 +519,12 @@ function espnTeamStatsToTeamStatistics(
 	teamScore: number,
 	otherScore: number,
 ): TeamStatistics {
-	const [fgm, fga] = getTeamStatSplit(
-		teamStats,
-		'fieldGoalsMade-fieldGoalsAttempted',
-	);
+	const [fgm, fga] = getTeamStatSplit(teamStats, 'fieldGoalsMade-fieldGoalsAttempted');
 	const [tpm, tpa] = getTeamStatSplit(
 		teamStats,
 		'threePointFieldGoalsMade-threePointFieldGoalsAttempted',
 	);
-	const [ftm, fta] = getTeamStatSplit(
-		teamStats,
-		'freeThrowsMade-freeThrowsAttempted',
-	);
+	const [ftm, fta] = getTeamStatSplit(teamStats, 'freeThrowsMade-freeThrowsAttempted');
 	const oreb = getTeamStatNum(teamStats, 'offensiveRebounds');
 	const dreb = getTeamStatNum(teamStats, 'defensiveRebounds');
 	const totalReb = getTeamStatNum(teamStats, 'totalRebounds');
@@ -605,8 +589,7 @@ function espnTeamStatsToTeamStatistics(
 		timeLeading: '',
 		timesTied: 0,
 		trueShootingAttempts: fga + 0.44 * fta,
-		trueShootingPercentage:
-			fga + 0.44 * fta > 0 ? teamScore / (2 * (fga + 0.44 * fta)) : 0,
+		trueShootingPercentage: fga + 0.44 * fta > 0 ? teamScore / (2 * (fga + 0.44 * fta)) : 0,
 		turnovers,
 		turnoversTeam: getTeamStatNum(teamStats, 'teamTurnovers'),
 		turnoversTotal: getTeamStatNum(teamStats, 'totalTurnovers'),
@@ -616,9 +599,7 @@ function espnTeamStatsToTeamStatistics(
 	};
 }
 
-export async function fetchGameESPN(
-	espnEventId: string,
-): Promise<BoxScoreGame | undefined> {
+export async function fetchGameESPN(espnEventId: string): Promise<BoxScoreGame | undefined> {
 	const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${espnEventId}`;
 
 	console.log('ESPN: fetching box score for event', espnEventId);
@@ -654,12 +635,8 @@ export async function fetchGameESPN(
 			score: Number(ls.displayValue) || 0,
 		}));
 
-		const boxTeamData = data.boxscore.teams.find(
-			(t) => t.team.abbreviation === espnAbbrev,
-		);
-		const boxPlayerData = data.boxscore.players.find(
-			(p) => p.team.abbreviation === espnAbbrev,
-		);
+		const boxTeamData = data.boxscore.teams.find((t) => t.team.abbreviation === espnAbbrev);
+		const boxPlayerData = data.boxscore.players.find((p) => p.team.abbreviation === espnAbbrev);
 
 		const teamStats = espnTeamStatsToTeamStatistics(
 			boxTeamData?.statistics ?? [],
@@ -692,12 +669,8 @@ export async function fetchGameESPN(
 						nameI: a.displayName,
 						firstName: a.displayName.split(' ')[0] ?? '',
 						familyName: a.displayName.split(' ').slice(1).join(' '),
-						notPlayingReason: athlete.didNotPlay
-							? (athlete.reason ?? 'DNP')
-							: undefined,
-						notPlayingDescription: athlete.didNotPlay
-							? (athlete.reason ?? 'DNP')
-							: undefined,
+						notPlayingReason: athlete.didNotPlay ? (athlete.reason ?? 'DNP') : undefined,
+						notPlayingDescription: athlete.didNotPlay ? (athlete.reason ?? 'DNP') : undefined,
 					});
 				}
 			}

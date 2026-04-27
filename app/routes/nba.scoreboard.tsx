@@ -1,13 +1,5 @@
-import type { LoaderFunctionArgs } from '@remix-run/node';
-import { redirect } from '@remix-run/node';
-import { json } from '@remix-run/node';
-import {
-	NavLink,
-	Outlet,
-	useLoaderData,
-	useNavigate,
-	useParams,
-} from '@remix-run/react';
+import type { LoaderFunctionArgs } from 'react-router';
+import { redirect, NavLink, Outlet, useLoaderData, useNavigate, useParams } from 'react-router';
 import classNames from 'classnames';
 import dayjs from 'dayjs';
 import type { ChangeEventHandler } from 'react';
@@ -24,9 +16,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		return redirect(today);
 	}
 	if (url.pathname === '/nba/scoreboard') {
-		const isLiveOrCompletedGames = todaysScoreboard.games.some(
-			(g) => g.gameStatus >= 2,
-		);
+		const isLiveOrCompletedGames = todaysScoreboard.games.some((g) => g.gameStatus >= 2);
 		if (isLiveOrCompletedGames) {
 			return redirect(today);
 		}
@@ -34,7 +24,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 		return redirect(yesterday);
 	}
 
-	return json({ todaysScoreboard, today });
+	return { todaysScoreboard, today };
 };
 
 const YMD_FORMAT = 'YYYY-MM-DD';
@@ -66,15 +56,11 @@ export default function Scoreboard() {
 	);
 
 	const onPrev = useCallback(() => {
-		setCurrentDay(
-			currentDayJs.add(-1 * getNumDaysShowing(), 'day').format(YMD_FORMAT),
-		);
+		setCurrentDay(currentDayJs.add(-1 * getNumDaysShowing(), 'day').format(YMD_FORMAT));
 	}, [currentDayJs]);
 	const onNext = useCallback(() => {
 		// window.matchMedia("(orientation: portrait)");
-		setCurrentDay(
-			currentDayJs.add(getNumDaysShowing(), 'day').format(YMD_FORMAT),
-		);
+		setCurrentDay(currentDayJs.add(getNumDaysShowing(), 'day').format(YMD_FORMAT));
 	}, [currentDayJs]);
 
 	return (

@@ -65,17 +65,11 @@ export const PrettyTable = <T extends { id: string }>({
 		if (sortByColumnDef == null) {
 			return data;
 		}
-		return orderBy(
-			data,
-			(d) => sortByColumnDef.accessor(d).value ?? 0,
-			sortDir,
-		);
+		return orderBy(data, (d) => sortByColumnDef.accessor(d).value ?? 0, sortDir);
 	}, [data, sortByColumnDef, sortDir]);
 
 	return (
-		<table
-			className={classNames('min-w-full divide-y divide-gray-200', className)}
-		>
+		<table className={classNames('min-w-full divide-y divide-gray-200', className)}>
 			<thead>
 				<tr className="divide-x divide-base-300">
 					{columnsWithExtras.map((c) => (
@@ -114,21 +108,14 @@ export const PrettyTable = <T extends { id: string }>({
 									<ColumnValue row={row} columnDef={summaryColumn} />
 								</td>
 							</tr>
-							<tr
-								key={row.id}
-								style={trStyle}
-								className="divide-x divide-base-300"
-							>
+							<tr key={row.id} style={trStyle} className="divide-x divide-base-300">
 								{columns.map((c) => {
 									return (
 										<td
-											className={classNames(
-												'whitespace-nowrap py-1 px-1 text-right  md:py-2',
-												{
-													'font-bold': c.isFrozen,
-													'hidden md:table-cell': c.isHiddenWhenSmall,
-												},
-											)}
+											className={classNames('whitespace-nowrap py-1 px-1 text-right  md:py-2', {
+												'font-bold': c.isFrozen,
+												'hidden md:table-cell': c.isHiddenWhenSmall,
+											})}
 											key={`${row.id}-${c.header}`}
 										>
 											<ColumnValue row={row} columnDef={c} />

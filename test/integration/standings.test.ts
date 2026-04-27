@@ -65,9 +65,7 @@ describe.skipIf(!!process.env.CI)('fetchStandings', () => {
 		const confIndex = standingsSet.headers.indexOf('Conference');
 		expect(confIndex).toBeGreaterThanOrEqual(0);
 
-		const conferences = new Set(
-			standingsSet.rowSet.map((row) => row[confIndex]),
-		);
+		const conferences = new Set(standingsSet.rowSet.map((row) => row[confIndex]));
 		expect(conferences.has('East')).toBe(true);
 		expect(conferences.has('West')).toBe(true);
 	});

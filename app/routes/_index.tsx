@@ -1,6 +1,5 @@
-import type { LoaderFunction } from '@remix-run/node';
-import { redirect } from '@remix-run/node';
-import { Link } from '@remix-run/react';
+import type { LoaderFunction } from 'react-router';
+import { redirect, Link } from 'react-router';
 import dayjs from 'dayjs';
 
 export const loader: LoaderFunction = async ({ request }) => {

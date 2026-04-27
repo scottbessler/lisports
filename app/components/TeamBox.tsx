@@ -6,17 +6,11 @@ import { PrettyShooting } from './PrettyShooting';
 import type { ColumnDef } from './PrettyTable';
 import { PrettyTable } from './PrettyTable';
 
-import { Link } from '@remix-run/react';
+import { Link } from 'react-router';
 import { PLAYER_FIELD_DESCRIPTIONS } from '../models/PlayerStats';
 import { BadGte, BadLte, GoodGte, Highlighter } from './Stat';
 
-export const TeamBox = ({
-	team,
-	otherTeam,
-}: {
-	team: BoxScoreTeam;
-	otherTeam: BoxScoreTeam;
-}) => {
+export const TeamBox = ({ team, otherTeam }: { team: BoxScoreTeam; otherTeam: BoxScoreTeam }) => {
 	const isWinner = team.score > otherTeam.score;
 
 	const columns = useMemo<ColumnDef<Player & { id: string }>[]>(
@@ -64,11 +58,7 @@ export const TeamBox = ({
 				isHiddenWhenSmall: true,
 				description: 'Player Impact Estimate',
 				accessor: (p) => {
-					const value = pie(
-						p.statistics,
-						team.statistics,
-						otherTeam.statistics,
-					);
+					const value = pie(p.statistics, team.statistics, otherTeam.statistics);
 					return GoodGte(value, 10);
 				},
 				sortDescFirst: true,
@@ -207,9 +197,7 @@ export const TeamBox = ({
 
 	const data = useMemo(
 		() =>
-			team.players
-				.filter((p) => p.played === '1')
-				.map((p) => ({ ...p, id: String(p.personId) })),
+			team.players.filter((p) => p.played === '1').map((p) => ({ ...p, id: String(p.personId) })),
 		[team.players],
 	);
 

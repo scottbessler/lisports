@@ -36,8 +36,7 @@ export const usageRate = (
 ) => {
 	return Math.round(
 		(100 *
-			((fieldGoalsAttempted + 0.44 * freeThrowsAttempted + turnovers) *
-				(teamStats.minutes / 5))) /
+			((fieldGoalsAttempted + 0.44 * freeThrowsAttempted + turnovers) * (teamStats.minutes / 5))) /
 			(minutes *
 				(teamStats.fieldGoalsAttempted +
 					0.44 * teamStats.freeThrowsAttempted +
@@ -100,8 +99,7 @@ export const pie = (
 					(teamStats.freeThrowsAttempted + otherTeamStats.freeThrowsAttempted) +
 					(teamStats.reboundsDefensive + otherTeamStats.reboundsDefensive) +
 					(teamStats.reboundsOffensive + otherTeamStats.reboundsOffensive) / 2 +
-					(teamStats.assists + otherTeamStats.assists) /
-						2 /* avoid double counting */ +
+					(teamStats.assists + otherTeamStats.assists) / 2 /* avoid double counting */ +
 					(teamStats.steals + otherTeamStats.steals) +
 					(teamStats.blocks + otherTeamStats.blocks) / 2 -
 					(teamStats.blocksReceived + otherTeamStats.blocksReceived) / 2 -
