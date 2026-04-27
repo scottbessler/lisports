@@ -1060,12 +1060,17 @@ export async function fetchPlayerStatsESPN(
 
 	const resultSets: ResultSet[] = result.categories.map((cat) => {
 		const headers = ['Season', ...cat.labels];
-		const rowSet = cat.statistics.map((s) => [
+		const parseStats = (stats: string[]) =>
+			stats.map((v) => {
+				const n = Number(v);
+				return Number.isNaN(n) ? v : n;
+			});
+		const rowSet: (string | number)[][] = cat.statistics.map((s) => [
 			s.season.displayName,
-			...s.stats,
+			...parseStats(s.stats),
 		]);
 		if (cat.totals.length > 0) {
-			rowSet.push(['Career', ...cat.totals]);
+			rowSet.push(['Career', ...parseStats(cat.totals)]);
 		}
 		return {
 			name: cat.displayName,
@@ -1092,5 +1097,78 @@ export async function fetchPlayerStatsESPN(
 			LastNGames: 0,
 		},
 		resultSets,
+	};
+}
+
+// --- ESPN Player Game Log ---
+
+interface ESPNGameLogResponse {
+	labels: string[];
+	events: Record<
+		string,
+		{
+			id: string;
+			atVs: string;
+			gameDate: string;
+			score: string;
+			homeTeamScore: number;
+			awayTeamScore: number;
+			gameResult: string;
+			opponent: { abbreviation: string; displayName: string };
+		}
+	>;
+	seasonTypes: {
+		displayName: string;
+		categories: {
+			events?: { eventId: string; stats: string[] }[];
+		}[];
+	}[];
+}
+
+export interface GameLogEntry {
+	date: string;
+	atVs: string;
+	opponent: string;
+	result: string;
+	score: string;
+	stats: string[];
+}
+
+export interface PlayerGameLog {
+	labels: string[];
+	games: GameLogEntry[];
+}
+
+export async function fetchPlayerGameLogESPN(
+	playerId: string,
+	limit = 10,
+): Promise<PlayerGameLog | undefined> {
+	const url = `https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/${playerId}/gamelog`;
+	const result = successOrUndefined<ESPNGameLogResponse>(await getJSON(url));
+	if (!result?.seasonTypes || !result?.events) return undefined;
+
+	const allGames: GameLogEntry[] = [];
+	for (const st of result.seasonTypes) {
+		for (const cat of st.categories) {
+			for (const ev of cat.events ?? []) {
+				const meta = result.events[ev.eventId];
+				if (!meta) continue;
+				allGames.push({
+					date: meta.gameDate,
+					atVs: meta.atVs,
+					opponent: meta.opponent?.abbreviation ?? '',
+					result: meta.gameResult,
+					score: meta.score,
+					stats: ev.stats,
+				});
+			}
+		}
+	}
+
+	allGames.sort((a, b) => b.date.localeCompare(a.date));
+
+	return {
+		labels: result.labels,
+		games: allGames.slice(0, limit),
 	};
 }

@@ -1,6 +1,8 @@
 import type { PlayerStats } from '../models/PlayerStats';
 import {
 	type ESPNPlayerInfo,
+	type PlayerGameLog,
+	fetchPlayerGameLogESPN,
 	fetchPlayerInfoESPN,
 	fetchPlayerStatsESPN,
 } from './espn.server';
@@ -36,4 +38,20 @@ export async function fetchPlayerInfo(
 		await saveToCache(cacheKey, info);
 	}
 	return info;
+}
+
+export async function fetchPlayerGameLog(
+	playerId: string,
+): Promise<PlayerGameLog | undefined> {
+	const cacheKey = `gamelog:${playerId}`;
+	const cacheResult = await fetchFromCache(cacheKey);
+	if (cacheResult != null) {
+		return cacheResult as unknown as PlayerGameLog;
+	}
+
+	const log = await fetchPlayerGameLogESPN(playerId);
+	if (log) {
+		await saveToCache(cacheKey, log);
+	}
+	return log;
 }
