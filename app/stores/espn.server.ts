@@ -1,4 +1,4 @@
-import type { Standings } from '../models/PlayerStats';
+import type { PlayerStats, ResultSet, Standings } from '../models/PlayerStats';
 import type {
 	BoxScoreGame,
 	BoxScoreTeam,
@@ -8,6 +8,7 @@ import type {
 } from '../models/boxScore';
 import type { StandingsTeam } from '../models/standings';
 import type { Game, Leaders, Period, Team } from '../models/todaysScoreboard';
+import { getJSON, successOrUndefined } from '../reqs';
 
 // ESPN abbreviation → { nbaTricode, nbaTeamId, city, name }
 const ESPN_TO_NBA_TEAM: Record<
@@ -991,5 +992,105 @@ export async function fetchStandingsESPN(): Promise<Standings> {
 				rowSet,
 			},
 		],
+	};
+}
+
+// --- ESPN Player Stats ---
+
+interface ESPNPlayerStatsResponse {
+	categories: ESPNStatsCategory[];
+}
+
+interface ESPNStatsCategory {
+	name: string;
+	displayName: string;
+	labels: string[];
+	names: string[];
+	statistics: ESPNSeasonStats[];
+	totals: string[];
+}
+
+interface ESPNSeasonStats {
+	season: { year: number; displayName: string };
+	stats: string[];
+}
+
+interface ESPNAthleteResponse {
+	athlete: {
+		displayName: string;
+		jersey?: string;
+		headshot?: { href: string };
+		position?: { displayName: string; abbreviation: string };
+		team?: { displayName: string; abbreviation: string };
+	};
+}
+
+export interface ESPNPlayerInfo {
+	name: string;
+	headshot?: string;
+	jersey?: string;
+	position?: string;
+	team?: string;
+}
+
+export async function fetchPlayerInfoESPN(
+	playerId: string,
+): Promise<ESPNPlayerInfo | undefined> {
+	const url = `https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/${playerId}`;
+	const result = successOrUndefined<ESPNAthleteResponse>(await getJSON(url));
+	if (!result?.athlete) return undefined;
+	const a = result.athlete;
+	return {
+		name: a.displayName,
+		headshot: a.headshot?.href,
+		jersey: a.jersey,
+		position: a.position?.displayName,
+		team: a.team?.displayName,
+	};
+}
+
+export async function fetchPlayerStatsESPN(
+	playerId: string,
+): Promise<PlayerStats | undefined> {
+	const url = `https://site.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/${playerId}/stats`;
+	const result = successOrUndefined<ESPNPlayerStatsResponse>(
+		await getJSON(url),
+	);
+	if (!result?.categories) return undefined;
+
+	const resultSets: ResultSet[] = result.categories.map((cat) => {
+		const headers = ['Season', ...cat.labels];
+		const rowSet = cat.statistics.map((s) => [
+			s.season.displayName,
+			...s.stats,
+		]);
+		if (cat.totals.length > 0) {
+			rowSet.push(['Career', ...cat.totals]);
+		}
+		return {
+			name: cat.displayName,
+			headers,
+			rowSet,
+		};
+	});
+
+	return {
+		resource: 'espn-player-stats',
+		parameters: {
+			PerMode: 'PerGame',
+			PlusMinus: 'N',
+			PaceAdjust: 'N',
+			Rank: 'N',
+			LeagueID: '00',
+			Season: '',
+			SeasonType: 'Regular Season',
+			PORound: 0,
+			PlayerID: Number.parseInt(playerId, 10) || 0,
+			Month: 0,
+			OpponentTeamID: 0,
+			Period: 0,
+			LastNGames: 0,
+		},
+		resultSets,
 	};
 }
