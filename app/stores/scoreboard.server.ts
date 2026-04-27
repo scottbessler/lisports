@@ -7,7 +7,7 @@ import {
 	successOrThrow,
 	successOrUndefined,
 } from '../reqs';
-import { fetchDaysGamesESPN } from './espn.server';
+import { fetchDaysGamesESPN, fetchGameESPN } from './espn.server';
 import { fetchFromCache, saveToCache } from './simpleCache.server';
 
 let todayData: { data: TodaysScoreboard; fetchedAt: number } | undefined =
@@ -94,16 +94,30 @@ export const fetchGame = async (id: string) => {
 		return (cacheResult as unknown as BoxScore).game;
 	}
 
+	// Try ESPN first (works from datacenter IPs, consistent with ESPN scoreboard IDs)
+	try {
+		const espnResult = await fetchGameESPN(id);
+		if (espnResult) {
+			if (espnResult.gameStatus === 3) {
+				await saveToCache(cacheKey, { game: espnResult });
+			}
+			return espnResult;
+		}
+	} catch (err) {
+		console.warn('ESPN box score failed, trying NBA CDN:', err);
+	}
+
+	// Fall back to NBA CDN with a timeout to avoid hanging forever
 	const result = successOrUndefined<BoxScore>(
-		await getJSON(
+		await getJSONWithTimeout(
 			`https://cdn.nba.com/static/json/liveData/boxscore/boxscore_${id}.json?x=${Math.random()}`,
+			8000,
 		),
 	);
 	if (!result) {
 		return undefined;
 	}
 
-	// for now only cache completed games
 	if (result.game.gameStatus === 3) {
 		await saveToCache(cacheKey, result);
 	}

@@ -13,7 +13,6 @@ export function TeamGameDetails({
 }) {
 	const team = getTeam(game, isHome);
 	const otherTeam = getTeam(game, !isHome);
-	console.log(game);
 	return (
 		<div className="bg-base-100 min-w-full p-2 md:min-w-[700px] md:max-w-[700px]">
 			<h1 className="flex flex-row items-center gap-2">
