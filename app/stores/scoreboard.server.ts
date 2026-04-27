@@ -47,44 +47,44 @@ export const fetchDaysGames = async (day: string) => {
 		return (cacheResult as unknown as TodaysScoreboard).scoreboard.games;
 	}
 
-	// Try stats.nba.com first with a short timeout, fall back to ESPN
+	// Try ESPN first, fall back to stats.nba.com
 	try {
-		const result = successOrThrow<TodaysScoreboard>(
-			await getJSONWithTimeout(
-				`https://stats.nba.com/stats/scoreboardv3?GameDate=${day}&LeagueID=00`,
-				5000,
-				NBAStatsRequestInit,
-			),
-		);
+		const games = await fetchDaysGamesESPN(day);
 
-		if (result.scoreboard.games.every((g) => g.gameStatus === 3)) {
-			await saveToCache(cacheKey, result);
+		if (games.every((g) => g.gameStatus === 3)) {
+			const wrapped: TodaysScoreboard = {
+				meta: {
+					version: 1,
+					request: 'espn',
+					time: new Date().toISOString(),
+					code: 200,
+				},
+				scoreboard: {
+					gameDate: day,
+					leagueId: '00',
+					leagueName: 'National Basketball Association',
+					games,
+				},
+			};
+			await saveToCache(cacheKey, wrapped);
 		}
-		return result.scoreboard.games;
+		return games;
 	} catch (err) {
-		console.warn('stats.nba.com scoreboard failed, falling back to ESPN:', err);
+		console.warn('ESPN scoreboard failed, falling back to stats.nba.com:', err);
 	}
 
-	const games = await fetchDaysGamesESPN(day);
+	const result = successOrThrow<TodaysScoreboard>(
+		await getJSONWithTimeout(
+			`https://stats.nba.com/stats/scoreboardv3?GameDate=${day}&LeagueID=00`,
+			5000,
+			NBAStatsRequestInit,
+		),
+	);
 
-	if (games.every((g) => g.gameStatus === 3)) {
-		const wrapped: TodaysScoreboard = {
-			meta: {
-				version: 1,
-				request: 'espn-fallback',
-				time: new Date().toISOString(),
-				code: 200,
-			},
-			scoreboard: {
-				gameDate: day,
-				leagueId: '00',
-				leagueName: 'National Basketball Association',
-				games,
-			},
-		};
-		await saveToCache(cacheKey, wrapped);
+	if (result.scoreboard.games.every((g) => g.gameStatus === 3)) {
+		await saveToCache(cacheKey, result);
 	}
-	return games;
+	return result.scoreboard.games;
 };
 
 export const fetchGame = async (id: string) => {
