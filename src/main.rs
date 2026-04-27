@@ -355,12 +355,14 @@ fn layout(title: &str, body: &str) -> String {
 <body>
   {}
   {}
+  <script>{}</script>
 </body>
 </html>"#,
         escape(title),
         CSS,
+        nav(),
         body,
-        nav()
+        TABLE_SORT_SCRIPT
     )
 }
 
@@ -381,7 +383,12 @@ fn scoreboard_page(day: &str, games: &[Value], selected_game: Option<&Value>) ->
     if games.is_empty() {
         html.push_str(r#"<section class="center"><h1>No Games Scheduled</h1></section>"#);
     } else {
-        html.push_str(r#"<section class="scoreboard">"#);
+        let scoreboard_class = if selected_game.is_some() {
+            "scoreboard has-game"
+        } else {
+            "scoreboard"
+        };
+        html.push_str(&format!(r#"<section class="{scoreboard_class}">"#));
         html.push_str(r#"<div class="game-list">"#);
         let all_completed = games.iter().all(|g| i64_at(g, &["gameStatus"]) == Some(3));
         for game in games {
@@ -537,7 +544,7 @@ fn team_box(team: &Value, other_team: &Value) -> String {
     let mut players = array_at(team, &["players"]);
     players.retain(|p| str_at(p, &["played"]).as_deref() == Some("1"));
     let mut html = String::from(
-        r#"<div class="table-wrap"><table><thead><tr><th>Name</th><th>MIN</th><th>PTS</th><th>RB</th><th>AS</th><th>PIE</th><th>FG</th><th>3P</th><th>FT</th><th>PPS</th><th>TO</th><th>ST</th><th>BK</th><th>PF</th><th>+/-</th><th>USG</th></tr></thead><tbody>"#,
+        r#"<div class="table-wrap"><table class="sortable"><thead><tr><th>Name</th><th>MIN</th><th>PTS</th><th>RB</th><th>AS</th><th>PIE</th><th>FG</th><th>3P</th><th>FT</th><th>PPS</th><th>TO</th><th>ST</th><th>BK</th><th>PF</th><th>+/-</th><th>USG</th></tr></thead><tbody>"#,
     );
     for p in players {
         let s = p.get("statistics").unwrap_or(&Value::Null);
@@ -623,7 +630,7 @@ fn standings_page(standings: &Value) -> String {
 
 fn standings_table(title: &str, headers: &[Value], rows: &[Value]) -> String {
     let mut html = format!(
-        r#"<article class="panel"><h1>{}</h1><div class="table-wrap"><table><thead><tr><th>#</th><th>Team</th><th>W</th><th>L</th><th>%</th><th>GB</th><th>PPG</th><th>OPPG</th><th>DIFF</th><th>HM</th><th>RD</th><th>L10</th><th>STR</th></tr></thead><tbody>"#,
+        r#"<article class="panel"><h1>{}</h1><div class="table-wrap"><table class="sortable"><thead><tr><th>#</th><th>Team</th><th>W</th><th>L</th><th>%</th><th>GB</th><th>PPG</th><th>OPPG</th><th>DIFF</th><th>HM</th><th>RD</th><th>L10</th><th>STR</th></tr></thead><tbody>"#,
         escape(title)
     );
     for row in rows {
@@ -680,7 +687,7 @@ fn player_page(stats: &Value) -> String {
         let headers = array_at(&rs, &["headers"]);
         let rows = array_at(&rs, &["rowSet"]);
         html.push_str(&format!(
-            r#"<article class="panel"><h1>{}</h1><div class="table-wrap"><table><thead><tr>"#,
+            r#"<article class="panel"><h1>{}</h1><div class="table-wrap"><table class="sortable"><thead><tr>"#,
             escape(&title)
         ));
         for h in &headers {
@@ -1331,29 +1338,104 @@ fn escape_attr(input: &str) -> String {
     escape(input).replace('"', "&quot;")
 }
 
+const TABLE_SORT_SCRIPT: &str = r#"
+(() => {
+  const valueFor = (cell) => {
+    const text = (cell?.innerText || "").trim();
+    if (!text || text === "-") return { kind: "empty", value: "" };
+    const record = text.match(/^(\d+)-(\d+)$/);
+    if (record) {
+      const wins = Number(record[1]);
+      const losses = Number(record[2]);
+      return { kind: "number", value: wins / Math.max(1, wins + losses) };
+    }
+    const streak = text.match(/^[WL](-?\d+)$/i);
+    if (streak) {
+      const amount = Number(streak[1]);
+      return { kind: "number", value: text[0].toUpperCase() === "W" ? amount : -amount };
+    }
+    const numeric = Number(text.replace(/[%,$]/g, ""));
+    if (Number.isFinite(numeric) && /^[-+]?[\d,.]+%?$/.test(text)) {
+      return { kind: "number", value: numeric };
+    }
+    return { kind: "text", value: text.toLocaleLowerCase() };
+  };
+
+  document.querySelectorAll("table.sortable").forEach((table) => {
+    const headers = Array.from(table.tHead?.rows?.[0]?.cells || []);
+    const body = table.tBodies[0];
+    if (!body) return;
+
+    headers.forEach((header, index) => {
+      header.tabIndex = 0;
+      header.setAttribute("role", "button");
+      header.setAttribute("aria-sort", "none");
+
+      const sort = () => {
+        const nextDir = header.dataset.sortDir === "asc" ? "desc" : "asc";
+        headers.forEach((h) => {
+          h.dataset.sortDir = "";
+          h.setAttribute("aria-sort", "none");
+        });
+        header.dataset.sortDir = nextDir;
+        header.setAttribute("aria-sort", nextDir === "asc" ? "ascending" : "descending");
+
+        const rows = Array.from(body.rows);
+        rows.sort((a, b) => {
+          const left = valueFor(a.cells[index]);
+          const right = valueFor(b.cells[index]);
+          if (left.kind === "empty" && right.kind !== "empty") return 1;
+          if (right.kind === "empty" && left.kind !== "empty") return -1;
+          const result = left.kind === "number" && right.kind === "number"
+            ? left.value - right.value
+            : String(left.value).localeCompare(String(right.value), undefined, { numeric: true });
+          return nextDir === "asc" ? result : -result;
+        });
+        rows.forEach((row) => body.appendChild(row));
+      };
+
+      header.addEventListener("click", sort);
+      header.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          sort();
+        }
+      });
+    });
+  });
+})();
+"#;
+
 const CSS: &str = r#"
 :root { color-scheme: light; --bg:#e7ebee; --panel:#fff; --ink:#171b21; --muted:#5d6672; --line:#d5dbe1; --accent:#15181d; --good:#0c7a43; --bad:#b42318; }
 * { box-sizing: border-box; }
 body { margin:0; min-height:100vh; display:flex; flex-direction:column; background:var(--bg); color:var(--ink); font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 a { color:inherit; }
-.page { flex:1; padding:14px; padding-bottom:84px; }
-.nav { position:fixed; bottom:0; left:0; right:0; z-index:10; display:flex; gap:8px; align-items:center; justify-content:center; padding:10px; border-top:1px solid var(--line); background:rgba(255,255,255,.9); backdrop-filter: blur(10px); }
+.page { flex:1; padding:14px; }
+.nav { position:sticky; top:0; z-index:10; display:flex; gap:8px; align-items:center; justify-content:center; padding:10px; border-bottom:1px solid var(--line); background:rgba(255,255,255,.9); backdrop-filter: blur(10px); }
 .nav a, .button { border:1px solid transparent; border-radius:6px; padding:7px 10px; text-decoration:none; background:#f4f6f7; white-space:nowrap; }
 .nav a:hover, .button:hover, .button.active { background:var(--accent); color:white; }
 .brand { font-size:20px; padding:0 8px; }
 .date-nav { display:flex; gap:6px; justify-content:center; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
-.scoreboard { display:flex; gap:14px; align-items:flex-start; }
+.scoreboard { display:flex; gap:14px; align-items:flex-start; width:100%; }
 .game-list { display:flex; flex-wrap:wrap; gap:12px; align-content:flex-start; }
+.scoreboard.has-game { flex-wrap:nowrap; }
+.scoreboard.has-game .game-list { flex:0 0 420px; max-width:420px; flex-direction:column; flex-wrap:nowrap; }
+.scoreboard.has-game .game-link, .scoreboard.has-game .game-card { width:100%; }
 .game-link { text-decoration:none; }
 .game-card, table { border-collapse:collapse; background:var(--panel); }
-.game-card { min-width:290px; box-shadow:0 1px 6px rgba(0,0,0,.12); }
+.game-card { width:404px; max-width:100%; box-shadow:0 1px 6px rgba(0,0,0,.12); table-layout:auto; }
 th, td { padding:6px 8px; border-bottom:1px solid var(--line); text-align:right; }
 th { text-align:left; font-weight:700; }
 thead th { font-size:12px; color:var(--muted); }
+table.sortable thead th { cursor:pointer; user-select:none; white-space:nowrap; }
+table.sortable thead th::after { content:""; display:inline-block; width:1em; color:var(--muted); }
+table.sortable thead th[aria-sort="ascending"]::after { content:"▲"; font-size:10px; }
+table.sortable thead th[aria-sort="descending"]::after { content:"▼"; font-size:10px; }
 .status { text-align:right; color:var(--muted); }
 .mini-logo { width:22px; height:22px; vertical-align:middle; margin-right:5px; }
 .logo { width:28px; height:28px; vertical-align:middle; margin-right:8px; }
-.details { display:flex; flex-direction:column; gap:12px; min-width:0; flex:1; }
+.details { display:flex; flex-direction:column; gap:12px; min-width:0; flex:1 1 auto; }
 .team-details, .panel { background:var(--panel); padding:12px; box-shadow:0 1px 6px rgba(0,0,0,.12); }
 .team-details h1 { margin:0 0 10px; font-size:22px; display:flex; align-items:center; gap:4px; }
 .table-wrap { overflow:auto; max-width:100%; }
@@ -1366,7 +1448,7 @@ thead th { font-size:12px; color:var(--muted); }
 .center { min-height:60vh; display:grid; place-items:center; text-align:center; padding:24px; }
 @media (max-width: 900px) {
   .scoreboard { flex-direction:column; }
-  .game-list { width:100%; }
+  .scoreboard.has-game .game-list, .game-list { width:100%; max-width:none; flex-basis:auto; }
   .game-link, .game-card { width:100%; }
   .nav { overflow:auto; justify-content:flex-start; }
   .brand { flex:0 0 auto; }
