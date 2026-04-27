@@ -504,18 +504,29 @@ export async function fetchStandingsESPN(): Promise<Standings> {
 
 	for (const conf of data.children) {
 		const confName = conf.name.includes('East') ? 'East' : 'West';
+		let confRank = 0;
 
-		for (const entry of conf.standings.entries) {
+		const sortedEntries = [...conf.standings.entries].sort((a, b) => {
+			const seedA = a.stats.find((s) => s.name === 'playoffSeed')?.value ?? 999;
+			const seedB = b.stats.find((s) => s.name === 'playoffSeed')?.value ?? 999;
+			return seedA - seedB;
+		});
+
+		for (const entry of sortedEntries) {
 			rank++;
+			confRank++;
 			const espnAbbrev = entry.team.abbreviation;
 			const mapping = ESPN_TO_NBA_TEAM[espnAbbrev];
 			const stats = entry.stats;
 
 			const wins = getStatValue(stats, 'wins') as number;
 			const losses = getStatValue(stats, 'losses') as number;
-			const winPct = getStatValue(stats, 'winPercent') as number;
-			const ppg = getStatValue(stats, 'avgPointsFor') as number;
-			const oppPpg = getStatValue(stats, 'avgPointsAgainst') as number;
+			const winPctRaw = getStatValue(stats, 'winPercent') as number;
+			const winPct = +winPctRaw.toFixed(3);
+			const ppgRaw = getStatValue(stats, 'avgPointsFor') as number;
+			const ppg = +ppgRaw.toFixed(1);
+			const oppPpgRaw = getStatValue(stats, 'avgPointsAgainst') as number;
+			const oppPpg = +oppPpgRaw.toFixed(1);
 			const diffPpg = +(ppg - oppPpg).toFixed(1);
 			const gb = getStatValue(stats, 'gamesBehind') as number;
 			const streak = getStatValue(stats, 'streak') as number;
@@ -552,7 +563,7 @@ export async function fetchStandingsESPN(): Promise<Standings> {
 					case 'ConferenceRecord':
 						return vsConf;
 					case 'PlayoffRank':
-						return playoffSeed || rank;
+						return playoffSeed || confRank;
 					case 'ClinchIndicator':
 						return '';
 					case 'Division':

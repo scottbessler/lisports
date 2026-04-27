@@ -12,22 +12,22 @@ export async function fetchStandings(): Promise<Standings> {
 		return cacheResult as unknown as PlayerStats;
 	}
 
-	// Try stats.nba.com first with a short timeout, fall back to ESPN
+	// Try ESPN first, fall back to stats.nba.com
 	try {
-		const url =
-			'https://stats.nba.com/stats/leaguestandingsv3?LeagueID=00&Season=2024-25&SeasonType=Regular%20Season';
-
-		const result = successOrThrow<PlayerStats>(
-			await getJSONWithTimeout(url, 5000, NBAStatsRequestInit),
-		);
-
+		const result = await fetchStandingsESPN();
 		await saveToCache(cacheKey, result);
 		return result;
 	} catch (err) {
-		console.warn('stats.nba.com standings failed, falling back to ESPN:', err);
+		console.warn('ESPN standings failed, falling back to stats.nba.com:', err);
 	}
 
-	const result = await fetchStandingsESPN();
+	const url =
+		'https://stats.nba.com/stats/leaguestandingsv3?LeagueID=00&Season=2024-25&SeasonType=Regular%20Season';
+
+	const result = successOrThrow<PlayerStats>(
+		await getJSONWithTimeout(url, 5000, NBAStatsRequestInit),
+	);
+
 	await saveToCache(cacheKey, result);
 	return result;
 }
