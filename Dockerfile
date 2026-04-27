@@ -10,7 +10,7 @@ FROM base as deps
 WORKDIR /myapp
 
 RUN apt-get update -qq && apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
-ADD package.json bun.lockb ./
+ADD package.json bun.lock ./
 RUN bun install
 
 # Setup production node_modules
@@ -19,7 +19,7 @@ FROM base as production-deps
 WORKDIR /myapp
 
 RUN apt-get update -qq && apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
-ADD package.json bun.lockb ./
+ADD package.json bun.lock ./
 RUN bun install --production
 
 # Build the app
