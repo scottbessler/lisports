@@ -16,6 +16,5 @@ WORKDIR /app
 
 COPY --from=build /app/target/release/lisports /app/lisports
 COPY public ./public
-COPY start.sh ./start.sh
 
-ENTRYPOINT ["./start.sh"]
+ENTRYPOINT ["/app/lisports"]

@@ -41,4 +41,4 @@ cargo check
 
 ## Deployment
 
-The Docker image builds the Rust binary and starts it with `./start.sh`. Fly mounts persistent cache data at `/data`, which matches the production `DATA_PATH`.
+The Docker image builds the Rust binary and starts `/app/lisports` directly. Fly mounts persistent cache data at `/data`, which matches the production `DATA_PATH`.
