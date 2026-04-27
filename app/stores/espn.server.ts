@@ -1,4 +1,11 @@
 import type { Standings } from '../models/PlayerStats';
+import type {
+	BoxScoreGame,
+	BoxScoreTeam,
+	Player,
+	Statistics,
+	TeamStatistics,
+} from '../models/boxScore';
 import type { StandingsTeam } from '../models/standings';
 import type { Game, Leaders, Period, Team } from '../models/todaysScoreboard';
 
@@ -369,6 +376,390 @@ export async function fetchDaysGamesESPN(day: string): Promise<Game[]> {
 			pbOdds: { team: null, odds: 0, suspended: 0 },
 		};
 	});
+}
+
+// ─── ESPN Box Score (Summary) ────────────────────────────────────────
+
+interface ESPNSummaryResponse {
+	boxscore: {
+		teams: {
+			team: { id: string; abbreviation: string; displayName: string };
+			statistics: { name: string; displayValue: string }[];
+		}[];
+		players: {
+			team: { id: string; abbreviation: string };
+			statistics: {
+				keys: string[];
+				athletes: {
+					athlete: {
+						id: string;
+						displayName: string;
+						jersey: string;
+						position?: { abbreviation: string };
+					};
+					stats: string[];
+					starter: boolean;
+					didNotPlay: boolean;
+					reason?: string;
+				}[];
+			}[];
+		}[];
+	};
+	gameInfo: {
+		venue: {
+			id: string;
+			fullName: string;
+			address: { city: string; state: string; country?: string };
+		};
+		attendance: number;
+		officials: {
+			fullName: string;
+			order: number;
+		}[];
+	};
+	header: {
+		id: string;
+		competitions: {
+			date: string;
+			competitors: {
+				homeAway: 'home' | 'away';
+				team: { id: string; abbreviation: string };
+				score: string;
+				linescores?: { displayValue: string }[];
+				record?: { type: string; summary: string }[];
+				order: number;
+			}[];
+			status: ESPNStatus;
+		}[];
+	};
+}
+
+function parseMadeAttempted(val: string): [number, number] {
+	const parts = val.split('-');
+	return [Number(parts[0]) || 0, Number(parts[1]) || 0];
+}
+
+function pct(made: number, attempted: number): number {
+	return attempted > 0 ? Math.round((made / attempted) * 1000) / 10 : 0;
+}
+
+function espnPlayerStatsToStatistics(
+	keys: string[],
+	stats: string[],
+): Statistics {
+	const get = (key: string): string => {
+		const idx = keys.indexOf(key);
+		return idx >= 0 ? stats[idx] : '0';
+	};
+
+	const minutes = get('minutes');
+	const minuteNum = Number.parseInt(minutes, 10) || 0;
+	const [fgm, fga] = parseMadeAttempted(
+		get('fieldGoalsMade-fieldGoalsAttempted'),
+	);
+	const [tpm, tpa] = parseMadeAttempted(
+		get('threePointFieldGoalsMade-threePointFieldGoalsAttempted'),
+	);
+	const [ftm, fta] = parseMadeAttempted(
+		get('freeThrowsMade-freeThrowsAttempted'),
+	);
+	const reb = Number(get('rebounds')) || 0;
+	const oreb = Number(get('offensiveRebounds')) || 0;
+	const dreb = Number(get('defensiveRebounds')) || 0;
+	const plusMinus = Number.parseInt(get('plusMinus').replace('+', ''), 10) || 0;
+	const points = Number(get('points')) || 0;
+
+	return {
+		assists: Number(get('assists')) || 0,
+		blocks: Number(get('blocks')) || 0,
+		blocksReceived: 0,
+		fieldGoalsAttempted: fga,
+		fieldGoalsMade: fgm,
+		fieldGoalsPercentage: pct(fgm, fga),
+		foulsOffensive: 0,
+		foulsDrawn: 0,
+		foulsPersonal: Number(get('fouls')) || 0,
+		foulsTechnical: 0,
+		freeThrowsAttempted: fta,
+		freeThrowsMade: ftm,
+		freeThrowsPercentage: pct(ftm, fta),
+		minus: plusMinus < 0 ? Math.abs(plusMinus) : 0,
+		minutes: `${minutes}:00`,
+		minutesCalculated: `PT${minuteNum}M`,
+		plus: plusMinus > 0 ? plusMinus : 0,
+		plusMinusPoints: plusMinus,
+		points,
+		pointsFastBreak: 0,
+		pointsInThePaint: 0,
+		pointsSecondChance: 0,
+		reboundsDefensive: dreb,
+		reboundsOffensive: oreb,
+		reboundsTotal: reb,
+		steals: Number(get('steals')) || 0,
+		threePointersAttempted: tpa,
+		threePointersMade: tpm,
+		threePointersPercentage: pct(tpm, tpa),
+		turnovers: Number(get('turnovers')) || 0,
+		twoPointersAttempted: fga - tpa,
+		twoPointersMade: fgm - tpm,
+		twoPointersPercentage: pct(fgm - tpm, fga - tpa),
+	};
+}
+
+function getTeamStatNum(
+	stats: { name: string; displayValue: string }[],
+	name: string,
+): number {
+	const stat = stats.find((s) => s.name === name);
+	if (!stat) return 0;
+	return Number(stat.displayValue) || 0;
+}
+
+function getTeamStatSplit(
+	stats: { name: string; displayValue: string }[],
+	name: string,
+): [number, number] {
+	const stat = stats.find((s) => s.name === name);
+	if (!stat) return [0, 0];
+	return parseMadeAttempted(stat.displayValue);
+}
+
+function espnTeamStatsToTeamStatistics(
+	teamStats: { name: string; displayValue: string }[],
+	teamScore: number,
+	otherScore: number,
+): TeamStatistics {
+	const [fgm, fga] = getTeamStatSplit(
+		teamStats,
+		'fieldGoalsMade-fieldGoalsAttempted',
+	);
+	const [tpm, tpa] = getTeamStatSplit(
+		teamStats,
+		'threePointFieldGoalsMade-threePointFieldGoalsAttempted',
+	);
+	const [ftm, fta] = getTeamStatSplit(
+		teamStats,
+		'freeThrowsMade-freeThrowsAttempted',
+	);
+	const oreb = getTeamStatNum(teamStats, 'offensiveRebounds');
+	const dreb = getTeamStatNum(teamStats, 'defensiveRebounds');
+	const totalReb = getTeamStatNum(teamStats, 'totalRebounds');
+	const turnovers = getTeamStatNum(teamStats, 'turnovers');
+	const fouls = getTeamStatNum(teamStats, 'fouls');
+	const assists = getTeamStatNum(teamStats, 'assists');
+	const steals = getTeamStatNum(teamStats, 'steals');
+	const blocks = getTeamStatNum(teamStats, 'blocks');
+
+	return {
+		assists,
+		assistsTurnoverRatio: turnovers > 0 ? assists / turnovers : 0,
+		benchPoints: 0,
+		biggestLead: getTeamStatNum(teamStats, 'largestLead'),
+		biggestLeadScore: '',
+		biggestScoringRun: 0,
+		biggestScoringRunScore: '',
+		blocks,
+		blocksReceived: 0,
+		fastBreakPointsAttempted: 0,
+		fastBreakPointsMade: 0,
+		fastBreakPointsPercentage: 0,
+		fieldGoalsAttempted: fga,
+		fieldGoalsEffectiveAdjusted: 0,
+		fieldGoalsMade: fgm,
+		fieldGoalsPercentage: pct(fgm, fga),
+		foulsOffensive: 0,
+		foulsDrawn: 0,
+		foulsPersonal: fouls,
+		foulsTeam: 0,
+		foulsTechnical: getTeamStatNum(teamStats, 'technicalFouls'),
+		foulsTeamTechnical: 0,
+		freeThrowsAttempted: fta,
+		freeThrowsMade: ftm,
+		freeThrowsPercentage: pct(ftm, fta),
+		leadChanges: getTeamStatNum(teamStats, 'leadChanges'),
+		minutes: 'PT240M',
+		minutesCalculated: 'PT240M',
+		points: teamScore,
+		pointsAgainst: otherScore,
+		pointsFastBreak: getTeamStatNum(teamStats, 'fastBreakPoints'),
+		pointsFromTurnovers: getTeamStatNum(teamStats, 'turnoverPoints'),
+		pointsInThePaint: getTeamStatNum(teamStats, 'pointsInPaint'),
+		pointsInThePaintAttempted: 0,
+		pointsInThePaintMade: 0,
+		pointsInThePaintPercentage: 0,
+		pointsSecondChance: 0,
+		reboundsDefensive: dreb,
+		reboundsOffensive: oreb,
+		reboundsPersonal: totalReb,
+		reboundsTeam: 0,
+		reboundsTeamDefensive: 0,
+		reboundsTeamOffensive: 0,
+		reboundsTotal: totalReb,
+		secondChancePointsAttempted: 0,
+		secondChancePointsMade: 0,
+		secondChancePointsPercentage: 0,
+		steals,
+		threePointersAttempted: tpa,
+		threePointersMade: tpm,
+		threePointersPercentage: pct(tpm, tpa),
+		timeLeading: '',
+		timesTied: 0,
+		trueShootingAttempts: fga + 0.44 * fta,
+		trueShootingPercentage:
+			fga + 0.44 * fta > 0 ? teamScore / (2 * (fga + 0.44 * fta)) : 0,
+		turnovers,
+		turnoversTeam: getTeamStatNum(teamStats, 'teamTurnovers'),
+		turnoversTotal: getTeamStatNum(teamStats, 'totalTurnovers'),
+		twoPointersAttempted: fga - tpa,
+		twoPointersMade: fgm - tpm,
+		twoPointersPercentage: pct(fgm - tpm, fga - tpa),
+	};
+}
+
+export async function fetchGameESPN(
+	espnEventId: string,
+): Promise<BoxScoreGame | undefined> {
+	const url = `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${espnEventId}`;
+
+	console.log('ESPN: fetching box score for event', espnEventId);
+	const response = await fetch(url);
+	if (!response.ok) {
+		console.warn(`ESPN summary request failed: ${response.status}`);
+		return undefined;
+	}
+
+	const data = (await response.json()) as ESPNSummaryResponse;
+	const comp = data.header.competitions[0];
+	const status = comp.status;
+
+	const homeComp = comp.competitors.find((c) => c.homeAway === 'home');
+	const awayComp = comp.competitors.find((c) => c.homeAway === 'away');
+	if (!homeComp || !awayComp) return undefined;
+
+	const gameStatus = espnStatusToGameStatus(status);
+
+	const buildTeam = (
+		competitor: (typeof comp.competitors)[0],
+		otherCompetitor: (typeof comp.competitors)[0],
+	): BoxScoreTeam => {
+		const espnAbbrev = competitor.team.abbreviation;
+		const mapping = ESPN_TO_NBA_TEAM[espnAbbrev];
+
+		const score = Number.parseInt(competitor.score, 10) || 0;
+		const otherScore = Number.parseInt(otherCompetitor.score, 10) || 0;
+
+		const periods: Period[] = (competitor.linescores ?? []).map((ls, i) => ({
+			period: i + 1,
+			periodType: i < 4 ? 'REGULAR' : 'OVERTIME',
+			score: Number(ls.displayValue) || 0,
+		}));
+
+		const boxTeamData = data.boxscore.teams.find(
+			(t) => t.team.abbreviation === espnAbbrev,
+		);
+		const boxPlayerData = data.boxscore.players.find(
+			(p) => p.team.abbreviation === espnAbbrev,
+		);
+
+		const teamStats = espnTeamStatsToTeamStatistics(
+			boxTeamData?.statistics ?? [],
+			score,
+			otherScore,
+		);
+
+		const players: Player[] = [];
+		let order = 0;
+		if (boxPlayerData) {
+			for (const statGroup of boxPlayerData.statistics) {
+				const keys = statGroup.keys;
+				for (const athlete of statGroup.athletes) {
+					order++;
+					const a = athlete.athlete;
+					const played = !athlete.didNotPlay;
+					players.push({
+						status: played ? 'ACTIVE' : 'INACTIVE',
+						order,
+						personId: Number.parseInt(a.id, 10) || 0,
+						jerseyNum: a.jersey ?? '',
+						position: a.position?.abbreviation,
+						starter: athlete.starter ? '1' : '0',
+						oncourt: '0',
+						played: played ? '1' : '0',
+						statistics: played
+							? espnPlayerStatsToStatistics(keys, athlete.stats)
+							: espnPlayerStatsToStatistics([], []),
+						name: a.displayName,
+						nameI: a.displayName,
+						firstName: a.displayName.split(' ')[0] ?? '',
+						familyName: a.displayName.split(' ').slice(1).join(' '),
+						notPlayingReason: athlete.didNotPlay
+							? (athlete.reason ?? 'DNP')
+							: undefined,
+						notPlayingDescription: athlete.didNotPlay
+							? (athlete.reason ?? 'DNP')
+							: undefined,
+					});
+				}
+			}
+		}
+
+		return {
+			teamId: mapping?.teamId ?? 0,
+			teamName: mapping?.name ?? espnAbbrev,
+			teamCity: mapping?.city ?? '',
+			teamTricode: mapping?.tricode ?? espnAbbrev,
+			score,
+			inBonus: '',
+			timeoutsRemaining: 0,
+			periods,
+			players,
+			statistics: teamStats,
+		};
+	};
+
+	const homeTeam = buildTeam(homeComp, awayComp);
+	const awayTeam = buildTeam(awayComp, homeComp);
+
+	const officials = (data.gameInfo?.officials ?? []).map((o, i) => ({
+		personId: 0,
+		name: o.fullName,
+		nameI: o.fullName,
+		firstName: o.fullName.split(' ')[0] ?? '',
+		familyName: o.fullName.split(' ').slice(1).join(' '),
+		jerseyNum: '',
+		assignment: i === 0 ? 'CREW_CHIEF' : i === 1 ? 'REFEREE' : 'UMPIRE',
+	}));
+
+	const venue = data.gameInfo?.venue;
+
+	return {
+		gameId: espnEventId,
+		gameTimeLocal: comp.date,
+		gameTimeUTC: comp.date,
+		gameTimeHome: comp.date,
+		gameTimeAway: comp.date,
+		gameEt: comp.date,
+		duration: 0,
+		gameCode: '',
+		gameStatusText: status.type.shortDetail ?? status.type.description,
+		gameStatus,
+		regulationPeriods: 4,
+		period: status.period,
+		gameClock: status.displayClock,
+		attendance: data.gameInfo?.attendance ?? 0,
+		sellout: '',
+		arena: {
+			arenaId: venue ? Number(venue.id) || 0 : 0,
+			arenaName: venue?.fullName ?? '',
+			arenaCity: venue?.address?.city ?? '',
+			arenaState: venue?.address?.state ?? '',
+			arenaCountry: venue?.address?.country ?? 'US',
+			arenaTimezone: '',
+		},
+		officials,
+		homeTeam,
+		awayTeam,
+	};
 }
 
 // Standings headers matching the NBA stats.nba.com resultSets format

@@ -1,18 +1,11 @@
-import type { LoaderFunctionArgs, SerializeFrom } from '@remix-run/node';
+import type { LoaderFunctionArgs } from '@remix-run/node';
 import { redirect } from '@remix-run/node';
 import { json } from '@remix-run/node';
-import {
-	Link,
-	Outlet,
-	useLoaderData,
-	useParams,
-	useRouteLoaderData,
-} from '@remix-run/react';
+import { Link, Outlet, useLoaderData, useParams } from '@remix-run/react';
 import classNames from 'classnames';
 
 import { GameSummary } from '../components/GameSummary';
 import { fetchDaysGames } from '../stores/scoreboard.server';
-import type { loader as todayLoader } from './nba.scoreboard';
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 	const day = params.day;
@@ -25,16 +18,11 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 };
 
 export default function ScoreboardDay() {
-	const { day } = useParams();
 	const data = useLoaderData<typeof loader>();
-	const { todaysScoreboard } = useRouteLoaderData(
-		'routes/nba.scoreboard',
-	) as SerializeFrom<typeof todayLoader>;
 	const params = useParams();
 	const hasSelectedGame = params.gameId != null;
 
-	const games =
-		todaysScoreboard.gameDate === day ? todaysScoreboard.games : data.games;
+	const games = data.games;
 
 	if (games.length === 0) {
 		return (
