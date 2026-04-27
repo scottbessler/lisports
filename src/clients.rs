@@ -12,7 +12,9 @@ use tokio::sync::RwLock;
 use crate::{
     cache::Cache,
     error::AppError,
-    models::{BoxScore, PlayerStatsPage, Scoreboard, StandingsTable},
+    models::{
+        BoxScore, MlbBoxScore, MlbStandingsTable, PlayerStatsPage, Scoreboard, StandingsTable,
+    },
     normalizers,
 };
 
@@ -23,6 +25,10 @@ pub trait SportsData: Send + Sync {
     async fn game(&self, game_id: &str) -> Result<Option<BoxScore>, AppError>;
     async fn standings(&self) -> Result<StandingsTable, AppError>;
     async fn player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError>;
+    async fn mlb_todays_scoreboard(&self) -> Result<Scoreboard, AppError>;
+    async fn mlb_days_games(&self, day: &str) -> Result<Scoreboard, AppError>;
+    async fn mlb_game(&self, game_id: &str) -> Result<Option<MlbBoxScore>, AppError>;
+    async fn mlb_standings(&self) -> Result<MlbStandingsTable, AppError>;
 }
 
 #[derive(Clone)]
@@ -30,6 +36,7 @@ pub struct EspnSportsData {
     http: HttpClient,
     cache: Cache,
     today_cache: Arc<RwLock<Option<TodayCache>>>,
+    mlb_today_cache: Arc<RwLock<Option<TodayCache>>>,
 }
 
 #[derive(Clone)]
@@ -49,6 +56,7 @@ impl EspnSportsData {
             http: HttpClient::new()?,
             cache,
             today_cache: Arc::new(RwLock::new(None)),
+            mlb_today_cache: Arc::new(RwLock::new(None)),
         })
     }
 }
@@ -148,6 +156,75 @@ impl SportsData for EspnSportsData {
         let page = normalizers::nba_player_stats(data);
         self.cache.set_json(&cache_key, &page).await?;
         Ok(page)
+    }
+
+    async fn mlb_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
+        if let Some(cache) = self.mlb_today_cache.read().await.as_ref()
+            && cache.fetched_at.elapsed() < Duration::from_secs(30)
+        {
+            return Ok(cache.scoreboard.clone());
+        }
+
+        let day = chrono::Utc::now().date_naive().to_string();
+        let scoreboard = self.mlb_days_games(&day).await?;
+        *self.mlb_today_cache.write().await = Some(TodayCache {
+            fetched_at: Instant::now(),
+            scoreboard: scoreboard.clone(),
+        });
+        Ok(scoreboard)
+    }
+
+    async fn mlb_days_games(&self, day: &str) -> Result<Scoreboard, AppError> {
+        let cache_key = format!("mlb-day:{day}");
+        if let Some(cached) = self.cache.get_json::<Scoreboard>(&cache_key).await? {
+            return Ok(cached);
+        }
+
+        let espn_date = day.replace('-', "");
+        let url = format!(
+            "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates={espn_date}"
+        );
+        let data: EspnScoreboardDto = self.http.get_json(&url, false, None).await?;
+        let scoreboard = normalizers::espn_mlb_scoreboard(day, data)?;
+        if scoreboard.games.iter().all(|game| game.game_status == 3) {
+            self.cache.set_json(&cache_key, &scoreboard).await?;
+        }
+        Ok(scoreboard)
+    }
+
+    async fn mlb_game(&self, game_id: &str) -> Result<Option<MlbBoxScore>, AppError> {
+        let cache_key = format!("mlb-game:{game_id}");
+        if let Some(cached) = self.cache.get_json::<MlbBoxScore>(&cache_key).await? {
+            return Ok(Some(cached));
+        }
+
+        let url = format!(
+            "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event={game_id}"
+        );
+        let data: EspnSummaryDto = self.http.get_json(&url, false, None).await?;
+        let game = normalizers::espn_mlb_summary(data)?;
+        if game.game_status == 3 {
+            self.cache.set_json(&cache_key, &game).await?;
+        }
+        Ok(Some(game))
+    }
+
+    async fn mlb_standings(&self) -> Result<MlbStandingsTable, AppError> {
+        let cache_key = format!("mlb-standings:{}", chrono::Utc::now().date_naive());
+        if let Some(cached) = self.cache.get_json::<MlbStandingsTable>(&cache_key).await? {
+            return Ok(cached);
+        }
+        let data: EspnStandingsDto = self
+            .http
+            .get_json(
+                "https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings",
+                false,
+                None,
+            )
+            .await?;
+        let standings = normalizers::espn_mlb_standings(data);
+        self.cache.set_json(&cache_key, &standings).await?;
+        Ok(standings)
     }
 }
 

@@ -76,6 +76,58 @@ pub async fn nba_player(
     Ok(Html(render::player_page(&stats)))
 }
 
+pub async fn mlb_scoreboard(State(state): State<AppState>) -> Result<Response, AppError> {
+    let scoreboard = state.data.mlb_todays_scoreboard().await?;
+    let has_live_or_completed = scoreboard.games.iter().any(|game| game.game_status >= 2);
+    let target = if has_live_or_completed {
+        scoreboard.game_date
+    } else {
+        parse_day(&scoreboard.game_date)?
+            .checked_sub_days(chrono::Days::new(1))
+            .unwrap_or_else(|| Utc::now().date_naive())
+            .to_string()
+    };
+    Ok(Redirect::temporary(&format!("/mlb/scoreboard/{target}")).into_response())
+}
+
+pub async fn mlb_scoreboard_today(State(state): State<AppState>) -> Result<Response, AppError> {
+    let scoreboard = state.data.mlb_todays_scoreboard().await?;
+    Ok(Redirect::temporary(&format!("/mlb/scoreboard/{}", scoreboard.game_date)).into_response())
+}
+
+pub async fn mlb_scoreboard_day(
+    State(state): State<AppState>,
+    Path(day): Path<String>,
+) -> Result<Html<String>, AppError> {
+    let parsed_day = parse_day(&day)?;
+    let scoreboard = state.data.mlb_days_games(&day).await?;
+    Ok(Html(render::mlb_scoreboard_page(
+        parsed_day,
+        &scoreboard,
+        None,
+    )))
+}
+
+pub async fn mlb_game(
+    State(state): State<AppState>,
+    Path((day, game_id)): Path<(String, String)>,
+) -> Result<Html<String>, AppError> {
+    let parsed_day = parse_day(&day)?;
+    let game_id = numeric_id(&game_id, "game_id")?;
+    let scoreboard = state.data.mlb_days_games(&day).await?;
+    let game = state.data.mlb_game(&game_id).await?;
+    Ok(Html(render::mlb_scoreboard_page(
+        parsed_day,
+        &scoreboard,
+        game.as_ref(),
+    )))
+}
+
+pub async fn mlb_standings(State(state): State<AppState>) -> Result<Html<String>, AppError> {
+    let standings = state.data.mlb_standings().await?;
+    Ok(Html(render::mlb_standings_page(&standings)))
+}
+
 pub async fn coming_soon() -> Html<String> {
     Html(render::coming_soon_page())
 }

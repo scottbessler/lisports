@@ -10,8 +10,9 @@ use lisports::{
     clients::SportsData,
     error::AppError,
     models::{
-        BoxScore, BoxScoreTeam, Game, Leaders, Period, Player, PlayerStatsPage, Scoreboard,
-        StandingsTable, StandingsTeam, Statistics, Table, Team, TeamStatistics,
+        BoxScore, BoxScoreTeam, Game, Leaders, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsTable,
+        MlbStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard, StandingsTable,
+        StandingsTeam, Statistics, Table, Team, TeamStatistics,
     },
 };
 use tower::ServiceExt;
@@ -54,6 +55,25 @@ impl SportsData for FakeSportsData {
                     rows: vec![vec!["2026-04-26".to_string(), "31".to_string()]],
                 },
             ],
+        })
+    }
+
+    async fn mlb_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
+        Ok(mlb_scoreboard())
+    }
+
+    async fn mlb_days_games(&self, _day: &str) -> Result<Scoreboard, AppError> {
+        Ok(mlb_scoreboard())
+    }
+
+    async fn mlb_game(&self, _game_id: &str) -> Result<Option<MlbBoxScore>, AppError> {
+        Ok(Some(mlb_box_score()))
+    }
+
+    async fn mlb_standings(&self) -> Result<MlbStandingsTable, AppError> {
+        Ok(MlbStandingsTable {
+            al: vec![mlb_standing_team(1, "New York Yankees", "NYY", "AL")],
+            nl: vec![mlb_standing_team(1, "Atlanta Braves", "ATL", "NL")],
         })
     }
 }
@@ -102,13 +122,47 @@ async fn player_page_renders_summary_and_game_log() {
 }
 
 #[tokio::test]
+async fn mlb_scoreboard_renders_nav_and_game_cards() {
+    let (status, body) = request("/mlb/scoreboard/2026-04-26").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("MLB Scoreboard"));
+    assert!(body.contains("MLB Standings"));
+    assert!(body.contains("class=\"game-card\""));
+    assert!(body.contains("<th>R</th><th>H</th><th>E</th>"));
+}
+
+#[tokio::test]
+async fn mlb_game_view_renders_selected_box_score() {
+    let (status, body) = request("/mlb/scoreboard/2026-04-26/game/401815095").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("scoreboard has-game"));
+    assert!(body.contains("Batting"));
+    assert!(body.contains("Pitching"));
+    assert!(body.contains("Rafael Devers"));
+}
+
+#[tokio::test]
+async fn mlb_standings_render_sortable_tables() {
+    let (status, body) = request("/mlb/standings").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("MLB Standings"));
+    assert!(body.contains("American League"));
+    assert!(body.contains("New York Yankees"));
+    assert!(body.contains("table class=\"sortable\""));
+}
+
+#[tokio::test]
 async fn invalid_route_params_return_bad_request() {
     let (bad_day, _) = request("/nba/scoreboard/not-a-day").await;
     let (bad_game, _) = request("/nba/scoreboard/2026-04-26/game/abc").await;
     let (bad_player, _) = request("/nba/player/abc").await;
+    let (bad_mlb_day, _) = request("/mlb/scoreboard/not-a-day").await;
+    let (bad_mlb_game, _) = request("/mlb/scoreboard/2026-04-26/game/abc").await;
     assert_eq!(bad_day, StatusCode::BAD_REQUEST);
     assert_eq!(bad_game, StatusCode::BAD_REQUEST);
     assert_eq!(bad_player, StatusCode::BAD_REQUEST);
+    assert_eq!(bad_mlb_day, StatusCode::BAD_REQUEST);
+    assert_eq!(bad_mlb_game, StatusCode::BAD_REQUEST);
 }
 
 async fn request(uri: &str) -> (StatusCode, String) {
@@ -200,6 +254,8 @@ fn celtics_team() -> Team {
         losses: 26,
         display_record: "56-26".to_string(),
         score: 128,
+        hits: 0,
+        errors: 0,
         periods: periods([34, 22, 39, 33]),
     }
 }
@@ -214,11 +270,112 @@ fn lakers_team() -> Team {
         losses: 29,
         display_record: "53-29".to_string(),
         score: 96,
+        hits: 0,
+        errors: 0,
         periods: periods([21, 26, 18, 31]),
     }
 }
 
-fn periods(scores: [i64; 4]) -> Vec<Period> {
+fn mlb_scoreboard() -> Scoreboard {
+    Scoreboard {
+        game_date: "2026-04-26".to_string(),
+        games: vec![Game {
+            game_id: "401815095".to_string(),
+            game_status: 3,
+            game_status_text: "Final".to_string(),
+            period: 9,
+            game_clock: String::new(),
+            game_time_utc: "2026-04-26T17:35:00Z".to_string(),
+            away_team: red_sox_team(),
+            home_team: orioles_team(),
+            away_leaders: Leaders::default(),
+            home_leaders: Leaders::default(),
+        }],
+    }
+}
+
+fn mlb_box_score() -> MlbBoxScore {
+    MlbBoxScore {
+        game_id: "401815095".to_string(),
+        game_status: 3,
+        away_team: MlbBoxScoreTeam {
+            team: red_sox_team(),
+            batting: Table {
+                name: "Batting".to_string(),
+                headers: vec!["Name".to_string(), "AB".to_string(), "RBI".to_string()],
+                rows: vec![vec![
+                    "Rafael Devers".to_string(),
+                    "4".to_string(),
+                    "2".to_string(),
+                ]],
+            },
+            pitching: Table {
+                name: "Pitching".to_string(),
+                headers: vec!["Name".to_string(), "IP".to_string(), "K".to_string()],
+                rows: vec![vec![
+                    "Connelly Early".to_string(),
+                    "6.2".to_string(),
+                    "4".to_string(),
+                ]],
+            },
+        },
+        home_team: MlbBoxScoreTeam {
+            team: orioles_team(),
+            batting: Table {
+                name: "Batting".to_string(),
+                headers: vec!["Name".to_string(), "AB".to_string(), "RBI".to_string()],
+                rows: vec![vec![
+                    "Gunnar Henderson".to_string(),
+                    "4".to_string(),
+                    "2".to_string(),
+                ]],
+            },
+            pitching: Table {
+                name: "Pitching".to_string(),
+                headers: vec!["Name".to_string(), "IP".to_string(), "K".to_string()],
+                rows: vec![vec![
+                    "Kyle Bradish".to_string(),
+                    "5".to_string(),
+                    "3".to_string(),
+                ]],
+            },
+        },
+    }
+}
+
+fn red_sox_team() -> Team {
+    Team {
+        team_id: 2,
+        team_name: "Red Sox".to_string(),
+        team_city: "Boston".to_string(),
+        team_tricode: "BOS".to_string(),
+        wins: 11,
+        losses: 17,
+        display_record: "11-17".to_string(),
+        score: 5,
+        hits: 7,
+        errors: 0,
+        periods: periods([0, 0, 0, 0, 3, 2, 0, 0, 0]),
+    }
+}
+
+fn orioles_team() -> Team {
+    Team {
+        team_id: 1,
+        team_name: "Orioles".to_string(),
+        team_city: "Baltimore".to_string(),
+        team_tricode: "BAL".to_string(),
+        wins: 13,
+        losses: 15,
+        display_record: "13-15".to_string(),
+        score: 3,
+        hits: 6,
+        errors: 1,
+        periods: periods([0, 0, 0, 0, 1, 1, 0, 1, 0]),
+    }
+}
+
+fn periods<const N: usize>(scores: [i64; N]) -> Vec<Period> {
     scores
         .into_iter()
         .enumerate()
@@ -246,5 +403,23 @@ fn standing_team(rank: i64, name: &str, conference: &str) -> StandingsTeam {
         road: "22-19".to_string(),
         last_ten: "7-3".to_string(),
         current_streak: 2,
+    }
+}
+
+fn mlb_standing_team(rank: i64, name: &str, tricode: &str, league: &str) -> MlbStandingsTeam {
+    MlbStandingsTeam {
+        team_id: rank,
+        team_name: name.to_string(),
+        team_tricode: tricode.to_string(),
+        league: league.to_string(),
+        playoff_rank: rank,
+        wins: 18,
+        losses: 10,
+        win_pct: ".643".to_string(),
+        games_back: "-".to_string(),
+        runs_scored: 146,
+        runs_allowed: 99,
+        run_diff: "+47".to_string(),
+        streak: "L1".to_string(),
     }
 }

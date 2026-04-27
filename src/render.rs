@@ -2,11 +2,17 @@ use chrono::{Datelike, Days, NaiveDate, Utc};
 
 use crate::{
     models::{
-        BoxScore, BoxScoreTeam, Game, PlayerStatsPage, Scoreboard, StandingsTable, StandingsTeam,
-        Table, Team,
+        BoxScore, BoxScoreTeam, Game, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsTable,
+        MlbStandingsTeam, PlayerStatsPage, Scoreboard, StandingsTable, StandingsTeam, Table, Team,
     },
     stats,
 };
+
+#[derive(Clone, Copy)]
+enum League {
+    Nba,
+    Mlb,
+}
 
 pub fn layout(title: &str, body: &str) -> String {
     format!(
@@ -36,7 +42,8 @@ pub fn nav() -> &'static str {
   <div class="brand">LiSports</div>
   <a href="/nba/scoreboard">NBA Scoreboard</a>
   <a href="/nba/standings">NBA Standings</a>
-  <a href="/mlb/scoreboard">MLB</a>
+  <a href="/mlb/scoreboard">MLB Scoreboard</a>
+  <a href="/mlb/standings">MLB Standings</a>
   <a href="/nfl/scoreboard">NFL</a>
 </nav>"#
 }
@@ -64,8 +71,16 @@ pub fn scoreboard_page(
     scoreboard: &Scoreboard,
     selected: Option<&BoxScore>,
 ) -> String {
+    basketball_scoreboard_page(day, scoreboard, selected)
+}
+
+fn basketball_scoreboard_page(
+    day: NaiveDate,
+    scoreboard: &Scoreboard,
+    selected: Option<&BoxScore>,
+) -> String {
     let mut html = String::from(r#"<main class="page">"#);
-    html.push_str(&date_nav(day));
+    html.push_str(&date_nav(day, "/nba/scoreboard"));
     if scoreboard.games.is_empty() {
         html.push_str(r#"<section class="center"><h1>No Games Scheduled</h1></section>"#);
     } else {
@@ -82,7 +97,7 @@ pub fn scoreboard_page(
                 r#"<a class="game-link" href="/nba/scoreboard/{}/game/{}">{}</a>"#,
                 day,
                 escape_attr(&game.game_id),
-                game_summary(game, !all_completed)
+                game_summary(game, !all_completed, League::Nba)
             ));
         }
         html.push_str("</div>");
@@ -102,10 +117,54 @@ pub fn scoreboard_page(
     )
 }
 
-fn date_nav(day: NaiveDate) -> String {
+pub fn mlb_scoreboard_page(
+    day: NaiveDate,
+    scoreboard: &Scoreboard,
+    selected: Option<&MlbBoxScore>,
+) -> String {
+    let mut html = String::from(r#"<main class="page">"#);
+    html.push_str(&date_nav(day, "/mlb/scoreboard"));
+    if scoreboard.games.is_empty() {
+        html.push_str(r#"<section class="center"><h1>No Games Scheduled</h1></section>"#);
+    } else {
+        let class = if selected.is_some() {
+            "scoreboard has-game"
+        } else {
+            "scoreboard"
+        };
+        html.push_str(&format!(r#"<section class="{class}">"#));
+        html.push_str(r#"<div class="game-list">"#);
+        let all_completed = scoreboard.games.iter().all(|g| g.game_status == 3);
+        for game in &scoreboard.games {
+            html.push_str(&format!(
+                r#"<a class="game-link" href="/mlb/scoreboard/{}/game/{}">{}</a>"#,
+                day,
+                escape_attr(&game.game_id),
+                game_summary(game, !all_completed, League::Mlb)
+            ));
+        }
+        html.push_str("</div>");
+        if let Some(game) = selected {
+            html.push_str(&mlb_game_details(game));
+        }
+        html.push_str("</section>");
+    }
+    html.push_str("</main>");
+    layout(
+        if selected.is_some() {
+            "MLB Game"
+        } else {
+            "MLB Scoreboard"
+        },
+        &html,
+    )
+}
+
+fn date_nav(day: NaiveDate, base_path: &str) -> String {
     let mut html = String::from(r#"<div class="date-nav">"#);
     html.push_str(&format!(
-        r#"<a class="button" href="/nba/scoreboard/{}">Prev</a>"#,
+        r#"<a class="button" href="{}/{}">Prev</a>"#,
+        base_path,
         day.checked_sub_days(Days::new(1)).unwrap_or(day)
     ));
     for offset in -3..=3 {
@@ -122,28 +181,35 @@ fn date_nav(day: NaiveDate) -> String {
         };
         let class = if d == day { "button active" } else { "button" };
         html.push_str(&format!(
-            r#"<a class="{class}" href="/nba/scoreboard/{d}">{}</a>"#,
+            r#"<a class="{class}" href="{base_path}/{d}">{}</a>"#,
             escape(&label)
         ));
     }
     html.push_str(&format!(
-        r#"<a class="button" href="/nba/scoreboard/{}">Next</a>"#,
+        r#"<a class="button" href="{}/{}">Next</a>"#,
+        base_path,
         day.checked_add_days(Days::new(1)).unwrap_or(day)
     ));
     html.push_str("</div>");
     html
 }
 
-fn game_summary(game: &Game, show_status: bool) -> String {
+fn game_summary(game: &Game, show_status: bool, league: League) -> String {
     let mut html = String::from(r#"<table class="game-card"><thead><tr><th></th>"#);
     for period in &game.away_team.periods {
         html.push_str(&format!("<th>{}</th>", period.period));
     }
-    html.push_str("<th>T</th></tr></thead><tbody>");
-    html.push_str(&team_summary_row(game, &game.away_team, false));
-    html.push_str(&team_summary_row(game, &game.home_team, true));
+    match league {
+        League::Nba => html.push_str("<th>T</th></tr></thead><tbody>"),
+        League::Mlb => html.push_str("<th>R</th><th>H</th><th>E</th></tr></thead><tbody>"),
+    }
+    html.push_str(&team_summary_row(game, &game.away_team, false, league));
+    html.push_str(&team_summary_row(game, &game.home_team, true, league));
     if show_status {
-        let colspan = game.away_team.periods.len() + 2;
+        let colspan = match league {
+            League::Nba => game.away_team.periods.len() + 2,
+            League::Mlb => game.away_team.periods.len() + 4,
+        };
         html.push_str(&format!(
             r#"<tr><th class="status" colspan="{colspan}">{}</th></tr>"#,
             game_status(game)
@@ -153,9 +219,9 @@ fn game_summary(game: &Game, show_status: bool) -> String {
     html
 }
 
-fn team_summary_row(game: &Game, team: &Team, is_home: bool) -> String {
+fn team_summary_row(game: &Game, team: &Team, is_home: bool, league: League) -> String {
     let mut html = String::from("<tr><th>");
-    html.push_str(&team_logo(team, "mini-logo"));
+    html.push_str(&team_logo(team, "mini-logo", league));
     html.push_str(&format!(
         r#"<span title="{}">{}</span> <small>({})</small> {}"#,
         escape_attr(&format!("{} {}", team.team_city, team.team_name)),
@@ -174,7 +240,13 @@ fn team_summary_row(game: &Game, team: &Team, is_home: bool) -> String {
             }
         ));
     }
-    html.push_str(&format!("<td>{}</td></tr>", team.score));
+    match league {
+        League::Nba => html.push_str(&format!("<td>{}</td></tr>", team.score)),
+        League::Mlb => html.push_str(&format!(
+            "<td>{}</td><td>{}</td><td>{}</td></tr>",
+            team.score, team.hits, team.errors
+        )),
+    }
     html
 }
 
@@ -202,6 +274,40 @@ fn game_details(game: &BoxScore) -> String {
     html
 }
 
+fn mlb_game_details(game: &MlbBoxScore) -> String {
+    let mut html = String::from(r#"<section class="details">"#);
+    html.push_str(&mlb_team_game_details(game, &game.away_team, false));
+    html.push_str(&mlb_team_game_details(game, &game.home_team, true));
+    html.push_str("</section>");
+    html
+}
+
+fn mlb_team_game_details(game: &MlbBoxScore, team: &MlbBoxScoreTeam, is_home: bool) -> String {
+    let mut html = String::from(r#"<article class="team-details">"#);
+    html.push_str("<h1>");
+    html.push_str(&team_logo(&team.team, "logo", League::Mlb));
+    html.push_str(&format!(
+        "{} {} <strong>{}</strong> {}",
+        escape(&team.team.team_city),
+        escape(&team.team.team_name),
+        team.team.score,
+        mlb_box_winner(game, is_home)
+    ));
+    html.push_str("</h1>");
+    html.push_str(&format!(
+        r#"<section class="box-score-group"><h2>{}</h2>{}</section>"#,
+        escape(&team.batting.name),
+        render_table(&team.batting)
+    ));
+    html.push_str(&format!(
+        r#"<section class="box-score-group"><h2>{}</h2>{}</section>"#,
+        escape(&team.pitching.name),
+        render_table(&team.pitching)
+    ));
+    html.push_str("</article>");
+    html
+}
+
 fn team_game_details(
     game: &BoxScore,
     team: &BoxScoreTeam,
@@ -210,7 +316,7 @@ fn team_game_details(
 ) -> String {
     let mut html = String::from(r#"<article class="team-details">"#);
     html.push_str("<h1>");
-    html.push_str(&team_logo(&team.team, "logo"));
+    html.push_str(&team_logo(&team.team, "logo", League::Nba));
     html.push_str(&format!(
         "{} {} <strong>{}</strong> {}",
         escape(&team.team.team_city),
@@ -291,6 +397,17 @@ pub fn standings_page(standings: &StandingsTable) -> String {
     )
 }
 
+pub fn mlb_standings_page(standings: &MlbStandingsTable) -> String {
+    layout(
+        "MLB Standings",
+        &format!(
+            r#"<main class="page standings"><section>{}</section><section>{}</section></main>"#,
+            mlb_standings_table("American League", &standings.al),
+            mlb_standings_table("National League", &standings.nl)
+        ),
+    )
+}
+
 fn standings_table(title: &str, rows: &[StandingsTeam]) -> String {
     let table_rows: Vec<Vec<String>> = rows
         .iter()
@@ -330,6 +447,44 @@ fn standings_table(title: &str, rows: &[StandingsTeam]) -> String {
         sortable_table_with_options(
             &[
                 "#", "Team", "W", "L", "%", "GB", "PPG", "OPPG", "DIFF", "HM", "RD", "L10", "STR"
+            ],
+            &table_rows,
+            TableOptions {
+                default_sort_index: Some(0),
+                default_sort_dir: Some("asc"),
+            },
+        )
+    )
+}
+
+fn mlb_standings_table(title: &str, rows: &[MlbStandingsTeam]) -> String {
+    let table_rows: Vec<Vec<String>> = rows
+        .iter()
+        .map(|row| {
+            vec![
+                row.playoff_rank.to_string(),
+                format!(
+                    "{}{}",
+                    mlb_team_logo(&row.team_tricode, &row.team_name, "mini-logo"),
+                    escape(&row.team_name)
+                ),
+                row.wins.to_string(),
+                row.losses.to_string(),
+                row.win_pct.clone(),
+                row.games_back.clone(),
+                row.runs_scored.to_string(),
+                row.runs_allowed.to_string(),
+                row.run_diff.clone(),
+                row.streak.clone(),
+            ]
+        })
+        .collect();
+    format!(
+        r#"<article class="panel"><h1>{}</h1>{}</article>"#,
+        escape(title),
+        sortable_table_with_options(
+            &[
+                "#", "Team", "W", "L", "PCT", "GB", "RS", "RA", "DIFF", "STR"
             ],
             &table_rows,
             TableOptions {
@@ -456,14 +611,38 @@ fn format_number(value: f64, decimals: usize) -> String {
         .to_string()
 }
 
-fn team_logo(team: &Team, class: &str) -> String {
-    team_logo_id(team.team_id, &team.team_name, class)
+fn team_logo(team: &Team, class: &str, league: League) -> String {
+    match league {
+        League::Nba => team_logo_id(team.team_id, &team.team_name, class),
+        League::Mlb => mlb_team_logo(&team.team_tricode, &team.team_name, class),
+    }
+}
+
+fn mlb_box_winner(game: &MlbBoxScore, is_home: bool) -> &'static str {
+    if game.game_status != 3 {
+        return "";
+    }
+    if (is_home && game.home_team.team.score > game.away_team.team.score)
+        || (!is_home && game.away_team.team.score > game.home_team.team.score)
+    {
+        "<strong>W</strong>"
+    } else {
+        ""
+    }
 }
 
 fn team_logo_id(team_id: i64, team_name: &str, class: &str) -> String {
     format!(
         r#"<img class="{class}" src="https://cdn.nba.com/logos/nba/{}/primary/L/logo.svg" alt="{}">"#,
         team_id,
+        escape_attr(team_name)
+    )
+}
+
+fn mlb_team_logo(team_tricode: &str, team_name: &str, class: &str) -> String {
+    format!(
+        r#"<img class="{class}" src="https://a.espncdn.com/i/teamlogos/mlb/500/{}.png" alt="{}">"#,
+        escape_attr(&team_tricode.to_lowercase()),
         escape_attr(team_name)
     )
 }

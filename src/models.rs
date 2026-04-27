@@ -31,6 +31,10 @@ pub struct Team {
     #[serde(default)]
     pub display_record: String,
     pub score: i64,
+    #[serde(default)]
+    pub hits: i64,
+    #[serde(default)]
+    pub errors: i64,
     pub periods: Vec<Period>,
 }
 
@@ -144,6 +148,44 @@ pub struct StandingsTeam {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PlayerStatsPage {
     pub tables: Vec<Table>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MlbBoxScore {
+    pub game_id: String,
+    pub game_status: i64,
+    pub away_team: MlbBoxScoreTeam,
+    pub home_team: MlbBoxScoreTeam,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MlbBoxScoreTeam {
+    pub team: Team,
+    pub batting: Table,
+    pub pitching: Table,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MlbStandingsTable {
+    pub al: Vec<MlbStandingsTeam>,
+    pub nl: Vec<MlbStandingsTeam>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MlbStandingsTeam {
+    pub team_id: i64,
+    pub team_name: String,
+    pub team_tricode: String,
+    pub league: String,
+    pub playoff_rank: i64,
+    pub wins: i64,
+    pub losses: i64,
+    pub win_pct: String,
+    pub games_back: String,
+    pub runs_scored: i64,
+    pub runs_allowed: i64,
+    pub run_diff: String,
+    pub streak: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

@@ -7,8 +7,9 @@ use crate::{
     },
     error::AppError,
     models::{
-        BoxScore, BoxScoreTeam, Game, Leaders, Period, Player, PlayerStatsPage, Scoreboard,
-        StandingsTable, StandingsTeam, Statistics, Table, Team, TeamStatistics,
+        BoxScore, BoxScoreTeam, Game, Leaders, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsTable,
+        MlbStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard, StandingsTable,
+        StandingsTeam, Statistics, Table, Team, TeamStatistics,
     },
 };
 
@@ -25,6 +26,18 @@ pub fn nba_today_scoreboard(data: NbaTodaysScoreboardDto) -> Result<Scoreboard, 
 }
 
 pub fn espn_scoreboard(day: &str, data: EspnScoreboardDto) -> Result<Scoreboard, AppError> {
+    espn_scoreboard_with(day, data, espn_competitor_to_team)
+}
+
+pub fn espn_mlb_scoreboard(day: &str, data: EspnScoreboardDto) -> Result<Scoreboard, AppError> {
+    espn_scoreboard_with(day, data, espn_mlb_competitor_to_team)
+}
+
+fn espn_scoreboard_with(
+    day: &str,
+    data: EspnScoreboardDto,
+    team_fn: fn(&Value, &Value) -> Team,
+) -> Result<Scoreboard, AppError> {
     let mut games = Vec::new();
     for event in data.events {
         let comp = event
@@ -40,8 +53,8 @@ pub fn espn_scoreboard(day: &str, data: EspnScoreboardDto) -> Result<Scoreboard,
             .iter()
             .find(|c| str_at(c, &["homeAway"]).as_deref() == Some("away"))
             .ok_or_else(|| AppError::parse("missing away team"))?;
-        let home_team = espn_competitor_to_team(home, comp);
-        let away_team = espn_competitor_to_team(away, comp);
+        let home_team = team_fn(home, comp);
+        let away_team = team_fn(away, comp);
         games.push(Game {
             game_id: str_at(&event, &["id"]).unwrap_or_default(),
             game_status: espn_status_to_game_status(status),
@@ -85,6 +98,29 @@ pub fn espn_summary(data: EspnSummaryDto) -> Result<BoxScore, AppError> {
         game_status: espn_status_to_game_status(status),
         home_team: summary_team(&data.boxscore, &home_abbr, home_comp),
         away_team: summary_team(&data.boxscore, &away_abbr, away_comp),
+    })
+}
+
+pub fn espn_mlb_summary(data: EspnSummaryDto) -> Result<MlbBoxScore, AppError> {
+    let header_comp = data
+        .header
+        .pointer("/competitions/0")
+        .ok_or_else(|| AppError::parse("missing header competition"))?;
+    let status = header_comp.get("status").unwrap_or(&Value::Null);
+    let competitors = array_at(header_comp, &["competitors"]);
+    let home_comp = competitors
+        .iter()
+        .find(|c| str_at(c, &["homeAway"]).as_deref() == Some("home"))
+        .ok_or_else(|| AppError::parse("missing home"))?;
+    let away_comp = competitors
+        .iter()
+        .find(|c| str_at(c, &["homeAway"]).as_deref() == Some("away"))
+        .ok_or_else(|| AppError::parse("missing away"))?;
+    Ok(MlbBoxScore {
+        game_id: str_at(&data.header, &["id"]).unwrap_or_default(),
+        game_status: espn_status_to_game_status(status),
+        home_team: mlb_summary_team(&data.boxscore, home_comp),
+        away_team: mlb_summary_team(&data.boxscore, away_comp),
     })
 }
 
@@ -145,6 +181,55 @@ pub fn espn_standings(data: EspnStandingsDto) -> StandingsTable {
         }
     }
     StandingsTable { east, west }
+}
+
+pub fn espn_mlb_standings(data: EspnStandingsDto) -> MlbStandingsTable {
+    let mut al = Vec::new();
+    let mut nl = Vec::new();
+    for group in data.children {
+        let abbr = str_at(&group, &["abbreviation"])
+            .unwrap_or_else(|| str_at(&group, &["name"]).unwrap_or_default());
+        let league = if abbr.to_lowercase().contains("nl")
+            || str_at(&group, &["name"])
+                .unwrap_or_default()
+                .to_lowercase()
+                .contains("national")
+        {
+            "NL"
+        } else {
+            "AL"
+        };
+        for entry in array_at(&group, &["standings", "entries"]) {
+            let stats = array_at(&entry, &["stats"]);
+            let row = MlbStandingsTeam {
+                team_id: str_at(&entry, &["team", "id"])
+                    .map(|s| i64_from_str(&s))
+                    .unwrap_or(0),
+                team_name: str_at(&entry, &["team", "displayName"])
+                    .or_else(|| str_at(&entry, &["team", "name"]))
+                    .unwrap_or_default(),
+                team_tricode: str_at(&entry, &["team", "abbreviation"]).unwrap_or_default(),
+                league: league.to_string(),
+                playoff_rank: stat_value(&stats, "playoffSeed")
+                    .or_else(|| stat_value(&stats, "rank"))
+                    .unwrap_or(0.0) as i64,
+                wins: stat_value(&stats, "wins").unwrap_or(0.0) as i64,
+                losses: stat_value(&stats, "losses").unwrap_or(0.0) as i64,
+                win_pct: stat_display(&stats, "winPercent").unwrap_or_default(),
+                games_back: stat_display(&stats, "gamesBehind").unwrap_or_default(),
+                runs_scored: stat_value(&stats, "pointsFor").unwrap_or(0.0) as i64,
+                runs_allowed: stat_value(&stats, "pointsAgainst").unwrap_or(0.0) as i64,
+                run_diff: stat_display(&stats, "pointDifferential").unwrap_or_default(),
+                streak: stat_display(&stats, "streak").unwrap_or_default(),
+            };
+            if league == "NL" {
+                nl.push(row);
+            } else {
+                al.push(row);
+            }
+        }
+    }
+    MlbStandingsTable { al, nl }
 }
 
 pub fn espn_player_gamelog(player_id: &str, data: EspnPlayerGamelogDto) -> PlayerStatsPage {
@@ -264,6 +349,8 @@ fn nba_team(team: &Value) -> Team {
         losses: i64_at(team, &["losses"]),
         display_record: format!("{}-{}", i64_at(team, &["wins"]), i64_at(team, &["losses"])),
         score: i64_at(team, &["score"]),
+        hits: 0,
+        errors: 0,
         periods: array_at(team, &["periods"])
             .iter()
             .map(|p| Period {
@@ -302,6 +389,47 @@ fn espn_competitor_to_team(c: &Value, competition: &Value) -> Team {
         losses,
         display_record,
         score: str_at(c, &["score"]).map(|s| i64_from_str(&s)).unwrap_or(0),
+        hits: stat_display(&array_at(c, &["statistics"]), "hits")
+            .map(|s| i64_from_str(&s))
+            .unwrap_or(0),
+        errors: stat_display(&array_at(c, &["statistics"]), "errors")
+            .map(|s| i64_from_str(&s))
+            .unwrap_or(0),
+        periods: array_at(c, &["linescores"])
+            .iter()
+            .map(|ls| Period {
+                period: i64_at(ls, &["period"]),
+                score: f64_at(ls, &["value"]) as i64,
+            })
+            .collect(),
+    }
+}
+
+fn espn_mlb_competitor_to_team(c: &Value, _competition: &Value) -> Team {
+    let (wins, losses) = array_at(c, &["records"])
+        .iter()
+        .find(|r| str_at(r, &["type"]).as_deref() == Some("total"))
+        .and_then(|r| str_at(r, &["summary"]))
+        .map(|s| parse_record(&s))
+        .unwrap_or((0, 0));
+    let stats = array_at(c, &["statistics"]);
+    Team {
+        team_id: str_at(c, &["team", "id"])
+            .map(|s| i64_from_str(&s))
+            .unwrap_or_else(|| str_at(c, &["id"]).map(|s| i64_from_str(&s)).unwrap_or(0)),
+        team_name: str_at(c, &["team", "name"]).unwrap_or_default(),
+        team_city: str_at(c, &["team", "location"]).unwrap_or_default(),
+        team_tricode: str_at(c, &["team", "abbreviation"]).unwrap_or_default(),
+        wins,
+        losses,
+        display_record: format!("{wins}-{losses}"),
+        score: str_at(c, &["score"]).map(|s| i64_from_str(&s)).unwrap_or(0),
+        hits: stat_display(&stats, "hits")
+            .map(|s| i64_from_str(&s))
+            .unwrap_or(0),
+        errors: stat_display(&stats, "errors")
+            .map(|s| i64_from_str(&s))
+            .unwrap_or(0),
         periods: array_at(c, &["linescores"])
             .iter()
             .map(|ls| Period {
@@ -336,6 +464,8 @@ fn summary_team(boxscore: &Value, abbr: &str, comp: &Value) -> BoxScoreTeam {
             score: str_at(comp, &["score"])
                 .map(|s| i64_from_str(&s))
                 .unwrap_or(0),
+            hits: 0,
+            errors: 0,
             periods: array_at(comp, &["linescores"])
                 .iter()
                 .enumerate()
@@ -354,6 +484,50 @@ fn summary_team(boxscore: &Value, abbr: &str, comp: &Value) -> BoxScoreTeam {
                 .map(|s| i64_from_str(&s))
                 .unwrap_or(0),
         ),
+    }
+}
+
+fn mlb_summary_team(boxscore: &Value, comp: &Value) -> MlbBoxScoreTeam {
+    let abbr = str_at(comp, &["team", "abbreviation"]).unwrap_or_default();
+    let team = espn_mlb_competitor_to_team(comp, &Value::Null);
+    let player_group = array_at(boxscore, &["players"])
+        .into_iter()
+        .find(|t| str_at(t, &["team", "abbreviation"]).as_deref() == Some(abbr.as_str()))
+        .unwrap_or(Value::Null);
+    MlbBoxScoreTeam {
+        team,
+        batting: mlb_stat_table(&player_group, 0, "Batting"),
+        pitching: mlb_stat_table(&player_group, 1, "Pitching"),
+    }
+}
+
+fn mlb_stat_table(group: &Value, index: usize, name: &str) -> Table {
+    let stats = array_at(group, &["statistics"]);
+    let Some(stat_group) = stats.get(index) else {
+        return Table {
+            name: name.to_string(),
+            headers: vec!["Name".to_string()],
+            rows: Vec::new(),
+        };
+    };
+    let mut headers = vec!["Name".to_string()];
+    headers.extend(
+        array_at(stat_group, &["labels"])
+            .iter()
+            .map(value_to_string),
+    );
+    let rows = array_at(stat_group, &["athletes"])
+        .iter()
+        .map(|athlete| {
+            let mut row = vec![str_at(athlete, &["athlete", "displayName"]).unwrap_or_default()];
+            row.extend(array_at(athlete, &["stats"]).iter().map(value_to_string));
+            row
+        })
+        .collect();
+    Table {
+        name: name.to_string(),
+        headers,
+        rows,
     }
 }
 
@@ -684,5 +858,102 @@ mod tests {
         assert_eq!(scoreboard.games[0].home_team.display_record, "2-1");
         assert_eq!(scoreboard.games[0].away_team.score, 128);
         assert_eq!(scoreboard.games[0].game_status, 3);
+    }
+
+    #[test]
+    fn espn_mlb_scoreboard_conversion_produces_domain_game_with_rhe() {
+        let data: EspnScoreboardDto = serde_json::from_value(serde_json::json!({
+            "events": [{
+                "id": "401815095",
+                "date": "2026-04-26T17:35:00Z",
+                "competitions": [{
+                    "status": {"period": 9, "displayClock": "0.0", "type": {"name": "STATUS_FINAL", "shortDetail": "Final"}},
+                    "competitors": [
+                        {"homeAway": "away", "id": "2", "score": "5", "team": {"id": "2", "location": "Boston", "name": "Red Sox", "abbreviation": "BOS"}, "records": [{"type": "total", "summary": "11-17"}], "statistics": [{"name": "hits", "displayValue": "7"}, {"name": "errors", "displayValue": "0"}], "linescores": [{"period": 1, "value": 0}, {"period": 2, "value": 3}]},
+                        {"homeAway": "home", "id": "1", "score": "3", "team": {"id": "1", "location": "Baltimore", "name": "Orioles", "abbreviation": "BAL"}, "records": [{"type": "total", "summary": "13-15"}], "statistics": [{"name": "hits", "displayValue": "6"}, {"name": "errors", "displayValue": "1"}], "linescores": [{"period": 1, "value": 0}, {"period": 2, "value": 1}]}
+                    ]
+                }]
+            }]
+        }))
+        .unwrap();
+        let scoreboard = espn_mlb_scoreboard("2026-04-26", data).unwrap();
+        assert_eq!(scoreboard.games.len(), 1);
+        assert_eq!(scoreboard.games[0].away_team.team_name, "Red Sox");
+        assert_eq!(scoreboard.games[0].away_team.team_id, 2);
+        assert_eq!(scoreboard.games[0].away_team.score, 5);
+        assert_eq!(scoreboard.games[0].away_team.hits, 7);
+        assert_eq!(scoreboard.games[0].home_team.errors, 1);
+        assert_eq!(scoreboard.games[0].game_status, 3);
+    }
+
+    #[test]
+    fn espn_mlb_summary_conversion_produces_batting_and_pitching_tables() {
+        let data: EspnSummaryDto = serde_json::from_value(serde_json::json!({
+            "header": {
+                "id": "401815095",
+                "competitions": [{
+                    "status": {"type": {"name": "STATUS_FINAL"}},
+                    "competitors": [
+                        {"homeAway": "away", "score": "5", "team": {"id": "2", "location": "Boston", "name": "Red Sox", "abbreviation": "BOS"}, "records": [{"type": "total", "summary": "11-17"}], "statistics": [{"name": "hits", "displayValue": "7"}, {"name": "errors", "displayValue": "0"}], "linescores": []},
+                        {"homeAway": "home", "score": "3", "team": {"id": "1", "location": "Baltimore", "name": "Orioles", "abbreviation": "BAL"}, "records": [{"type": "total", "summary": "13-15"}], "statistics": [{"name": "hits", "displayValue": "6"}, {"name": "errors", "displayValue": "1"}], "linescores": []}
+                    ]
+                }]
+            },
+            "boxscore": {
+                "players": [
+                    {"team": {"abbreviation": "BOS"}, "statistics": [
+                        {"labels": ["AB", "RBI"], "athletes": [{"athlete": {"displayName": "Rafael Devers"}, "stats": ["4", "2"]}]},
+                        {"labels": ["IP", "K"], "athletes": [{"athlete": {"displayName": "Connelly Early"}, "stats": ["6.2", "4"]}]}
+                    ]},
+                    {"team": {"abbreviation": "BAL"}, "statistics": [
+                        {"labels": ["AB", "RBI"], "athletes": [{"athlete": {"displayName": "Gunnar Henderson"}, "stats": ["4", "2"]}]},
+                        {"labels": ["IP", "K"], "athletes": [{"athlete": {"displayName": "Kyle Bradish"}, "stats": ["5", "3"]}]}
+                    ]}
+                ]
+            },
+            "gameInfo": null
+        }))
+        .unwrap();
+        let game = espn_mlb_summary(data).unwrap();
+        assert_eq!(game.away_team.batting.headers, vec!["Name", "AB", "RBI"]);
+        assert_eq!(game.away_team.batting.rows[0][0], "Rafael Devers");
+        assert_eq!(game.away_team.pitching.rows[0][0], "Connelly Early");
+        assert_eq!(game.home_team.team.errors, 1);
+    }
+
+    #[test]
+    fn espn_mlb_standings_conversion_produces_al_and_nl_tables() {
+        let data: EspnStandingsDto = serde_json::from_value(serde_json::json!({
+            "children": [
+                {"abbreviation": "AL", "standings": {"entries": [{"team": {"id": "10", "displayName": "New York Yankees", "abbreviation": "NYY"}, "stats": [
+                    {"name": "playoffSeed", "value": 1, "displayValue": "1"},
+                    {"name": "wins", "value": 18, "displayValue": "18"},
+                    {"name": "losses", "value": 10, "displayValue": "10"},
+                    {"name": "winPercent", "value": 0.643, "displayValue": ".643"},
+                    {"name": "gamesBehind", "value": 0, "displayValue": "-"},
+                    {"name": "pointsFor", "value": 146, "displayValue": "146"},
+                    {"name": "pointsAgainst", "value": 99, "displayValue": "99"},
+                    {"name": "pointDifferential", "value": 47, "displayValue": "+47"},
+                    {"name": "streak", "value": -1, "displayValue": "L1"}
+                ]}]}},
+                {"abbreviation": "NL", "standings": {"entries": [{"team": {"id": "15", "displayName": "Atlanta Braves", "abbreviation": "ATL"}, "stats": [
+                    {"name": "playoffSeed", "value": 1, "displayValue": "1"},
+                    {"name": "wins", "value": 20, "displayValue": "20"},
+                    {"name": "losses", "value": 9, "displayValue": "9"},
+                    {"name": "winPercent", "value": 0.69, "displayValue": ".690"},
+                    {"name": "gamesBehind", "value": 0, "displayValue": "-"},
+                    {"name": "pointsFor", "value": 166, "displayValue": "166"},
+                    {"name": "pointsAgainst", "value": 101, "displayValue": "101"},
+                    {"name": "pointDifferential", "value": 65, "displayValue": "+65"},
+                    {"name": "streak", "value": 1, "displayValue": "W1"}
+                ]}]}}
+            ]
+        }))
+        .unwrap();
+        let standings = espn_mlb_standings(data);
+        assert_eq!(standings.al[0].team_name, "New York Yankees");
+        assert_eq!(standings.al[0].team_tricode, "NYY");
+        assert_eq!(standings.nl[0].team_name, "Atlanta Braves");
+        assert_eq!(standings.nl[0].run_diff, "+65");
     }
 }
