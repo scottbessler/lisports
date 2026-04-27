@@ -1,12 +1,12 @@
-import type { PlayerStats } from '../models/PlayerStats';
+import type { PlayerStats } from "../models/PlayerStats";
 import {
 	type ESPNPlayerInfo,
 	type PlayerGameLog,
 	fetchPlayerGameLogESPN,
 	fetchPlayerInfoESPN,
 	fetchPlayerStatsESPN,
-} from './espn.server';
-import { fetchFromCache, saveToCache } from './simpleCache.server';
+} from "./espn.server";
+import { fetchFromCache, saveToCache } from "./simpleCache.server";
 
 export async function fetchPlayerStats(playerId: string): Promise<PlayerStats> {
 	const cacheKey = `player:${playerId}`;
