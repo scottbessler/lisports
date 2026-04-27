@@ -65,31 +65,44 @@ export default function Scoreboard() {
 
 	return (
 		<div className="flex flex-1 flex-col">
-			<ul className="menu menu-compact flex flex-row flex-nowrap items-center justify-center pb-3 md:gap-2">
-				<li className="mr-auto lg:ml-auto">
-					<button onClick={onPrev}>❮</button>
-				</li>
+			<div className="flex flex-row flex-nowrap items-center justify-center gap-1 px-2 pb-3 md:gap-2">
+				<div className="mr-auto lg:ml-auto">
+					<button type="button" onClick={onPrev} className="btn btn-ghost btn-sm">
+						❮
+					</button>
+				</div>
 				{days.map((d, i) => (
-					<li
+					<div
 						key={d.ymd}
 						className={classNames({
 							'hidden lg:block': i === 0 || i === 6,
 							'hidden md:block': i === 1 || i === 5,
 						})}
 					>
-						<NavLink to={d.ymd}>{d.label}</NavLink>
-					</li>
+						<NavLink
+							to={d.ymd}
+							className={({ isActive }) =>
+								classNames('btn btn-sm', isActive ? 'btn-neutral' : 'btn-ghost')
+							}
+						>
+							{d.label}
+						</NavLink>
+					</div>
 				))}
-				<li className="ml-auto">
-					<button onClick={onNext}>❯</button>
-				</li>
-				<li className="lg:mr-auto">
-					<span
+				<div className="ml-auto">
+					<button type="button" onClick={onNext} className="btn btn-ghost btn-sm">
+						❯
+					</button>
+				</div>
+				<div className="lg:mr-auto">
+					<button
+						type="button"
+						className="btn btn-ghost btn-sm"
 						onClick={() => datePickerRef.current?.showPicker()}
 						onKeyDown={() => datePickerRef.current?.showPicker()}
 					>
 						📅
-					</span>
+					</button>
 					<input
 						ref={datePickerRef}
 						className="invisible absolute h-0 w-0"
@@ -97,8 +110,8 @@ export default function Scoreboard() {
 						value={currentDayJs.format(YMD_FORMAT)}
 						onChange={onChangeDate}
 					/>
-				</li>
-			</ul>
+				</div>
+			</div>
 			<Outlet />
 		</div>
 	);

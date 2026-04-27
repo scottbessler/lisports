@@ -7,15 +7,20 @@ import './styles/tailwind.css';
 
 export const meta: MetaFunction = () => [
 	{
-		charset: 'utf-8',
+		charSet: 'utf-8',
+	},
+	{
 		title: 'LiSports',
-		viewport: 'width=device-width,initial-scale=1',
+	},
+	{
+		name: 'viewport',
+		content: 'width=device-width,initial-scale=1',
 	},
 ];
 
 export default function App() {
 	return (
-		<html lang="en" className="h-full">
+		<html lang="en" className="h-full" data-theme="light">
 			<head>
 				<Meta />
 				<Links />
