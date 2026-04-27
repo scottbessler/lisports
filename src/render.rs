@@ -146,7 +146,7 @@ fn game_summary(game: &Game, show_status: bool) -> String {
         let colspan = game.away_team.periods.len() + 2;
         html.push_str(&format!(
             r#"<tr><th class="status" colspan="{colspan}">{}</th></tr>"#,
-            escape(&game.game_status_text)
+            game_status(game)
         ));
     }
     html.push_str("</tbody></table>");
@@ -157,11 +157,10 @@ fn team_summary_row(game: &Game, team: &Team, is_home: bool) -> String {
     let mut html = String::from("<tr><th>");
     html.push_str(&team_logo(team, "mini-logo"));
     html.push_str(&format!(
-        r#"<span title="{}">{}</span> <small>({}-{})</small> {}"#,
+        r#"<span title="{}">{}</span> <small>({})</small> {}"#,
         escape_attr(&format!("{} {}", team.team_city, team.team_name)),
         escape(&team.team_tricode),
-        team.wins,
-        team.losses,
+        escape(&team_record(team)),
         winner(game, is_home)
     ));
     html.push_str("</th>");
@@ -227,7 +226,7 @@ fn team_game_details(
 
 fn team_box(team: &BoxScoreTeam, other: &BoxScoreTeam) -> String {
     let mut html = String::from(
-        r#"<div class="table-wrap"><table class="sortable"><thead><tr><th>Name</th><th>MIN</th><th>PTS</th><th>RB</th><th>AS</th><th>PIE</th><th>FG</th><th>3P</th><th>FT</th><th>PPS</th><th>TO</th><th>ST</th><th>BK</th><th>PF</th><th>+/-</th><th>USG</th></tr></thead><tbody>"#,
+        r#"<div class="table-wrap"><table class="sortable box-score-table" data-sort-group="box-score" data-default-sort-index="5" data-default-sort-dir="desc"><thead><tr><th class="text">Name</th><th>MIN</th><th>PTS</th><th>RB</th><th>AS</th><th>PIE</th><th>FG</th><th>3P</th><th>FT</th><th>PPS</th><th>TO</th><th>ST</th><th>BK</th><th>PF</th><th>+/-</th><th>USG</th></tr></thead><tbody>"#,
     );
     for player in team.players.iter().filter(|p| p.played) {
         let s = &player.statistics;
@@ -244,7 +243,7 @@ fn team_box(team: &BoxScoreTeam, other: &BoxScoreTeam) -> String {
         html.push_str(&stat_cell(s.assists, 8, true));
         html.push_str(&format!(
             "<td>{}</td>",
-            stats::pie(s, &team.statistics, &other.statistics)
+            format_number(stats::pie(s, &team.statistics, &other.statistics) as f64, 2)
         ));
         html.push_str(&format!(
             "<td>{}-{}</td>",
@@ -272,7 +271,7 @@ fn team_box(team: &BoxScoreTeam, other: &BoxScoreTeam) -> String {
         html.push_str(&format!(
             "<td>{}</td>",
             stats::usage_rate(s, &team.statistics)
-                .map(|v| v.to_string())
+                .map(|v| format_number(v as f64, 2))
                 .unwrap_or_default()
         ));
         html.push_str("</tr>");
@@ -305,15 +304,15 @@ fn standings_table(title: &str, rows: &[StandingsTeam]) -> String {
                 ),
                 row.wins.to_string(),
                 row.losses.to_string(),
-                row.win_pct.to_string(),
+                format_number(row.win_pct, 3),
                 if row.conference_games_back == 0.0 {
                     "-".to_string()
                 } else {
-                    row.conference_games_back.to_string()
+                    format_number(row.conference_games_back, 2)
                 },
-                row.points_pg.to_string(),
-                row.opp_points_pg.to_string(),
-                row.diff_points_pg.to_string(),
+                format_number(row.points_pg, 2),
+                format_number(row.opp_points_pg, 2),
+                format_number(row.diff_points_pg, 2),
                 row.home.clone(),
                 row.road.clone(),
                 row.last_ten.clone(),
@@ -328,11 +327,15 @@ fn standings_table(title: &str, rows: &[StandingsTeam]) -> String {
     format!(
         r#"<article class="panel"><h1>{}</h1>{}</article>"#,
         escape(title),
-        sortable_table(
+        sortable_table_with_options(
             &[
                 "#", "Team", "W", "L", "%", "GB", "PPG", "OPPG", "DIFF", "HM", "RD", "L10", "STR"
             ],
-            &table_rows
+            &table_rows,
+            TableOptions {
+                default_sort_index: Some(0),
+                default_sort_dir: Some("asc"),
+            },
         )
     )
 }
@@ -359,20 +362,98 @@ fn render_table(table: &Table) -> String {
 }
 
 pub fn sortable_table(headers: &[&str], rows: &[Vec<String>]) -> String {
-    let mut html = String::from(r#"<div class="table-wrap"><table class="sortable"><thead><tr>"#);
+    sortable_table_with_options(headers, rows, TableOptions::default())
+}
+
+#[derive(Default)]
+struct TableOptions {
+    default_sort_index: Option<usize>,
+    default_sort_dir: Option<&'static str>,
+}
+
+fn sortable_table_with_options(
+    headers: &[&str],
+    rows: &[Vec<String>],
+    options: TableOptions,
+) -> String {
+    let mut attrs = String::new();
+    if let Some(index) = options.default_sort_index {
+        attrs.push_str(&format!(r#" data-default-sort-index="{index}""#));
+    }
+    if let Some(dir) = options.default_sort_dir {
+        attrs.push_str(&format!(r#" data-default-sort-dir="{dir}""#));
+    }
+    let mut html = format!(r#"<div class="table-wrap"><table class="sortable"{attrs}><thead><tr>"#);
     for header in headers {
-        html.push_str(&format!("<th>{}</th>", escape(header)));
+        html.push_str(&format!(
+            r#"<th class="{}">{}</th>"#,
+            cell_class(header),
+            escape(header)
+        ));
     }
     html.push_str("</tr></thead><tbody>");
     for row in rows {
         html.push_str("<tr>");
         for cell in row {
-            html.push_str(&format!("<td>{}</td>", cell));
+            html.push_str(&format!(
+                r#"<td class="{}">{}</td>"#,
+                cell_class(cell),
+                cell
+            ));
         }
         html.push_str("</tr>");
     }
     html.push_str("</tbody></table></div>");
     html
+}
+
+fn game_status(game: &Game) -> String {
+    if game.game_status == 1 && !game.game_time_utc.is_empty() {
+        return format!(
+            r#"<time data-local-game-time datetime="{}">{}</time>"#,
+            escape_attr(&game.game_time_utc),
+            escape(&game.game_status_text)
+        );
+    }
+    escape(&game.game_status_text)
+}
+
+fn team_record(team: &Team) -> String {
+    if team.display_record.is_empty() {
+        format!("{}-{}", team.wins, team.losses)
+    } else {
+        team.display_record.clone()
+    }
+}
+
+fn cell_class(value: &str) -> &'static str {
+    if value.contains("<img") || value.chars().any(|c| c.is_alphabetic()) && !looks_numeric(value) {
+        "text"
+    } else {
+        "num"
+    }
+}
+
+fn looks_numeric(value: &str) -> bool {
+    let text = value.trim();
+    if text.is_empty() || text == "-" {
+        return false;
+    }
+    text.parse::<f64>().is_ok()
+        || text
+            .strip_prefix(['+', '-'])
+            .unwrap_or(text)
+            .chars()
+            .all(|c| c.is_ascii_digit() || matches!(c, '.' | '%' | ','))
+        || text.contains('-') && text.chars().all(|c| c.is_ascii_digit() || c == '-')
+}
+
+fn format_number(value: f64, decimals: usize) -> String {
+    let formatted = format!("{value:.decimals$}");
+    formatted
+        .trim_end_matches('0')
+        .trim_end_matches('.')
+        .to_string()
 }
 
 fn team_logo(team: &Team, class: &str) -> String {
@@ -416,11 +497,11 @@ fn box_winner(game: &BoxScore, is_home: bool) -> &'static str {
 fn stat_cell(value: i64, threshold: i64, good_when_high: bool) -> String {
     let class = if (good_when_high && value >= threshold) || (!good_when_high && value < threshold)
     {
-        "good"
+        "num good"
     } else if !good_when_high && value >= threshold {
-        "bad"
+        "num bad"
     } else {
-        ""
+        "num"
     };
     format!(r#"<td class="{class}">{value}</td>"#)
 }

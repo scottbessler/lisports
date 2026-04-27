@@ -28,6 +28,8 @@ pub struct Team {
     pub team_tricode: String,
     pub wins: i64,
     pub losses: i64,
+    #[serde(default)]
+    pub display_record: String,
     pub score: i64,
     pub periods: Vec<Period>,
 }

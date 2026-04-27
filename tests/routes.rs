@@ -79,7 +79,7 @@ async fn game_view_renders_selected_box_score() {
     let (status, body) = request("/nba/scoreboard/2026-04-26/game/401869385").await;
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("scoreboard has-game"));
-    assert!(body.contains("table class=\"sortable\""));
+    assert!(body.contains("table class=\"sortable box-score-table\""));
     assert!(body.contains("Jaylen Brown"));
 }
 
@@ -198,6 +198,7 @@ fn celtics_team() -> Team {
         team_tricode: "BOS".to_string(),
         wins: 56,
         losses: 26,
+        display_record: "56-26".to_string(),
         score: 128,
         periods: periods([34, 22, 39, 33]),
     }
@@ -211,6 +212,7 @@ fn lakers_team() -> Team {
         team_tricode: "LAL".to_string(),
         wins: 53,
         losses: 29,
+        display_record: "53-29".to_string(),
         score: 96,
         periods: periods([21, 26, 18, 31]),
     }

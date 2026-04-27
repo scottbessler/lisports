@@ -40,8 +40,8 @@ pub fn espn_scoreboard(day: &str, data: EspnScoreboardDto) -> Result<Scoreboard,
             .iter()
             .find(|c| str_at(c, &["homeAway"]).as_deref() == Some("away"))
             .ok_or_else(|| AppError::parse("missing away team"))?;
-        let home_team = espn_competitor_to_team(home);
-        let away_team = espn_competitor_to_team(away);
+        let home_team = espn_competitor_to_team(home, comp);
+        let away_team = espn_competitor_to_team(away, comp);
         games.push(Game {
             game_id: str_at(&event, &["id"]).unwrap_or_default(),
             game_status: espn_status_to_game_status(status),
@@ -262,6 +262,7 @@ fn nba_team(team: &Value) -> Team {
         team_tricode: str_at(team, &["teamTricode"]).unwrap_or_default(),
         wins: i64_at(team, &["wins"]),
         losses: i64_at(team, &["losses"]),
+        display_record: format!("{}-{}", i64_at(team, &["wins"]), i64_at(team, &["losses"])),
         score: i64_at(team, &["score"]),
         periods: array_at(team, &["periods"])
             .iter()
@@ -273,7 +274,7 @@ fn nba_team(team: &Value) -> Team {
     }
 }
 
-fn espn_competitor_to_team(c: &Value) -> Team {
+fn espn_competitor_to_team(c: &Value, competition: &Value) -> Team {
     let espn = str_at(c, &["team", "abbreviation"]).unwrap_or_default();
     let (tri, id, city, name) = match team_mapping(&espn) {
         Some((tri, id, city, name)) => (tri.to_string(), id, city.to_string(), name.to_string()),
@@ -290,6 +291,8 @@ fn espn_competitor_to_team(c: &Value) -> Team {
         .and_then(|r| str_at(r, &["summary"]))
         .map(|s| parse_record(&s))
         .unwrap_or((0, 0));
+    let display_record =
+        playoff_series_record(c, competition).unwrap_or_else(|| format!("{wins}-{losses}"));
     Team {
         team_id: id,
         team_name: name,
@@ -297,6 +300,7 @@ fn espn_competitor_to_team(c: &Value) -> Team {
         team_tricode: tri,
         wins,
         losses,
+        display_record,
         score: str_at(c, &["score"]).map(|s| i64_from_str(&s)).unwrap_or(0),
         periods: array_at(c, &["linescores"])
             .iter()
@@ -328,6 +332,7 @@ fn summary_team(boxscore: &Value, abbr: &str, comp: &Value) -> BoxScoreTeam {
             team_tricode: tri.to_string(),
             wins: 0,
             losses: 0,
+            display_record: String::new(),
             score: str_at(comp, &["score"])
                 .map(|s| i64_from_str(&s))
                 .unwrap_or(0),
@@ -457,6 +462,23 @@ fn extract_leaders(c: &Value) -> Leaders {
         rebounds: leader_value(&leaders, "rebounds"),
         assists: leader_value(&leaders, "assists"),
     }
+}
+
+fn playoff_series_record(competitor: &Value, competition: &Value) -> Option<String> {
+    if str_at(competition, &["series", "type"]).as_deref() != Some("playoff") {
+        return None;
+    }
+    let team_id = str_at(competitor, &["team", "id"]).or_else(|| str_at(competitor, &["id"]))?;
+    let team_wins = array_at(competition, &["series", "competitors"])
+        .iter()
+        .find(|series_team| str_at(series_team, &["id"]).as_deref() == Some(team_id.as_str()))
+        .map(|series_team| i64_at(series_team, &["wins"]))?;
+    let opponent_wins = array_at(competition, &["series", "competitors"])
+        .iter()
+        .find(|series_team| str_at(series_team, &["id"]).as_deref() != Some(team_id.as_str()))
+        .map(|series_team| i64_at(series_team, &["wins"]))
+        .unwrap_or(0);
+    Some(format!("{team_wins}-{opponent_wins}"))
 }
 
 fn espn_status_to_game_status(status: &Value) -> i64 {
@@ -647,10 +669,11 @@ mod tests {
                 "id": "401869385",
                 "date": "2026-04-26T19:00:00Z",
                 "competitions": [{
+                    "series": {"type": "playoff", "competitors": [{"id": "13", "wins": 2}, {"id": "2", "wins": 1}]},
                     "status": {"period": 4, "displayClock": "0.0", "type": {"name": "STATUS_FINAL", "shortDetail": "Final"}},
                     "competitors": [
-                        {"homeAway": "away", "score": "128", "team": {"abbreviation": "BOS"}, "records": [{"type": "total", "summary": "56-26"}], "linescores": [{"period": 1, "value": 34}]},
-                        {"homeAway": "home", "score": "96", "team": {"abbreviation": "LAL"}, "records": [{"type": "total", "summary": "53-29"}], "linescores": [{"period": 1, "value": 21}]}
+                        {"homeAway": "away", "id": "2", "score": "128", "team": {"id": "2", "abbreviation": "BOS"}, "records": [{"type": "total", "summary": "56-26"}], "linescores": [{"period": 1, "value": 34}]},
+                        {"homeAway": "home", "id": "13", "score": "96", "team": {"id": "13", "abbreviation": "LAL"}, "records": [{"type": "total", "summary": "53-29"}], "linescores": [{"period": 1, "value": 21}]}
                     ]
                 }]
             }]
@@ -658,6 +681,7 @@ mod tests {
         let scoreboard = espn_scoreboard("2026-04-26", data).unwrap();
         assert_eq!(scoreboard.games.len(), 1);
         assert_eq!(scoreboard.games[0].home_team.team_tricode, "LAL");
+        assert_eq!(scoreboard.games[0].home_team.display_record, "2-1");
         assert_eq!(scoreboard.games[0].away_team.score, 128);
         assert_eq!(scoreboard.games[0].game_status, 3);
     }

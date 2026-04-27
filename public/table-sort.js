@@ -1,4 +1,16 @@
 (() => {
+	const formatLocalTimes = () => {
+		document.querySelectorAll('time[data-local-game-time]').forEach((time) => {
+			const date = new Date(time.dateTime);
+			if (Number.isNaN(date.valueOf())) return;
+			time.textContent = new Intl.DateTimeFormat(undefined, {
+				hour: 'numeric',
+				minute: '2-digit',
+				timeZoneName: 'short',
+			}).format(date);
+		});
+	};
+
 	const valueFor = (cell) => {
 		const text = (cell?.innerText || '').trim();
 		if (!text || text === '-') return { kind: 'empty', value: '' };
@@ -20,10 +32,45 @@
 		return { kind: 'text', value: text.toLocaleLowerCase() };
 	};
 
-	document.querySelectorAll('table.sortable').forEach((table) => {
+	const applySort = (table, index, direction) => {
 		const headers = Array.from(table.tHead?.rows?.[0]?.cells || []);
 		const body = table.tBodies[0];
-		if (!body) return;
+		const header = headers[index];
+		if (!body || !header) return;
+
+		headers.forEach((h) => {
+			h.dataset.sortDir = '';
+			h.setAttribute('aria-sort', 'none');
+		});
+		header.dataset.sortDir = direction;
+		header.setAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending');
+
+		const rows = Array.from(body.rows);
+		rows.sort((a, b) => {
+			const left = valueFor(a.cells[index]);
+			const right = valueFor(b.cells[index]);
+			if (left.kind === 'empty' && right.kind !== 'empty') return 1;
+			if (right.kind === 'empty' && left.kind !== 'empty') return -1;
+			const result =
+				left.kind === 'number' && right.kind === 'number'
+					? left.value - right.value
+					: String(left.value).localeCompare(String(right.value), undefined, { numeric: true });
+			return direction === 'asc' ? result : -result;
+		});
+		rows.forEach((row) => body.appendChild(row));
+	};
+
+	const linkedTables = (table) => {
+		const group = table.dataset.sortGroup;
+		const safeGroup = group?.replace(/["\\]/g, '\\$&');
+		return group
+			? Array.from(document.querySelectorAll(`table.sortable[data-sort-group="${safeGroup}"]`))
+			: [table];
+	};
+
+	document.querySelectorAll('table.sortable').forEach((table) => {
+		const headers = Array.from(table.tHead?.rows?.[0]?.cells || []);
+		if (!table.tBodies[0]) return;
 
 		headers.forEach((header, index) => {
 			header.tabIndex = 0;
@@ -32,26 +79,7 @@
 
 			const sort = () => {
 				const nextDir = header.dataset.sortDir === 'asc' ? 'desc' : 'asc';
-				headers.forEach((h) => {
-					h.dataset.sortDir = '';
-					h.setAttribute('aria-sort', 'none');
-				});
-				header.dataset.sortDir = nextDir;
-				header.setAttribute('aria-sort', nextDir === 'asc' ? 'ascending' : 'descending');
-
-				const rows = Array.from(body.rows);
-				rows.sort((a, b) => {
-					const left = valueFor(a.cells[index]);
-					const right = valueFor(b.cells[index]);
-					if (left.kind === 'empty' && right.kind !== 'empty') return 1;
-					if (right.kind === 'empty' && left.kind !== 'empty') return -1;
-					const result =
-						left.kind === 'number' && right.kind === 'number'
-							? left.value - right.value
-							: String(left.value).localeCompare(String(right.value), undefined, { numeric: true });
-					return nextDir === 'asc' ? result : -result;
-				});
-				rows.forEach((row) => body.appendChild(row));
+				linkedTables(table).forEach((linkedTable) => applySort(linkedTable, index, nextDir));
 			};
 
 			header.addEventListener('click', sort);
@@ -63,4 +91,12 @@
 			});
 		});
 	});
+
+	document.querySelectorAll('table.sortable[data-default-sort-index]').forEach((table) => {
+		const index = Number(table.dataset.defaultSortIndex);
+		if (!Number.isInteger(index)) return;
+		applySort(table, index, table.dataset.defaultSortDir === 'desc' ? 'desc' : 'asc');
+	});
+
+	formatLocalTimes();
 })();
