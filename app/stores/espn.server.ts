@@ -1143,19 +1143,19 @@ export async function fetchPlayerGameLogESPN(
 
 	const allGames: GameLogEntry[] = [];
 	for (const st of result.seasonTypes) {
-		for (const cat of st.categories) {
-			for (const ev of cat.events ?? []) {
-				const meta = result.events[ev.eventId];
-				if (!meta) continue;
-				allGames.push({
-					date: meta.gameDate,
-					atVs: meta.atVs,
-					opponent: meta.opponent?.abbreviation ?? '',
-					result: meta.gameResult,
-					score: meta.score,
-					stats: ev.stats,
-				});
-			}
+		const cat = st.categories[0];
+		if (!cat) continue;
+		for (const ev of cat.events ?? []) {
+			const meta = result.events[ev.eventId];
+			if (!meta) continue;
+			allGames.push({
+				date: meta.gameDate,
+				atVs: meta.atVs,
+				opponent: meta.opponent?.abbreviation ?? '',
+				result: meta.gameResult,
+				score: meta.score,
+				stats: ev.stats,
+			});
 		}
 	}
 
