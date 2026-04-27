@@ -1,51 +1,21 @@
-# base node image
-FROM oven/bun:1.3-debian as base
+FROM rust:1.95-slim AS build
 
-# set for base and all layer that inherit from it
-ENV NODE_ENV production
+WORKDIR /app
 
-# Install all node_modules, including dev dependencies
-FROM base as deps
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
 
-WORKDIR /myapp
+RUN cargo build --release
 
-RUN apt-get update -qq && apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
-ADD package.json bun.lock ./
-RUN bun install
-
-# Setup production node_modules
-FROM base as production-deps
-
-WORKDIR /myapp
-
-RUN apt-get update -qq && apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
-ADD package.json bun.lock ./
-RUN bun install --production
-
-# Build the app
-FROM base as build
-
-WORKDIR /myapp
-
-COPY --from=deps /myapp/node_modules /myapp/node_modules
-
-ADD . .
-RUN bun run buildx
-
-# Finally, build the production image with minimal footprint
-FROM base
+FROM debian:bookworm-slim
 
 ENV DATA_PATH=/data
-ENV PORT="8080"
-ENV NODE_ENV="production"
+ENV PORT=8080
 
-WORKDIR /myapp
+WORKDIR /app
 
-COPY --from=production-deps /myapp/node_modules /myapp/node_modules
+COPY --from=build /app/target/release/lisports /app/lisports
+COPY public ./public
+COPY start.sh ./start.sh
 
-COPY --from=build /myapp/build /myapp/build
-COPY --from=build /myapp/public /myapp/public
-COPY --from=build /myapp/package.json /myapp/package.json
-COPY --from=build /myapp/start.sh /myapp/start.sh
-
-ENTRYPOINT [ "./start.sh" ]
+ENTRYPOINT ["./start.sh"]
