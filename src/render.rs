@@ -3,7 +3,8 @@ use chrono::{Datelike, Days, NaiveDate, Utc};
 use crate::{
     models::{
         BoxScore, BoxScoreTeam, Game, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsTable,
-        MlbStandingsTeam, PlayerStatsPage, Scoreboard, StandingsTable, StandingsTeam, Table, Team,
+        MlbStandingsTeam, NflBoxScore, NflBoxScoreTeam, NflStandingsTable, NflStandingsTeam,
+        PlayerStatsPage, Scoreboard, StandingsTable, StandingsTeam, Table, Team,
     },
     stats,
 };
@@ -12,6 +13,7 @@ use crate::{
 enum League {
     Nba,
     Mlb,
+    Nfl,
 }
 
 pub fn layout(title: &str, body: &str) -> String {
@@ -44,7 +46,8 @@ pub fn nav() -> &'static str {
   <a href="/nba/standings">NBA Standings</a>
   <a href="/mlb/scoreboard">MLB Scoreboard</a>
   <a href="/mlb/standings">MLB Standings</a>
-  <a href="/nfl/scoreboard">NFL</a>
+  <a href="/nfl/scoreboard">NFL Scoreboard</a>
+  <a href="/nfl/standings">NFL Standings</a>
 </nav>"#
 }
 
@@ -56,13 +59,6 @@ pub fn error_page(title: &str, message: &str) -> String {
             escape(title),
             escape(message)
         ),
-    )
-}
-
-pub fn coming_soon_page() -> String {
-    layout(
-        "Coming Soon",
-        r#"<main class="center"><h1>Coming eventually?</h1></main>"#,
     )
 }
 
@@ -160,6 +156,84 @@ pub fn mlb_scoreboard_page(
     )
 }
 
+pub fn nfl_scoreboard_page(
+    week: i64,
+    scoreboard: &Scoreboard,
+    selected: Option<&NflBoxScore>,
+) -> String {
+    let mut html = String::from(r#"<main class="page">"#);
+    html.push_str(&week_nav(week, "/nfl/scoreboard"));
+    if scoreboard.games.is_empty() {
+        html.push_str(r#"<section class="center"><h1>No Games Scheduled</h1></section>"#);
+    } else {
+        let class = if selected.is_some() {
+            "scoreboard has-game"
+        } else {
+            "scoreboard"
+        };
+        html.push_str(&format!(r#"<section class="{class}">"#));
+        html.push_str(r#"<div class="game-list">"#);
+        let all_completed = scoreboard.games.iter().all(|g| g.game_status == 3);
+        for game in &scoreboard.games {
+            html.push_str(&format!(
+                r#"<a class="game-link" href="/nfl/scoreboard/{}/game/{}">{}</a>"#,
+                week,
+                escape_attr(&game.game_id),
+                game_summary(game, !all_completed, League::Nfl)
+            ));
+        }
+        html.push_str("</div>");
+        if let Some(game) = selected {
+            html.push_str(&nfl_game_details(game));
+        }
+        html.push_str("</section>");
+    }
+    html.push_str("</main>");
+    layout(
+        if selected.is_some() {
+            "NFL Game"
+        } else {
+            "NFL Scoreboard"
+        },
+        &html,
+    )
+}
+
+fn week_nav(week: i64, base_path: &str) -> String {
+    let mut html = String::from(r#"<div class="date-nav week-nav">"#);
+    let prev = (week - 1).max(1);
+    let next = (week + 1).min(23);
+    let start = (week - 3).clamp(1, 17);
+    let end = (start + 6).min(23);
+    html.push_str(&format!(
+        r#"<a class="button" href="{base_path}/{prev}">Prev</a>"#
+    ));
+    for w in start..=end {
+        let class = if w == week { "button active" } else { "button" };
+        html.push_str(&format!(
+            r#"<a class="{class}" href="{base_path}/{w}">{}</a>"#,
+            nfl_week_label(w)
+        ));
+    }
+    html.push_str(&format!(
+        r#"<a class="button" href="{base_path}/{next}">Next</a>"#
+    ));
+    html.push_str("</div>");
+    html
+}
+
+fn nfl_week_label(week: i64) -> String {
+    match week {
+        1..=18 => format!("Week {week}"),
+        19 => "Wild Card".to_string(),
+        20 => "Divisional".to_string(),
+        21 => "Conf Champ".to_string(),
+        22 => "Pro Bowl".to_string(),
+        23 => "Super Bowl".to_string(),
+        _ => format!("Week {week}"),
+    }
+}
+
 fn date_nav(day: NaiveDate, base_path: &str) -> String {
     let mut html = String::from(r#"<div class="date-nav">"#);
     html.push_str(&format!(
@@ -200,14 +274,14 @@ fn game_summary(game: &Game, show_status: bool, league: League) -> String {
         html.push_str(&format!("<th>{}</th>", period.period));
     }
     match league {
-        League::Nba => html.push_str("<th>T</th></tr></thead><tbody>"),
+        League::Nba | League::Nfl => html.push_str("<th>T</th></tr></thead><tbody>"),
         League::Mlb => html.push_str("<th>R</th><th>H</th><th>E</th></tr></thead><tbody>"),
     }
     html.push_str(&team_summary_row(game, &game.away_team, false, league));
     html.push_str(&team_summary_row(game, &game.home_team, true, league));
     if show_status {
         let colspan = match league {
-            League::Nba => game.away_team.periods.len() + 2,
+            League::Nba | League::Nfl => game.away_team.periods.len() + 2,
             League::Mlb => game.away_team.periods.len() + 4,
         };
         html.push_str(&format!(
@@ -241,7 +315,7 @@ fn team_summary_row(game: &Game, team: &Team, is_home: bool, league: League) -> 
         ));
     }
     match league {
-        League::Nba => html.push_str(&format!("<td>{}</td></tr>", team.score)),
+        League::Nba | League::Nfl => html.push_str(&format!("<td>{}</td></tr>", team.score)),
         League::Mlb => html.push_str(&format!(
             "<td>{}</td><td>{}</td><td>{}</td></tr>",
             team.score, team.hits, team.errors
@@ -272,6 +346,153 @@ fn game_details(game: &BoxScore) -> String {
     ));
     html.push_str("</section>");
     html
+}
+
+fn nfl_game_details(game: &NflBoxScore) -> String {
+    let mut html = String::from(r#"<section class="details">"#);
+    html.push_str(&nfl_team_stats_comparison(game));
+    html.push_str(&nfl_team_game_details(game, &game.away_team, false));
+    html.push_str(&nfl_team_game_details(game, &game.home_team, true));
+    html.push_str("</section>");
+    html
+}
+
+fn nfl_team_game_details(game: &NflBoxScore, team: &NflBoxScoreTeam, is_home: bool) -> String {
+    let mut html = String::from(r#"<article class="team-details">"#);
+    html.push_str("<h1>");
+    html.push_str(&team_logo(&team.team, "logo", League::Nfl));
+    html.push_str(&format!(
+        "{} {} <strong>{}</strong> {}",
+        escape(&team.team.team_city),
+        escape(&team.team.team_name),
+        team.team.score,
+        nfl_box_winner(game, is_home)
+    ));
+    html.push_str("</h1>");
+    for table in &team.player_stats {
+        html.push_str(&format!(
+            r#"<section class="box-score-group"><h2>{}</h2>{}</section>"#,
+            escape(&table.name),
+            render_table(table)
+        ));
+    }
+    html.push_str("</article>");
+    html
+}
+
+fn nfl_team_stats_comparison(game: &NflBoxScore) -> String {
+    let away_label = &game.away_team.team.team_tricode;
+    let home_label = &game.home_team.team.team_tricode;
+    let mut rows = Vec::new();
+    for row in &game.away_team.team_stats.rows {
+        let Some(stat) = row.first() else {
+            continue;
+        };
+        let away_value = row.get(1).cloned().unwrap_or_default();
+        let home_value = game
+            .home_team
+            .team_stats
+            .rows
+            .iter()
+            .find(|home_row| home_row.first() == Some(stat))
+            .and_then(|home_row| home_row.get(1))
+            .cloned()
+            .unwrap_or_default();
+        rows.push((stat.clone(), away_value, home_value));
+    }
+    for row in &game.home_team.team_stats.rows {
+        let Some(stat) = row.first() else {
+            continue;
+        };
+        if rows.iter().any(|(existing, _, _)| existing == stat) {
+            continue;
+        }
+        rows.push((
+            stat.clone(),
+            String::new(),
+            row.get(1).cloned().unwrap_or_default(),
+        ));
+    }
+
+    let mut table_rows = Vec::new();
+    for (stat, away_value, home_value) in rows {
+        let (away_class, home_class) = nfl_stat_classes(&stat, &away_value, &home_value);
+        table_rows.push(vec![
+            table_cell(escape(&stat)),
+            table_cell_with_class(
+                escape(&away_value),
+                away_class.strip_prefix("num ").unwrap_or(""),
+            ),
+            table_cell_with_class(
+                escape(&home_value),
+                home_class.strip_prefix("num ").unwrap_or(""),
+            ),
+        ]);
+    }
+    format!(
+        r#"<article class="team-details"><h1>Team Stats</h1>{}</article>"#,
+        sortable_table_cells(
+            &["Stat", away_label, home_label],
+            &table_rows,
+            TableOptions::default()
+        )
+    )
+}
+
+fn nfl_stat_classes(
+    stat: &str,
+    away_value: &str,
+    home_value: &str,
+) -> (&'static str, &'static str) {
+    let Some(away_num) = nfl_stat_value(away_value) else {
+        return ("num", "num");
+    };
+    let Some(home_num) = nfl_stat_value(home_value) else {
+        return ("num", "num");
+    };
+    if (away_num - home_num).abs() < f64::EPSILON {
+        return ("num", "num");
+    }
+    let away_better = if nfl_lower_is_better(stat) {
+        away_num < home_num
+    } else {
+        away_num > home_num
+    };
+    if away_better {
+        ("num good", "num")
+    } else {
+        ("num", "num good")
+    }
+}
+
+fn nfl_lower_is_better(stat: &str) -> bool {
+    let stat = stat.to_ascii_lowercase();
+    stat.contains("turnover")
+        || stat.contains("interception")
+        || stat.contains("fumble")
+        || stat.contains("penalt")
+        || stat.contains("sacks-yards lost")
+}
+
+fn nfl_stat_value(value: &str) -> Option<f64> {
+    let value = value.trim();
+    if value.is_empty() || value == "-" {
+        return None;
+    }
+    if let Some((made, attempted)) = value.split_once(['-', '/']) {
+        let made = made.parse::<f64>().ok()?;
+        let attempted = attempted.parse::<f64>().ok()?;
+        if attempted == 0.0 {
+            return Some(0.0);
+        }
+        return Some(made / attempted);
+    }
+    if let Some((minutes, seconds)) = value.split_once(':') {
+        let minutes = minutes.parse::<f64>().ok()?;
+        let seconds = seconds.parse::<f64>().ok()?;
+        return Some(minutes * 60.0 + seconds);
+    }
+    value.trim_end_matches('%').parse::<f64>().ok()
 }
 
 fn mlb_game_details(game: &MlbBoxScore) -> String {
@@ -331,59 +552,67 @@ fn team_game_details(
 }
 
 fn team_box(team: &BoxScoreTeam, other: &BoxScoreTeam) -> String {
-    let mut html = String::from(
-        r#"<div class="table-wrap"><table class="sortable box-score-table" data-sort-group="box-score" data-default-sort-index="5" data-default-sort-dir="desc"><thead><tr><th class="text">Name</th><th>MIN</th><th>PTS</th><th>RB</th><th>AS</th><th>PIE</th><th>FG</th><th>3P</th><th>FT</th><th>PPS</th><th>TO</th><th>ST</th><th>BK</th><th>PF</th><th>+/-</th><th>USG</th></tr></thead><tbody>"#,
-    );
+    let mut rows = Vec::new();
     for player in team.players.iter().filter(|p| p.played) {
         let s = &player.statistics;
-        html.push_str("<tr>");
-        html.push_str(&format!(
-            r#"<th><a href="/nba/player/{}">{}{}</a></th>"#,
-            player.person_id,
-            escape(&player.name),
-            if player.starter { "*" } else { "" }
-        ));
-        html.push_str(&format!("<td>{}</td>", s.minutes));
-        html.push_str(&stat_cell(s.points, 20, true));
-        html.push_str(&stat_cell(s.rebounds_total, 10, true));
-        html.push_str(&stat_cell(s.assists, 8, true));
-        html.push_str(&format!(
-            "<td>{}</td>",
-            format_number(stats::pie(s, &team.statistics, &other.statistics) as f64, 2)
-        ));
-        html.push_str(&format!(
-            "<td>{}-{}</td>",
-            s.field_goals_made, s.field_goals_attempted
-        ));
-        html.push_str(&format!(
-            "<td>{}-{}</td>",
-            s.three_pointers_made, s.three_pointers_attempted
-        ));
-        html.push_str(&format!(
-            "<td>{}-{}</td>",
-            s.free_throws_made, s.free_throws_attempted
-        ));
-        html.push_str(&format!(
-            "<td>{}</td>",
-            stats::points_per_shot(s)
-                .map(|v| format!("{v:.2}"))
-                .unwrap_or_default()
-        ));
-        html.push_str(&stat_cell(s.turnovers, 3, false));
-        html.push_str(&stat_cell(s.steals, 3, true));
-        html.push_str(&stat_cell(s.blocks, 3, true));
-        html.push_str(&stat_cell(s.fouls_personal, 5, false));
-        html.push_str(&format!("<td>{}</td>", s.plus_minus_points));
-        html.push_str(&format!(
-            "<td>{}</td>",
-            stats::usage_rate(s, &team.statistics)
-                .map(|v| format_number(v as f64, 2))
-                .unwrap_or_default()
-        ));
-        html.push_str("</tr>");
+        rows.push(vec![
+            table_cell(format!(
+                r#"<a href="/nba/player/{}">{}{}</a>"#,
+                player.person_id,
+                escape(&player.name),
+                if player.starter { "*" } else { "" }
+            )),
+            table_cell(s.minutes.to_string()),
+            stat_cell(s.points, 20, true),
+            stat_cell(s.rebounds_total, 10, true),
+            stat_cell(s.assists, 8, true),
+            table_cell(format_number(
+                stats::pie(s, &team.statistics, &other.statistics) as f64,
+                2,
+            )),
+            table_cell(format!(
+                "{}-{}",
+                s.field_goals_made, s.field_goals_attempted
+            )),
+            table_cell(format!(
+                "{}-{}",
+                s.three_pointers_made, s.three_pointers_attempted
+            )),
+            table_cell(format!(
+                "{}-{}",
+                s.free_throws_made, s.free_throws_attempted
+            )),
+            table_cell(
+                stats::points_per_shot(s)
+                    .map(|v| format!("{v:.2}"))
+                    .unwrap_or_default(),
+            ),
+            stat_cell(s.turnovers, 3, false),
+            stat_cell(s.steals, 3, true),
+            stat_cell(s.blocks, 3, true),
+            stat_cell(s.fouls_personal, 5, false),
+            table_cell(s.plus_minus_points.to_string()),
+            table_cell(
+                stats::usage_rate(s, &team.statistics)
+                    .map(|v| format_number(v as f64, 2))
+                    .unwrap_or_default(),
+            ),
+        ]);
     }
-    html.push_str("</tbody></table></div>");
-    html
+    sortable_table_cells(
+        &[
+            "Name", "MIN", "PTS", "RB", "AS", "PIE", "FG", "3P", "FT", "PPS", "TO", "ST", "BK",
+            "PF", "+/-", "USG",
+        ],
+        &rows,
+        TableOptions {
+            class: Some("box-score-table"),
+            sort_group: Some("box-score"),
+            default_sort_index: Some(5),
+            default_sort_dir: Some("desc"),
+            ..TableOptions::default()
+        },
+    )
 }
 
 pub fn standings_page(standings: &StandingsTable) -> String {
@@ -407,6 +636,23 @@ pub fn mlb_standings_page(standings: &MlbStandingsTable) -> String {
                 .iter()
                 .map(|division| mlb_standings_table(
                     &format!("{} {}", division.league, division.division),
+                    &division.teams
+                ))
+                .collect::<String>()
+        ),
+    )
+}
+
+pub fn nfl_standings_page(standings: &NflStandingsTable) -> String {
+    layout(
+        "NFL Standings",
+        &format!(
+            r#"<main class="page standings nfl-standings">{}</main>"#,
+            standings
+                .divisions
+                .iter()
+                .map(|division| nfl_standings_table(
+                    &format!("{} {}", division.conference, division.division),
                     &division.teams
                 ))
                 .collect::<String>()
@@ -458,6 +704,52 @@ fn standings_table(title: &str, rows: &[StandingsTeam]) -> String {
             TableOptions {
                 default_sort_index: Some(0),
                 default_sort_dir: Some("asc"),
+                ..TableOptions::default()
+            },
+        )
+    )
+}
+
+fn nfl_standings_table(title: &str, rows: &[NflStandingsTeam]) -> String {
+    let table_rows: Vec<Vec<String>> = rows
+        .iter()
+        .map(|row| {
+            vec![
+                row.playoff_rank.to_string(),
+                format!(
+                    "{}{}",
+                    nfl_team_logo(&row.team_tricode, &row.team_name, "mini-logo"),
+                    escape(&row.team_name)
+                ),
+                row.wins.to_string(),
+                row.losses.to_string(),
+                row.ties.to_string(),
+                row.win_pct.clone(),
+                row.games_back.clone(),
+                row.points_for.to_string(),
+                row.points_against.to_string(),
+                row.point_diff.clone(),
+                row.home.clone(),
+                row.road.clone(),
+                row.division_record.clone(),
+                row.conference_record.clone(),
+                row.streak.clone(),
+            ]
+        })
+        .collect();
+    format!(
+        r#"<article class="panel"><h1>{}</h1>{}</article>"#,
+        escape(title),
+        sortable_table_with_options(
+            &[
+                "#", "Team", "W", "L", "T", "PCT", "GB", "PF", "PA", "DIFF", "HM", "RD", "DIV",
+                "CONF", "STR"
+            ],
+            &table_rows,
+            TableOptions {
+                default_sort_index: Some(0),
+                default_sort_dir: Some("asc"),
+                ..TableOptions::default()
             },
         )
     )
@@ -496,6 +788,7 @@ fn mlb_standings_table(title: &str, rows: &[MlbStandingsTeam]) -> String {
             TableOptions {
                 default_sort_index: Some(0),
                 default_sort_dir: Some("asc"),
+                ..TableOptions::default()
             },
         )
     )
@@ -528,8 +821,29 @@ pub fn sortable_table(headers: &[&str], rows: &[Vec<String>]) -> String {
 
 #[derive(Default)]
 struct TableOptions {
+    class: Option<&'static str>,
+    sort_group: Option<&'static str>,
     default_sort_index: Option<usize>,
     default_sort_dir: Option<&'static str>,
+}
+
+struct TableCell {
+    html: String,
+    class: &'static str,
+}
+
+fn table_cell(html: impl Into<String>) -> TableCell {
+    TableCell {
+        html: html.into(),
+        class: "",
+    }
+}
+
+fn table_cell_with_class(html: impl Into<String>, class: &'static str) -> TableCell {
+    TableCell {
+        html: html.into(),
+        class,
+    }
 }
 
 fn sortable_table_with_options(
@@ -537,35 +851,94 @@ fn sortable_table_with_options(
     rows: &[Vec<String>],
     options: TableOptions,
 ) -> String {
+    let cells: Vec<Vec<TableCell>> = rows
+        .iter()
+        .map(|row| row.iter().map(|cell| table_cell(cell.clone())).collect())
+        .collect();
+    sortable_table_cells(headers, &cells, options)
+}
+
+fn sortable_table_cells(
+    headers: &[&str],
+    rows: &[Vec<TableCell>],
+    options: TableOptions,
+) -> String {
     let mut attrs = String::new();
+    let class = match options.class {
+        Some(class) => format!("sortable {class}"),
+        None => "sortable".to_string(),
+    };
+    if let Some(group) = options.sort_group {
+        attrs.push_str(&format!(r#" data-sort-group="{group}""#));
+    }
     if let Some(index) = options.default_sort_index {
         attrs.push_str(&format!(r#" data-default-sort-index="{index}""#));
     }
     if let Some(dir) = options.default_sort_dir {
         attrs.push_str(&format!(r#" data-default-sort-dir="{dir}""#));
     }
-    let mut html = format!(r#"<div class="table-wrap"><table class="sortable"{attrs}><thead><tr>"#);
-    for header in headers {
+    let column_classes = table_column_classes(headers, rows);
+    let mut html = format!(r#"<div class="table-wrap"><table class="{class}"{attrs}><thead><tr>"#);
+    for (index, header) in headers.iter().enumerate() {
         html.push_str(&format!(
             r#"<th class="{}">{}</th>"#,
-            cell_class(header),
+            column_classes.get(index).copied().unwrap_or("text"),
             escape(header)
         ));
     }
     html.push_str("</tr></thead><tbody>");
     for row in rows {
         html.push_str("<tr>");
-        for cell in row {
-            html.push_str(&format!(
-                r#"<td class="{}">{}</td>"#,
-                cell_class(cell),
-                cell
-            ));
+        for (index, cell) in row.iter().enumerate() {
+            let base_class = column_classes.get(index).copied().unwrap_or("text");
+            let class = table_cell_class(base_class, cell.class);
+            html.push_str(&format!(r#"<td class="{class}">{}</td>"#, cell.html));
         }
         html.push_str("</tr>");
     }
     html.push_str("</tbody></table></div>");
     html
+}
+
+fn table_column_classes(headers: &[&str], rows: &[Vec<TableCell>]) -> Vec<&'static str> {
+    headers
+        .iter()
+        .enumerate()
+        .map(|(index, header)| column_class(header, rows.iter().filter_map(|row| row.get(index))))
+        .collect()
+}
+
+fn column_class<'a>(header: &str, cells: impl Iterator<Item = &'a TableCell>) -> &'static str {
+    if header_implies_text(header) {
+        return "text";
+    }
+    let mut saw_value = false;
+    for cell in cells {
+        let value = cell.html.trim();
+        if value.is_empty() || value == "-" {
+            continue;
+        }
+        saw_value = true;
+        if value.contains('<') || !looks_numeric(value) {
+            return "text";
+        }
+    }
+    if saw_value { "num" } else { cell_class(header) }
+}
+
+fn header_implies_text(header: &str) -> bool {
+    matches!(
+        header.to_ascii_lowercase().as_str(),
+        "name" | "team" | "player" | "stat" | "date" | "split"
+    )
+}
+
+fn table_cell_class(base: &str, extra: &str) -> String {
+    if extra.is_empty() {
+        base.to_string()
+    } else {
+        format!("{base} {extra}")
+    }
 }
 
 fn game_status(game: &Game) -> String {
@@ -621,6 +994,20 @@ fn team_logo(team: &Team, class: &str, league: League) -> String {
     match league {
         League::Nba => team_logo_id(team.team_id, &team.team_name, class),
         League::Mlb => mlb_team_logo(&team.team_tricode, &team.team_name, class),
+        League::Nfl => nfl_team_logo(&team.team_tricode, &team.team_name, class),
+    }
+}
+
+fn nfl_box_winner(game: &NflBoxScore, is_home: bool) -> &'static str {
+    if game.game_status != 3 {
+        return "";
+    }
+    if (is_home && game.home_team.team.score > game.away_team.team.score)
+        || (!is_home && game.away_team.team.score > game.home_team.team.score)
+    {
+        "<strong>W</strong>"
+    } else {
+        ""
     }
 }
 
@@ -653,6 +1040,14 @@ fn mlb_team_logo(team_tricode: &str, team_name: &str, class: &str) -> String {
     )
 }
 
+fn nfl_team_logo(team_tricode: &str, team_name: &str, class: &str) -> String {
+    format!(
+        r#"<img class="{class}" src="https://a.espncdn.com/i/teamlogos/nfl/500/{}.png" alt="{}">"#,
+        escape_attr(&team_tricode.to_lowercase()),
+        escape_attr(team_name)
+    )
+}
+
 fn winner(game: &Game, is_home: bool) -> &'static str {
     if game.game_status != 3 {
         return "";
@@ -679,16 +1074,16 @@ fn box_winner(game: &BoxScore, is_home: bool) -> &'static str {
     }
 }
 
-fn stat_cell(value: i64, threshold: i64, good_when_high: bool) -> String {
+fn stat_cell(value: i64, threshold: i64, good_when_high: bool) -> TableCell {
     let class = if (good_when_high && value >= threshold) || (!good_when_high && value < threshold)
     {
-        "num good"
+        "good"
     } else if !good_when_high && value >= threshold {
-        "num bad"
+        "bad"
     } else {
-        "num"
+        ""
     };
-    format!(r#"<td class="{class}">{value}</td>"#)
+    table_cell_with_class(value.to_string(), class)
 }
 
 fn weekday(n: u32) -> &'static str {
@@ -720,5 +1115,24 @@ mod tests {
     fn table_renderer_marks_tables_sortable() {
         let table = sortable_table(&["A"], &[vec!["1".to_string()]]);
         assert!(table.contains("table class=\"sortable\""));
+    }
+
+    #[test]
+    fn table_renderer_aligns_headers_from_column_values() {
+        let table = sortable_table(
+            &["Name", "PTS", "Date"],
+            &[vec![
+                "Jaylen Brown".to_string(),
+                "31".to_string(),
+                "2026-04-26".to_string(),
+            ]],
+        );
+
+        assert!(table.contains(
+            r#"<th class="text">Name</th><th class="num">PTS</th><th class="text">Date</th>"#
+        ));
+        assert!(table.contains(
+            r#"<td class="text">Jaylen Brown</td><td class="num">31</td><td class="text">2026-04-26</td>"#
+        ));
     }
 }

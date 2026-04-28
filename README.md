@@ -16,10 +16,32 @@ LiSports is a Rust web server that renders static HTML for a small sports dashbo
 - `/mlb/scoreboard/:day` renders the MLB games for a date in `YYYY-MM-DD` format
 - `/mlb/scoreboard/:day/game/:game_id` renders the date scoreboard plus MLB batting and pitching tables
 - `/mlb/standings` renders MLB standings
-- `/nfl/scoreboard` is a placeholder
+- `/nfl/scoreboard` redirects to the latest NFL week with games played
+- `/nfl/scoreboard/today` redirects to the latest NFL week with games played
+- `/nfl/scoreboard/:week` renders the NFL games for week `1` to `23`, where `19` to `23` are playoff weeks
+- `/nfl/scoreboard/:week/game/:game_id` renders the week scoreboard plus NFL stat tables
+- `/nfl/standings` renders NFL standings
 - `/healthcheck` returns `OK`
 
 ## Development
+
+Run the Rust service in dev mode to restart automatically when Rust sources, static assets, or Cargo metadata change:
+
+```sh
+./dev.sh
+```
+
+The same mode is also available through the package scripts:
+
+```sh
+bun run dev:rust
+```
+
+To watch different paths or change the poll interval:
+
+```sh
+WATCH_PATHS="src public" POLL_INTERVAL=0.5 ./dev.sh
+```
 
 ```sh
 cargo run

@@ -196,6 +196,56 @@ pub struct MlbStandingsTeam {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct NflBoxScore {
+    pub game_id: String,
+    pub game_status: i64,
+    pub away_team: NflBoxScoreTeam,
+    pub home_team: NflBoxScoreTeam,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct NflBoxScoreTeam {
+    pub team: Team,
+    pub team_stats: Table,
+    pub player_stats: Vec<Table>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct NflStandingsTable {
+    pub divisions: Vec<NflStandingsDivision>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct NflStandingsDivision {
+    pub conference: String,
+    pub division: String,
+    pub teams: Vec<NflStandingsTeam>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct NflStandingsTeam {
+    pub team_id: i64,
+    pub team_name: String,
+    pub team_tricode: String,
+    pub conference: String,
+    pub division: String,
+    pub playoff_rank: i64,
+    pub wins: i64,
+    pub losses: i64,
+    pub ties: i64,
+    pub win_pct: String,
+    pub games_back: String,
+    pub points_for: i64,
+    pub points_against: i64,
+    pub point_diff: String,
+    pub home: String,
+    pub road: String,
+    pub division_record: String,
+    pub conference_record: String,
+    pub streak: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Table {
     pub name: String,
     pub headers: Vec<String>,

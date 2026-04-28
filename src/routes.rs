@@ -8,7 +8,7 @@ use crate::{
     app::AppState,
     error::AppError,
     render,
-    validation::{numeric_id, parse_day},
+    validation::{nfl_week, numeric_id, parse_day},
 };
 
 pub async fn index() -> Redirect {
@@ -128,6 +128,41 @@ pub async fn mlb_standings(State(state): State<AppState>) -> Result<Html<String>
     Ok(Html(render::mlb_standings_page(&standings)))
 }
 
-pub async fn coming_soon() -> Html<String> {
-    Html(render::coming_soon_page())
+pub async fn nfl_scoreboard(State(state): State<AppState>) -> Result<Response, AppError> {
+    let scoreboard = state.data.nfl_current_scoreboard().await?;
+    Ok(Redirect::temporary(&format!("/nfl/scoreboard/{}", scoreboard.game_date)).into_response())
+}
+
+pub async fn nfl_scoreboard_today(State(state): State<AppState>) -> Result<Response, AppError> {
+    let scoreboard = state.data.nfl_current_scoreboard().await?;
+    Ok(Redirect::temporary(&format!("/nfl/scoreboard/{}", scoreboard.game_date)).into_response())
+}
+
+pub async fn nfl_scoreboard_week(
+    State(state): State<AppState>,
+    Path(week): Path<String>,
+) -> Result<Html<String>, AppError> {
+    let week = nfl_week(&week)?;
+    let scoreboard = state.data.nfl_week_games(week).await?;
+    Ok(Html(render::nfl_scoreboard_page(week, &scoreboard, None)))
+}
+
+pub async fn nfl_game(
+    State(state): State<AppState>,
+    Path((week, game_id)): Path<(String, String)>,
+) -> Result<Html<String>, AppError> {
+    let week = nfl_week(&week)?;
+    let game_id = numeric_id(&game_id, "game_id")?;
+    let scoreboard = state.data.nfl_week_games(week).await?;
+    let game = state.data.nfl_game(&game_id).await?;
+    Ok(Html(render::nfl_scoreboard_page(
+        week,
+        &scoreboard,
+        game.as_ref(),
+    )))
+}
+
+pub async fn nfl_standings(State(state): State<AppState>) -> Result<Html<String>, AppError> {
+    let standings = state.data.nfl_standings().await?;
+    Ok(Html(render::nfl_standings_page(&standings)))
 }

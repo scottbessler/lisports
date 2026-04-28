@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use axum::{
     body::{Body, to_bytes},
-    http::{Request, StatusCode},
+    http::{Request, StatusCode, header},
 };
 use lisports::{
     app,
@@ -11,7 +11,8 @@ use lisports::{
     error::AppError,
     models::{
         BoxScore, BoxScoreTeam, Game, Leaders, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsDivision,
-        MlbStandingsTable, MlbStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard,
+        MlbStandingsTable, MlbStandingsTeam, NflBoxScore, NflBoxScoreTeam, NflStandingsDivision,
+        NflStandingsTable, NflStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard,
         StandingsTable, StandingsTeam, Statistics, Table, Team, TeamStatistics,
     },
 };
@@ -88,6 +89,41 @@ impl SportsData for FakeSportsData {
                     league: "NL".to_string(),
                     division: "East".to_string(),
                     teams: vec![mlb_standing_team(1, "Atlanta Braves", "ATL", "NL", "East")],
+                },
+            ],
+        })
+    }
+
+    async fn nfl_current_scoreboard(&self) -> Result<Scoreboard, AppError> {
+        Ok(nfl_scoreboard(23))
+    }
+
+    async fn nfl_week_games(&self, week: i64) -> Result<Scoreboard, AppError> {
+        Ok(nfl_scoreboard(week))
+    }
+
+    async fn nfl_game(&self, _game_id: &str) -> Result<Option<NflBoxScore>, AppError> {
+        Ok(Some(nfl_box_score()))
+    }
+
+    async fn nfl_standings(&self) -> Result<NflStandingsTable, AppError> {
+        Ok(NflStandingsTable {
+            divisions: vec![
+                NflStandingsDivision {
+                    conference: "AFC".to_string(),
+                    division: "East".to_string(),
+                    teams: vec![nfl_standing_team(1, "Buffalo Bills", "BUF", "AFC", "East")],
+                },
+                NflStandingsDivision {
+                    conference: "NFC".to_string(),
+                    division: "East".to_string(),
+                    teams: vec![nfl_standing_team(
+                        1,
+                        "Philadelphia Eagles",
+                        "PHI",
+                        "NFC",
+                        "East",
+                    )],
                 },
             ],
         })
@@ -169,17 +205,75 @@ async fn mlb_standings_render_sortable_tables() {
 }
 
 #[tokio::test]
+async fn nfl_scoreboard_renders_nav_and_game_cards() {
+    let (status, body) = request("/nfl/scoreboard/1").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("NFL Scoreboard"));
+    assert!(body.contains("NFL Standings"));
+    assert!(body.contains("Week 1"));
+    assert!(body.contains("class=\"game-card\""));
+    assert!(body.contains("<th>T</th>"));
+}
+
+#[tokio::test]
+async fn nfl_scoreboard_redirects_to_latest_playoff_week() {
+    let (status, location) = request_redirect_location("/nfl/scoreboard").await;
+    assert_eq!(status, StatusCode::TEMPORARY_REDIRECT);
+    assert_eq!(location, "/nfl/scoreboard/23");
+}
+
+#[tokio::test]
+async fn nfl_scoreboard_renders_playoff_week_window() {
+    let (status, body) = request("/nfl/scoreboard/23").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("Conf Champ"));
+    assert!(body.contains("Pro Bowl"));
+    assert!(body.contains("Super Bowl"));
+    assert!(!body.contains(r#"href="/nfl/scoreboard/1""#));
+}
+
+#[tokio::test]
+async fn nfl_game_view_renders_selected_box_score() {
+    let (status, body) = request("/nfl/scoreboard/1/game/401772845").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("scoreboard has-game"));
+    assert!(body.contains("Team Stats"));
+    assert!(body.contains(r#"<th class="num">PHI</th><th class="num">TB</th>"#));
+    assert!(body.contains(r#"<td class="num">200</td><td class="num good">376</td>"#));
+    assert!(body.contains(r#"<td class="num good">0</td><td class="num">2</td>"#));
+    assert!(body.contains("Philadelphia Passing"));
+    assert!(body.contains("Jalen Hurts"));
+}
+
+#[tokio::test]
+async fn nfl_standings_render_sortable_tables() {
+    let (status, body) = request("/nfl/standings").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("NFL Standings"));
+    assert!(body.contains("AFC East"));
+    assert!(body.contains("NFC East"));
+    assert!(body.contains("Buffalo Bills"));
+    assert!(body.contains("table class=\"sortable\""));
+}
+
+#[tokio::test]
 async fn invalid_route_params_return_bad_request() {
     let (bad_day, _) = request("/nba/scoreboard/not-a-day").await;
     let (bad_game, _) = request("/nba/scoreboard/2026-04-26/game/abc").await;
     let (bad_player, _) = request("/nba/player/abc").await;
     let (bad_mlb_day, _) = request("/mlb/scoreboard/not-a-day").await;
     let (bad_mlb_game, _) = request("/mlb/scoreboard/2026-04-26/game/abc").await;
+    let (bad_nfl_day, _) = request("/nfl/scoreboard/not-a-week").await;
+    let (bad_nfl_week, _) = request("/nfl/scoreboard/24").await;
+    let (bad_nfl_game, _) = request("/nfl/scoreboard/1/game/abc").await;
     assert_eq!(bad_day, StatusCode::BAD_REQUEST);
     assert_eq!(bad_game, StatusCode::BAD_REQUEST);
     assert_eq!(bad_player, StatusCode::BAD_REQUEST);
     assert_eq!(bad_mlb_day, StatusCode::BAD_REQUEST);
     assert_eq!(bad_mlb_game, StatusCode::BAD_REQUEST);
+    assert_eq!(bad_nfl_day, StatusCode::BAD_REQUEST);
+    assert_eq!(bad_nfl_week, StatusCode::BAD_REQUEST);
+    assert_eq!(bad_nfl_game, StatusCode::BAD_REQUEST);
 }
 
 async fn request(uri: &str) -> (StatusCode, String) {
@@ -191,6 +285,22 @@ async fn request(uri: &str) -> (StatusCode, String) {
     let status = response.status();
     let bytes = to_bytes(response.into_body(), usize::MAX).await.unwrap();
     (status, String::from_utf8(bytes.to_vec()).unwrap())
+}
+
+async fn request_redirect_location(uri: &str) -> (StatusCode, String) {
+    let app = app::router(Arc::new(FakeSportsData));
+    let response = app
+        .oneshot(Request::builder().uri(uri).body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let location = response
+        .headers()
+        .get(header::LOCATION)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default()
+        .to_string();
+    (status, location)
 }
 
 fn scoreboard() -> Scoreboard {
@@ -392,6 +502,103 @@ fn orioles_team() -> Team {
     }
 }
 
+fn nfl_scoreboard(week: i64) -> Scoreboard {
+    Scoreboard {
+        game_date: week.to_string(),
+        games: vec![Game {
+            game_id: "401772845".to_string(),
+            game_status: 3,
+            game_status_text: "Final".to_string(),
+            period: 4,
+            game_clock: String::new(),
+            game_time_utc: "2026-01-04T18:00:00Z".to_string(),
+            away_team: eagles_team(),
+            home_team: buccaneers_team(),
+            away_leaders: Leaders::default(),
+            home_leaders: Leaders::default(),
+        }],
+    }
+}
+
+fn nfl_box_score() -> NflBoxScore {
+    NflBoxScore {
+        game_id: "401772845".to_string(),
+        game_status: 3,
+        away_team: NflBoxScoreTeam {
+            team: eagles_team(),
+            team_stats: Table {
+                name: "Team Stats".to_string(),
+                headers: vec!["Stat".to_string(), "Value".to_string()],
+                rows: vec![
+                    vec!["Total Yards".to_string(), "200".to_string()],
+                    vec!["Turnovers".to_string(), "0".to_string()],
+                ],
+            },
+            player_stats: vec![Table {
+                name: "Philadelphia Passing".to_string(),
+                headers: vec!["Name".to_string(), "C/ATT".to_string(), "YDS".to_string()],
+                rows: vec![vec![
+                    "Jalen Hurts".to_string(),
+                    "15/24".to_string(),
+                    "130".to_string(),
+                ]],
+            }],
+        },
+        home_team: NflBoxScoreTeam {
+            team: buccaneers_team(),
+            team_stats: Table {
+                name: "Team Stats".to_string(),
+                headers: vec!["Stat".to_string(), "Value".to_string()],
+                rows: vec![
+                    vec!["Total Yards".to_string(), "376".to_string()],
+                    vec!["Turnovers".to_string(), "2".to_string()],
+                ],
+            },
+            player_stats: vec![Table {
+                name: "Tampa Bay Passing".to_string(),
+                headers: vec!["Name".to_string(), "C/ATT".to_string(), "YDS".to_string()],
+                rows: vec![vec![
+                    "Baker Mayfield".to_string(),
+                    "22/40".to_string(),
+                    "272".to_string(),
+                ]],
+            }],
+        },
+    }
+}
+
+fn eagles_team() -> Team {
+    Team {
+        team_id: 21,
+        team_name: "Eagles".to_string(),
+        team_city: "Philadelphia".to_string(),
+        team_tricode: "PHI".to_string(),
+        wins: 13,
+        losses: 4,
+        display_record: "13-4".to_string(),
+        score: 31,
+        hits: 0,
+        errors: 0,
+        periods: periods([14, 10, 7, 0]),
+    }
+}
+
+fn buccaneers_team() -> Team {
+    Team {
+        team_id: 27,
+        team_name: "Buccaneers".to_string(),
+        team_city: "Tampa Bay".to_string(),
+        team_tricode: "TB".to_string(),
+        wins: 10,
+        losses: 7,
+        display_record: "10-7".to_string(),
+        score: 25,
+        hits: 0,
+        errors: 0,
+        periods: periods([3, 3, 14, 5]),
+    }
+}
+
 fn periods<const N: usize>(scores: [i64; N]) -> Vec<Period> {
     scores
         .into_iter()
@@ -445,5 +652,35 @@ fn mlb_standing_team(
         runs_allowed: 99,
         run_diff: "+47".to_string(),
         streak: "L1".to_string(),
+    }
+}
+
+fn nfl_standing_team(
+    rank: i64,
+    name: &str,
+    tricode: &str,
+    conference: &str,
+    division: &str,
+) -> NflStandingsTeam {
+    NflStandingsTeam {
+        team_id: rank,
+        team_name: name.to_string(),
+        team_tricode: tricode.to_string(),
+        conference: conference.to_string(),
+        division: division.to_string(),
+        playoff_rank: rank,
+        wins: 13,
+        losses: 4,
+        ties: 0,
+        win_pct: ".765".to_string(),
+        games_back: "-".to_string(),
+        points_for: 474,
+        points_against: 336,
+        point_diff: "+138".to_string(),
+        home: "7-2".to_string(),
+        road: "6-2".to_string(),
+        division_record: "5-1".to_string(),
+        conference_record: "10-2".to_string(),
+        streak: "W8".to_string(),
     }
 }

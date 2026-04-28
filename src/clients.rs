@@ -13,7 +13,8 @@ use crate::{
     cache::Cache,
     error::AppError,
     models::{
-        BoxScore, MlbBoxScore, MlbStandingsTable, PlayerStatsPage, Scoreboard, StandingsTable,
+        BoxScore, MlbBoxScore, MlbStandingsTable, NflBoxScore, NflStandingsTable, PlayerStatsPage,
+        Scoreboard, StandingsTable,
     },
     normalizers,
 };
@@ -29,6 +30,10 @@ pub trait SportsData: Send + Sync {
     async fn mlb_days_games(&self, day: &str) -> Result<Scoreboard, AppError>;
     async fn mlb_game(&self, game_id: &str) -> Result<Option<MlbBoxScore>, AppError>;
     async fn mlb_standings(&self) -> Result<MlbStandingsTable, AppError>;
+    async fn nfl_current_scoreboard(&self) -> Result<Scoreboard, AppError>;
+    async fn nfl_week_games(&self, week: i64) -> Result<Scoreboard, AppError>;
+    async fn nfl_game(&self, game_id: &str) -> Result<Option<NflBoxScore>, AppError>;
+    async fn nfl_standings(&self) -> Result<NflStandingsTable, AppError>;
 }
 
 #[derive(Clone)]
@@ -37,6 +42,7 @@ pub struct EspnSportsData {
     cache: Cache,
     today_cache: Arc<RwLock<Option<TodayCache>>>,
     mlb_today_cache: Arc<RwLock<Option<TodayCache>>>,
+    nfl_today_cache: Arc<RwLock<Option<TodayCache>>>,
 }
 
 #[derive(Clone)]
@@ -57,6 +63,7 @@ impl EspnSportsData {
             cache,
             today_cache: Arc::new(RwLock::new(None)),
             mlb_today_cache: Arc::new(RwLock::new(None)),
+            nfl_today_cache: Arc::new(RwLock::new(None)),
         })
     }
 }
@@ -94,7 +101,8 @@ impl SportsData for EspnSportsData {
         );
         let data: EspnScoreboardDto = self.http.get_json(&url, false, None).await?;
         let scoreboard = normalizers::espn_scoreboard(day, data)?;
-        if scoreboard.games.iter().all(|game| game.game_status == 3) {
+        if !scoreboard.games.is_empty() && scoreboard.games.iter().all(|game| game.game_status == 3)
+        {
             self.cache.set_json(&cache_key, &scoreboard).await?;
         }
         Ok(scoreboard)
@@ -226,6 +234,93 @@ impl SportsData for EspnSportsData {
         self.cache.set_json(&cache_key, &standings).await?;
         Ok(standings)
     }
+
+    async fn nfl_current_scoreboard(&self) -> Result<Scoreboard, AppError> {
+        if let Some(cache) = self.nfl_today_cache.read().await.as_ref()
+            && cache.fetched_at.elapsed() < Duration::from_secs(30)
+        {
+            return Ok(cache.scoreboard.clone());
+        }
+
+        let mut scoreboard = None;
+        for week in (1..=23).rev() {
+            let candidate = self.nfl_week_games(week).await?;
+            if candidate.games.iter().any(|game| game.game_status >= 2) {
+                scoreboard = Some(candidate);
+                break;
+            }
+        }
+        let scoreboard = scoreboard.unwrap_or_else(|| Scoreboard {
+            game_date: "1".to_string(),
+            games: Vec::new(),
+        });
+        *self.nfl_today_cache.write().await = Some(TodayCache {
+            fetched_at: Instant::now(),
+            scoreboard: scoreboard.clone(),
+        });
+        Ok(scoreboard)
+    }
+
+    async fn nfl_week_games(&self, week: i64) -> Result<Scoreboard, AppError> {
+        let cache_key = format!("nfl-week:{week}");
+        if let Some(cached) = self.cache.get_json::<Scoreboard>(&cache_key).await? {
+            return Ok(cached);
+        }
+
+        let (season_type, espn_week) = nfl_espn_week(week);
+        let url = format!(
+            "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype={season_type}&week={espn_week}"
+        );
+        let data: EspnScoreboardDto = self.http.get_json(&url, false, None).await?;
+        let scoreboard = normalizers::espn_nfl_scoreboard(&week.to_string(), data)?;
+        if scoreboard.games.iter().all(|game| game.game_status == 3) {
+            self.cache.set_json(&cache_key, &scoreboard).await?;
+        }
+        Ok(scoreboard)
+    }
+
+    async fn nfl_game(&self, game_id: &str) -> Result<Option<NflBoxScore>, AppError> {
+        let cache_key = format!("nfl-game:{game_id}");
+        if let Some(cached) = self.cache.get_json::<NflBoxScore>(&cache_key).await? {
+            return Ok(Some(cached));
+        }
+
+        let url = format!(
+            "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event={game_id}"
+        );
+        let data: EspnSummaryDto = self.http.get_json(&url, false, None).await?;
+        let game = normalizers::espn_nfl_summary(data)?;
+        if game.game_status == 3 {
+            self.cache.set_json(&cache_key, &game).await?;
+        }
+        Ok(Some(game))
+    }
+
+    async fn nfl_standings(&self) -> Result<NflStandingsTable, AppError> {
+        let cache_key = format!("nfl-standings:{}", chrono::Utc::now().date_naive());
+        if let Some(cached) = self.cache.get_json::<NflStandingsTable>(&cache_key).await? {
+            return Ok(cached);
+        }
+        let data: EspnStandingsDto = self
+            .http
+            .get_json(
+                "https://site.api.espn.com/apis/v2/sports/football/nfl/standings",
+                false,
+                None,
+            )
+            .await?;
+        let standings = normalizers::espn_nfl_standings(data);
+        self.cache.set_json(&cache_key, &standings).await?;
+        Ok(standings)
+    }
+}
+
+fn nfl_espn_week(week: i64) -> (i64, i64) {
+    if week <= 18 {
+        (2, week)
+    } else {
+        (3, week - 18)
+    }
 }
 
 impl EspnSportsData {
@@ -286,6 +381,7 @@ pub struct NbaTodaysScoreboardDto {
 #[derive(Debug, Deserialize)]
 pub struct EspnScoreboardDto {
     pub events: Vec<Value>,
+    pub week: Option<Value>,
 }
 
 #[derive(Debug, Deserialize)]

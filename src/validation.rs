@@ -15,6 +15,19 @@ pub fn numeric_id(input: &str, name: &str) -> Result<String, AppError> {
     }
 }
 
+pub fn nfl_week(input: &str) -> Result<i64, AppError> {
+    let week = input
+        .parse::<i64>()
+        .map_err(|_| AppError::BadRequest("week must be a number from 1 to 23".to_string()))?;
+    if (1..=23).contains(&week) {
+        Ok(week)
+    } else {
+        Err(AppError::BadRequest(
+            "week must be a number from 1 to 23".to_string(),
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -33,5 +46,14 @@ mod tests {
     fn ids_must_be_numeric() {
         assert!(numeric_id("401869385", "game_id").is_ok());
         assert!(numeric_id("abc", "game_id").is_err());
+    }
+
+    #[test]
+    fn nfl_weeks_must_be_regular_season_weeks() {
+        assert!(nfl_week("1").is_ok());
+        assert!(nfl_week("23").is_ok());
+        assert!(nfl_week("0").is_err());
+        assert!(nfl_week("24").is_err());
+        assert!(nfl_week("abc").is_err());
     }
 }
