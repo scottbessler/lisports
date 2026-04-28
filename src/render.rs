@@ -86,19 +86,21 @@ fn basketball_scoreboard_page(
             "scoreboard"
         };
         html.push_str(&format!(r#"<section class="{class}">"#));
-        html.push_str(r#"<div class="game-list">"#);
-        let all_completed = scoreboard.games.iter().all(|g| g.game_status == 3);
-        for game in &scoreboard.games {
-            html.push_str(&format!(
-                r#"<a class="game-link" href="/nba/scoreboard/{}/game/{}">{}</a>"#,
-                day,
-                escape_attr(&game.game_id),
-                game_summary(game, !all_completed, League::Nba)
-            ));
-        }
-        html.push_str("</div>");
         if let Some(game) = selected {
+            html.push_str(&detail_nav(
+                "/nba/scoreboard",
+                &day.to_string(),
+                &scoreboard.games,
+                &game.game_id,
+            ));
             html.push_str(&game_details(game));
+        } else {
+            html.push_str(&game_list(
+                "/nba/scoreboard",
+                &day.to_string(),
+                &scoreboard.games,
+                League::Nba,
+            ));
         }
         html.push_str("</section>");
     }
@@ -129,19 +131,25 @@ pub fn mlb_scoreboard_page(
             "scoreboard"
         };
         html.push_str(&format!(r#"<section class="{class}">"#));
-        html.push_str(r#"<div class="game-list">"#);
-        let all_completed = scoreboard.games.iter().all(|g| g.game_status == 3);
-        for game in &scoreboard.games {
-            html.push_str(&format!(
-                r#"<a class="game-link" href="/mlb/scoreboard/{}/game/{}">{}</a>"#,
-                day,
-                escape_attr(&game.game_id),
-                game_summary(game, !all_completed, League::Mlb)
-            ));
-        }
-        html.push_str("</div>");
         if let Some(game) = selected {
-            html.push_str(&mlb_game_details(game));
+            let scoreboard_game = scoreboard
+                .games
+                .iter()
+                .find(|scoreboard_game| scoreboard_game.game_id == game.game_id);
+            html.push_str(&detail_nav(
+                "/mlb/scoreboard",
+                &day.to_string(),
+                &scoreboard.games,
+                &game.game_id,
+            ));
+            html.push_str(&mlb_game_details(game, scoreboard_game));
+        } else {
+            html.push_str(&game_list(
+                "/mlb/scoreboard",
+                &day.to_string(),
+                &scoreboard.games,
+                League::Mlb,
+            ));
         }
         html.push_str("</section>");
     }
@@ -172,19 +180,21 @@ pub fn nfl_scoreboard_page(
             "scoreboard"
         };
         html.push_str(&format!(r#"<section class="{class}">"#));
-        html.push_str(r#"<div class="game-list">"#);
-        let all_completed = scoreboard.games.iter().all(|g| g.game_status == 3);
-        for game in &scoreboard.games {
-            html.push_str(&format!(
-                r#"<a class="game-link" href="/nfl/scoreboard/{}/game/{}">{}</a>"#,
-                week,
-                escape_attr(&game.game_id),
-                game_summary(game, !all_completed, League::Nfl)
-            ));
-        }
-        html.push_str("</div>");
         if let Some(game) = selected {
+            html.push_str(&detail_nav(
+                "/nfl/scoreboard",
+                &week.to_string(),
+                &scoreboard.games,
+                &game.game_id,
+            ));
             html.push_str(&nfl_game_details(game));
+        } else {
+            html.push_str(&game_list(
+                "/nfl/scoreboard",
+                &week.to_string(),
+                &scoreboard.games,
+                League::Nfl,
+            ));
         }
         html.push_str("</section>");
     }
@@ -253,7 +263,16 @@ fn date_nav(day: NaiveDate, base_path: &str) -> String {
                 d.day()
             )
         };
-        let class = if d == day { "button active" } else { "button" };
+        let visibility_class = match offset.abs() {
+            0 => "date-current",
+            1 => "date-near",
+            _ => "date-wide",
+        };
+        let class = if d == day {
+            format!("button active {visibility_class}")
+        } else {
+            format!("button {visibility_class}")
+        };
         html.push_str(&format!(
             r#"<a class="{class}" href="{base_path}/{d}">{}</a>"#,
             escape(&label)
@@ -268,13 +287,137 @@ fn date_nav(day: NaiveDate, base_path: &str) -> String {
     html
 }
 
-fn game_summary(game: &Game, show_status: bool, league: League) -> String {
-    let mut html = String::from(r#"<table class="game-card"><thead><tr><th></th>"#);
-    for period in &game.away_team.periods {
-        html.push_str(&format!("<th>{}</th>", period.period));
+fn game_list(base_path: &str, bucket: &str, games: &[Game], league: League) -> String {
+    let mut html = String::from(r#"<div class="game-list">"#);
+    let all_completed = games.iter().all(|game| game.game_status == 3);
+    for game in games {
+        html.push_str(&format!(
+            r#"<a class="game-link" href="{}/{}/game/{}">{}</a>"#,
+            base_path,
+            escape_attr(bucket),
+            escape_attr(&game.game_id),
+            game_summary(game, !all_completed, league)
+        ));
     }
+    html.push_str("</div>");
+    html
+}
+
+fn detail_nav(base_path: &str, bucket: &str, games: &[Game], selected_game_id: &str) -> String {
+    let selected_index = games
+        .iter()
+        .position(|game| game.game_id == selected_game_id);
+    let prev = selected_index
+        .and_then(|index| index.checked_sub(1))
+        .and_then(|index| games.get(index));
+    let current = selected_index.and_then(|index| games.get(index));
+    let next = selected_index.and_then(|index| games.get(index + 1));
+
+    let mut html = String::from(r#"<div class="detail-actions">"#);
+    if let Some(prev) = prev {
+        html.push_str(&game_step_link(base_path, bucket, prev, "prev"));
+    }
+    if let Some(current) = current {
+        html.push_str(&game_step_link(base_path, bucket, current, "current"));
+    }
+    if let Some(next) = next {
+        html.push_str(&game_step_link(base_path, bucket, next, "next"));
+    }
+    html.push_str("</div>");
+    html
+}
+
+fn game_step_link(base_path: &str, bucket: &str, game: &Game, direction: &str) -> String {
+    let status = compact_game_status(game);
+    let arrow = if direction == "prev" { "&lt;" } else { "&gt;" };
+    let arrow_first = direction == "prev";
+    let has_arrow = direction != "current";
+    let arrow_html = format!(r#"<span class="step-arrow">{arrow}</span>"#);
+    let status_html = if status.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<span class="step-status">{}</span>"#, escape(&status))
+    };
+    let away_winner = game_winner_marker(game, false);
+    let home_winner = game_winner_marker(game, true);
+    let away_record = team_record(&game.away_team);
+    let home_record = team_record(&game.home_team);
+    let content = format!(
+        r#"{}{status_html}<span class="step-team"><span>{} <small>({})</small>{}</span><strong>{}</strong></span><span class="step-team"><span>{} <small>({})</small>{}</span><strong>{}</strong></span>{}"#,
+        if arrow_first && has_arrow {
+            arrow_html.as_str()
+        } else {
+            ""
+        },
+        escape(&game.away_team.team_tricode),
+        escape(&away_record),
+        away_winner,
+        game.away_team.score,
+        escape(&game.home_team.team_tricode),
+        escape(&home_record),
+        home_winner,
+        game.home_team.score,
+        if !arrow_first && has_arrow {
+            arrow_html.as_str()
+        } else {
+            ""
+        }
+    );
+    if direction == "current" {
+        format!(r#"<div class="game-step current" aria-current="true">{content}</div>"#)
+    } else {
+        format!(
+            r#"<a class="button game-step {direction}" href="{base_path}/{}/game/{}">{content}</a>"#,
+            escape_attr(bucket),
+            escape_attr(&game.game_id)
+        )
+    }
+}
+
+fn game_winner_marker(game: &Game, is_home: bool) -> &'static str {
+    if game.game_status != 3 {
+        return "";
+    }
+    if (is_home && game.home_team.score > game.away_team.score)
+        || (!is_home && game.away_team.score > game.home_team.score)
+    {
+        " W"
+    } else {
+        ""
+    }
+}
+
+fn compact_game_status(game: &Game) -> String {
+    if game.game_status == 2 && game.period > 0 {
+        let period = match game.period {
+            1 => "1Q".to_string(),
+            2 => "2Q".to_string(),
+            3 => "3Q".to_string(),
+            4 => "4Q".to_string(),
+            period => format!("{}OT", period - 4),
+        };
+        let clock = game.game_clock.trim();
+        if clock.is_empty() || matches!(clock, "0.0" | "0:00") {
+            return period;
+        }
+        return format!("{period} {clock}");
+    }
+    game.game_status_text.trim().to_string()
+}
+
+fn game_summary(game: &Game, show_status: bool, league: League) -> String {
+    let class = match league {
+        League::Mlb => "game-card mlb-game-card",
+        League::Nba | League::Nfl => "game-card",
+    };
+    let mut html = format!(r#"<table class="{class}"><thead><tr><th></th>"#);
     match league {
-        League::Nba | League::Nfl => html.push_str("<th>T</th></tr></thead><tbody>"),
+        League::Nba | League::Nfl => {
+            for period in &game.away_team.periods {
+                html.push_str(&format!("<th>{}</th>", period.period));
+            }
+            html.push_str("<th>T</th></tr></thead><tbody>");
+        }
         League::Mlb => html.push_str("<th>R</th><th>H</th><th>E</th></tr></thead><tbody>"),
     }
     html.push_str(&team_summary_row(game, &game.away_team, false, league));
@@ -282,7 +425,7 @@ fn game_summary(game: &Game, show_status: bool, league: League) -> String {
     if show_status {
         let colspan = match league {
             League::Nba | League::Nfl => game.away_team.periods.len() + 2,
-            League::Mlb => game.away_team.periods.len() + 4,
+            League::Mlb => 4,
         };
         html.push_str(&format!(
             r#"<tr><th class="status" colspan="{colspan}">{}</th></tr>"#,
@@ -304,22 +447,29 @@ fn team_summary_row(game: &Game, team: &Team, is_home: bool, league: League) -> 
         winner(game, is_home)
     ));
     html.push_str("</th>");
-    for period in &team.periods {
-        html.push_str(&format!(
-            "<td>{}</td>",
-            if period.score == 0 {
-                "-".to_string()
-            } else {
-                period.score.to_string()
-            }
-        ));
-    }
     match league {
-        League::Nba | League::Nfl => html.push_str(&format!("<td>{}</td></tr>", team.score)),
-        League::Mlb => html.push_str(&format!(
-            "<td>{}</td><td>{}</td><td>{}</td></tr>",
-            team.score, team.hits, team.errors
-        )),
+        League::Nba | League::Nfl => {
+            for period in &team.periods {
+                html.push_str(&format!(
+                    "<td>{}</td>",
+                    if period.score == 0 {
+                        "-".to_string()
+                    } else {
+                        period.score.to_string()
+                    }
+                ));
+            }
+            html.push_str(&format!("<td>{}</td></tr>", team.score));
+        }
+        League::Mlb if game.game_status == 1 => {
+            html.push_str(r#"<td class="score-total">-</td><td>-</td><td>-</td></tr>"#);
+        }
+        League::Mlb => {
+            html.push_str(&format!(
+                r#"<td class="score-total">{}</td><td>{}</td><td>{}</td></tr>"#,
+                team.score, team.hits, team.errors
+            ));
+        }
     }
     html
 }
@@ -495,11 +645,78 @@ fn nfl_stat_value(value: &str) -> Option<f64> {
     value.trim_end_matches('%').parse::<f64>().ok()
 }
 
-fn mlb_game_details(game: &MlbBoxScore) -> String {
+fn mlb_game_details(game: &MlbBoxScore, scoreboard_game: Option<&Game>) -> String {
     let mut html = String::from(r#"<section class="details">"#);
+    html.push_str(&mlb_line_score(game, scoreboard_game));
     html.push_str(&mlb_team_game_details(game, &game.away_team, false));
     html.push_str(&mlb_team_game_details(game, &game.home_team, true));
     html.push_str("</section>");
+    html
+}
+
+fn mlb_line_score(game: &MlbBoxScore, scoreboard_game: Option<&Game>) -> String {
+    let away_team = if !has_usable_line_score(&game.away_team.team) {
+        scoreboard_game.map(|game| &game.away_team)
+    } else {
+        Some(&game.away_team.team)
+    };
+    let home_team = if !has_usable_line_score(&game.home_team.team) {
+        scoreboard_game.map(|game| &game.home_team)
+    } else {
+        Some(&game.home_team.team)
+    };
+    let Some(away_team) = away_team else {
+        return String::new();
+    };
+    let Some(home_team) = home_team else {
+        return String::new();
+    };
+
+    let mut html = String::from(
+        r#"<article class="team-details line-score"><h1>Line Score</h1><div class="table-wrap"><table class="game-card"><thead><tr><th></th>"#,
+    );
+    for period in &away_team.periods {
+        html.push_str(&format!("<th>{}</th>", period.period));
+    }
+    html.push_str("<th>R</th><th>H</th><th>E</th></tr></thead><tbody>");
+    html.push_str(&mlb_line_score_row(away_team));
+    html.push_str(&mlb_line_score_row(home_team));
+    html.push_str("</tbody></table></div></article>");
+    html
+}
+
+fn has_usable_line_score(team: &Team) -> bool {
+    !team.periods.is_empty()
+        && team
+            .periods
+            .iter()
+            .enumerate()
+            .all(|(index, period)| period.period == index as i64 + 1)
+}
+
+fn mlb_line_score_row(team: &Team) -> String {
+    let mut html = String::from("<tr><th>");
+    html.push_str(&team_logo(team, "mini-logo", League::Mlb));
+    html.push_str(&format!(
+        r#"<span title="{}">{}</span>"#,
+        escape_attr(&format!("{} {}", team.team_city, team.team_name)),
+        escape(&team.team_tricode)
+    ));
+    html.push_str("</th>");
+    for period in &team.periods {
+        html.push_str(&format!(
+            "<td>{}</td>",
+            if period.score == 0 {
+                "-".to_string()
+            } else {
+                period.score.to_string()
+            }
+        ));
+    }
+    html.push_str(&format!(
+        r#"<td class="score-total">{}</td><td>{}</td><td>{}</td></tr>"#,
+        team.score, team.hits, team.errors
+    ));
     html
 }
 

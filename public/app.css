@@ -87,20 +87,87 @@ a {
 	align-content: flex-start;
 }
 .scoreboard.has-game {
-	flex-wrap: nowrap;
-}
-.scoreboard.has-game .game-list {
-	flex: 0 0 420px;
-	max-width: 420px;
 	flex-direction: column;
-	flex-wrap: nowrap;
-}
-.scoreboard.has-game .game-link,
-.scoreboard.has-game .game-card {
-	width: 100%;
 }
 .game-link {
 	text-decoration: none;
+}
+.detail-actions {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 6px;
+	align-items: center;
+	width: 100%;
+}
+.detail-actions .game-step {
+	position: relative;
+	display: grid;
+	grid-template-columns: 1fr auto;
+	grid-template-rows: auto auto auto;
+	gap: 0 10px;
+	align-items: center;
+	min-height: 56px;
+	padding: 6px 24px 6px 12px;
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+	white-space: normal;
+	border: 1px solid transparent;
+	border-radius: 6px;
+	background: #f4f6f7;
+	text-decoration: none;
+	color: inherit;
+}
+.detail-actions .game-step.prev {
+	padding-right: 12px;
+	padding-left: 24px;
+}
+.detail-actions .game-step:hover {
+	background: #f4f6f7;
+	color: inherit;
+	border-color: var(--accent);
+}
+.detail-actions .game-step.current {
+	padding-right: 12px;
+	background: var(--panel);
+	color: inherit;
+	border-color: var(--accent);
+}
+.game-step.current .step-status,
+.game-step.current .step-team small {
+	color: var(--muted);
+}
+.step-status {
+	grid-column: 1 / -1;
+	color: var(--muted);
+}
+.step-team {
+	display: contents;
+}
+.step-team span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.step-team small {
+	color: var(--muted);
+	font-size: 11px;
+}
+.step-team strong {
+	text-align: right;
+	font-size: 14px;
+	font-weight: 600;
+}
+.step-arrow {
+	position: absolute;
+	top: 50%;
+	right: 7px;
+	transform: translateY(-50%);
+	font-size: 16px;
+	font-weight: 700;
+}
+.game-step.prev .step-arrow {
+	right: auto;
+	left: 7px;
 }
 .game-card,
 table {
@@ -112,6 +179,15 @@ table {
 	max-width: 100%;
 	box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
 	table-layout: auto;
+}
+.mlb-game-card {
+	table-layout: auto;
+}
+.mlb-game-card th:not(:first-child),
+.mlb-game-card td:not(:first-child) {
+	width: 56px;
+	min-width: 56px;
+	max-width: 56px;
 }
 th,
 td {
@@ -139,6 +215,9 @@ thead th {
 .game-card thead th:not(:first-child) {
 	padding-right: 14px;
 	text-align: right;
+}
+.game-card .score-total {
+	font-weight: 800;
 }
 table.sortable thead th {
 	cursor: pointer;
@@ -185,6 +264,7 @@ table.sortable thead th.num {
 	gap: 12px;
 	min-width: 0;
 	flex: 1 1 auto;
+	width: 100%;
 }
 .team-details,
 .panel {
@@ -207,6 +287,10 @@ table.sortable thead th.num {
 	min-width: 760px;
 	width: 100%;
 	font-size: 13px;
+}
+.table-wrap th,
+.table-wrap td {
+	white-space: nowrap;
 }
 .good {
 	color: var(--good);
@@ -238,10 +322,12 @@ table.sortable thead th.num {
 	padding: 24px;
 }
 @media (max-width: 900px) {
+	.date-nav .date-wide {
+		display: none;
+	}
 	.scoreboard {
 		flex-direction: column;
 	}
-	.scoreboard.has-game .game-list,
 	.game-list {
 		width: 100%;
 		max-width: none;
@@ -257,5 +343,13 @@ table.sortable thead th.num {
 	}
 	.brand {
 		flex: 0 0 auto;
+	}
+}
+@media (max-width: 520px) {
+	.date-nav .date-near {
+		display: none;
+	}
+	.detail-actions {
+		grid-template-columns: 1fr;
 	}
 }

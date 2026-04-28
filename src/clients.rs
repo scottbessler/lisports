@@ -201,7 +201,7 @@ impl SportsData for EspnSportsData {
     }
 
     async fn mlb_game(&self, game_id: &str) -> Result<Option<MlbBoxScore>, AppError> {
-        let cache_key = format!("mlb-game:{game_id}");
+        let cache_key = format!("mlb-game2:{game_id}");
         if let Some(cached) = self.cache.get_json::<MlbBoxScore>(&cache_key).await? {
             return Ok(Some(cached));
         }

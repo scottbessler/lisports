@@ -522,6 +522,7 @@ fn espn_mlb_competitor_to_team(c: &Value, _competition: &Value) -> Team {
         .map(|s| parse_record(&s))
         .unwrap_or((0, 0));
     let stats = array_at(c, &["statistics"]);
+    let linescores = array_at(c, &["linescores"]);
     Team {
         team_id: str_at(c, &["team", "id"])
             .map(|s| i64_from_str(&s))
@@ -535,17 +536,11 @@ fn espn_mlb_competitor_to_team(c: &Value, _competition: &Value) -> Team {
         score: str_at(c, &["score"]).map(|s| i64_from_str(&s)).unwrap_or(0),
         hits: stat_display(&stats, "hits")
             .map(|s| i64_from_str(&s))
-            .unwrap_or(0),
+            .unwrap_or_else(|| linescore_total(&linescores, "hits")),
         errors: stat_display(&stats, "errors")
             .map(|s| i64_from_str(&s))
-            .unwrap_or(0),
-        periods: array_at(c, &["linescores"])
-            .iter()
-            .map(|ls| Period {
-                period: i64_at(ls, &["period"]),
-                score: f64_at(ls, &["value"]) as i64,
-            })
-            .collect(),
+            .unwrap_or_else(|| linescore_total(&linescores, "errors")),
+        periods: mlb_linescore_periods(&linescores),
     }
 }
 
@@ -1126,6 +1121,21 @@ fn stat_display(stats: &[Value], name: &str) -> Option<String> {
         .find(|s| str_at(s, &["name"]).as_deref() == Some(name))
         .and_then(|s| str_at(s, &["displayValue"]))
 }
+fn mlb_linescore_periods(linescores: &[Value]) -> Vec<Period> {
+    linescores
+        .iter()
+        .enumerate()
+        .map(|(index, line)| Period {
+            period: i64_at(line, &["period"]).max(index as i64 + 1),
+            score: f64_opt_at(line, &["value"])
+                .or_else(|| f64_opt_at(line, &["displayValue"]))
+                .unwrap_or(0.0) as i64,
+        })
+        .collect()
+}
+fn linescore_total(linescores: &[Value], name: &str) -> i64 {
+    linescores.iter().map(|line| i64_at(line, &[name])).sum()
+}
 fn leader_value(leaders: &[Value], name: &str) -> f64 {
     leaders
         .iter()
@@ -1340,6 +1350,42 @@ mod tests {
         assert_eq!(game.away_team.batting.headers, vec!["Name", "AB", "RBI"]);
         assert_eq!(game.away_team.batting.rows[0][0], "Rafael Devers");
         assert_eq!(game.away_team.pitching.rows[0][0], "Connelly Early");
+        assert_eq!(game.home_team.team.errors, 1);
+    }
+
+    #[test]
+    fn espn_mlb_summary_conversion_reads_display_value_linescores() {
+        let data: EspnSummaryDto = serde_json::from_value(serde_json::json!({
+            "header": {
+                "id": "401815112",
+                "competitions": [{
+                    "status": {"type": {"name": "STATUS_FINAL"}},
+                    "competitors": [
+                        {"homeAway": "away", "score": "3", "team": {"id": "30", "location": "Tampa Bay", "name": "Rays", "abbreviation": "TB"}, "records": [], "linescores": [
+                            {"displayValue": "0", "hits": 0, "errors": 0},
+                            {"displayValue": "1", "hits": 1, "errors": 0},
+                            {"displayValue": "2", "hits": 3, "errors": 0}
+                        ]},
+                        {"homeAway": "home", "score": "2", "team": {"id": "5", "location": "Cleveland", "name": "Guardians", "abbreviation": "CLE"}, "records": [], "linescores": [
+                            {"displayValue": "0", "hits": 1, "errors": 0},
+                            {"displayValue": "2", "hits": 2, "errors": 1},
+                            {"displayValue": "0", "hits": 0, "errors": 0}
+                        ]}
+                    ]
+                }]
+            },
+            "boxscore": {"players": []},
+            "gameInfo": null
+        }))
+        .unwrap();
+
+        let game = espn_mlb_summary(data).unwrap();
+
+        assert_eq!(game.away_team.team.periods[0].period, 1);
+        assert_eq!(game.away_team.team.periods[1].score, 1);
+        assert_eq!(game.away_team.team.periods[2].score, 2);
+        assert_eq!(game.away_team.team.hits, 4);
+        assert_eq!(game.home_team.team.hits, 3);
         assert_eq!(game.home_team.team.errors, 1);
     }
 

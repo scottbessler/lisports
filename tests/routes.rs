@@ -151,6 +151,8 @@ async fn game_view_renders_selected_box_score() {
     let (status, body) = request("/nba/scoreboard/2026-04-26/game/401869385").await;
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("scoreboard has-game"));
+    assert!(!body.contains("All games"));
+    assert!(!body.contains(r#"<div class="game-list">"#));
     assert!(body.contains("table class=\"sortable box-score-table\""));
     assert!(body.contains("Jaylen Brown"));
 }
@@ -179,8 +181,12 @@ async fn mlb_scoreboard_renders_nav_and_game_cards() {
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("MLB Scoreboard"));
     assert!(body.contains("MLB Standings"));
-    assert!(body.contains("class=\"game-card\""));
+    assert!(body.contains("class=\"game-card mlb-game-card\""));
     assert!(body.contains("<th>R</th><th>H</th><th>E</th>"));
+    assert!(!body.contains("<th>1</th><th>2</th><th>3</th>"));
+    assert!(body.contains(r#"<td class="score-total">-</td><td>-</td><td>-</td>"#));
+    assert!(!body.contains("<td>237</td>"));
+    assert!(!body.contains("<td>21</td>"));
 }
 
 #[tokio::test]
@@ -188,6 +194,14 @@ async fn mlb_game_view_renders_selected_box_score() {
     let (status, body) = request("/mlb/scoreboard/2026-04-26/game/401815095").await;
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("scoreboard has-game"));
+    assert!(!body.contains("All games"));
+    assert!(body.contains(r#"<span class="step-status">7:10 PM PDT</span>"#));
+    assert!(body.contains(r#"<span>MIA <small>(13-15)</small></span><strong>0</strong>"#));
+    assert!(body.contains(r#"<span>LAD <small>(19-9)</small></span><strong>0</strong>"#));
+    assert!(!body.contains(r#"<div class="game-list">"#));
+    assert!(body.contains("Line Score"));
+    assert!(body.contains("<th>1</th><th>2</th><th>3</th>"));
+    assert!(body.contains(r#"<td>3</td><td>2</td><td>-</td>"#));
     assert!(body.contains("Batting"));
     assert!(body.contains("Pitching"));
     assert!(body.contains("Rafael Devers"));
@@ -406,27 +420,45 @@ fn lakers_team() -> Team {
 fn mlb_scoreboard() -> Scoreboard {
     Scoreboard {
         game_date: "2026-04-26".to_string(),
-        games: vec![Game {
-            game_id: "401815095".to_string(),
-            game_status: 3,
-            game_status_text: "Final".to_string(),
-            period: 9,
-            game_clock: String::new(),
-            game_time_utc: "2026-04-26T17:35:00Z".to_string(),
-            away_team: red_sox_team(),
-            home_team: orioles_team(),
-            away_leaders: Leaders::default(),
-            home_leaders: Leaders::default(),
-        }],
+        games: vec![
+            Game {
+                game_id: "401815095".to_string(),
+                game_status: 3,
+                game_status_text: "Final".to_string(),
+                period: 9,
+                game_clock: String::new(),
+                game_time_utc: "2026-04-26T17:35:00Z".to_string(),
+                away_team: red_sox_team(),
+                home_team: orioles_team(),
+                away_leaders: Leaders::default(),
+                home_leaders: Leaders::default(),
+            },
+            Game {
+                game_id: "401815099".to_string(),
+                game_status: 1,
+                game_status_text: "7:10 PM PDT".to_string(),
+                period: 0,
+                game_clock: String::new(),
+                game_time_utc: "2026-04-27T02:10:00Z".to_string(),
+                away_team: marlins_team(),
+                home_team: dodgers_team(),
+                away_leaders: Leaders::default(),
+                home_leaders: Leaders::default(),
+            },
+        ],
     }
 }
 
 fn mlb_box_score() -> MlbBoxScore {
+    let mut away_team = red_sox_team();
+    away_team.periods = Vec::new();
+    let mut home_team = orioles_team();
+    home_team.periods = Vec::new();
     MlbBoxScore {
         game_id: "401815095".to_string(),
         game_status: 3,
         away_team: MlbBoxScoreTeam {
-            team: red_sox_team(),
+            team: away_team,
             batting: Table {
                 name: "Batting".to_string(),
                 headers: vec!["Name".to_string(), "AB".to_string(), "RBI".to_string()],
@@ -447,7 +479,7 @@ fn mlb_box_score() -> MlbBoxScore {
             },
         },
         home_team: MlbBoxScoreTeam {
-            team: orioles_team(),
+            team: home_team,
             batting: Table {
                 name: "Batting".to_string(),
                 headers: vec!["Name".to_string(), "AB".to_string(), "RBI".to_string()],
@@ -499,6 +531,38 @@ fn orioles_team() -> Team {
         hits: 6,
         errors: 1,
         periods: periods([0, 0, 0, 0, 1, 1, 0, 1, 0]),
+    }
+}
+
+fn marlins_team() -> Team {
+    Team {
+        team_id: 28,
+        team_name: "Marlins".to_string(),
+        team_city: "Miami".to_string(),
+        team_tricode: "MIA".to_string(),
+        wins: 13,
+        losses: 15,
+        display_record: "13-15".to_string(),
+        score: 0,
+        hits: 237,
+        errors: 21,
+        periods: Vec::new(),
+    }
+}
+
+fn dodgers_team() -> Team {
+    Team {
+        team_id: 19,
+        team_name: "Dodgers".to_string(),
+        team_city: "Los Angeles".to_string(),
+        team_tricode: "LAD".to_string(),
+        wins: 19,
+        losses: 9,
+        display_record: "19-9".to_string(),
+        score: 0,
+        hits: 264,
+        errors: 8,
+        periods: Vec::new(),
     }
 }
 
