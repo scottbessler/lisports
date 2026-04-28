@@ -90,7 +90,7 @@ impl SportsData for EspnSportsData {
     }
 
     async fn days_games(&self, day: &str) -> Result<Scoreboard, AppError> {
-        let cache_key = format!("day2:{day}");
+        let cache_key = format!("day3:{day}");
         if let Some(cached) = self.cache.get_json::<Scoreboard>(&cache_key).await? {
             return Ok(cached);
         }

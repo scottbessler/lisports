@@ -143,7 +143,8 @@ async fn scoreboard_renders_nav_and_game_cards() {
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("NBA Scoreboard"));
     assert!(body.contains("class=\"nav\""));
-    assert!(body.contains("class=\"game-card\""));
+    assert!(body.contains("class=\"game-card period-game-card\""));
+    assert!(body.contains("<th>1</th><th>2</th><th>3</th><th>4</th><th>T</th>"));
 }
 
 #[tokio::test]
@@ -225,7 +226,7 @@ async fn nfl_scoreboard_renders_nav_and_game_cards() {
     assert!(body.contains("NFL Scoreboard"));
     assert!(body.contains("NFL Standings"));
     assert!(body.contains("Week 1"));
-    assert!(body.contains("class=\"game-card\""));
+    assert!(body.contains("class=\"game-card period-game-card\""));
     assert!(body.contains("<th>T</th>"));
 }
 

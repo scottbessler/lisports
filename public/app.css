@@ -180,8 +180,15 @@ table {
 	box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
 	table-layout: auto;
 }
+.period-game-card,
 .mlb-game-card {
 	table-layout: auto;
+}
+.period-game-card th:not(:first-child),
+.period-game-card td:not(:first-child) {
+	width: 58px;
+	min-width: 58px;
+	max-width: 58px;
 }
 .mlb-game-card th:not(:first-child),
 .mlb-game-card td:not(:first-child) {
@@ -246,11 +253,22 @@ table.sortable thead th.num {
 	text-align: right;
 	color: var(--muted);
 }
+.team-label {
+	display: inline-flex;
+	align-items: center;
+	gap: 5px;
+	min-width: 0;
+	vertical-align: middle;
+}
+.team-label small {
+	color: var(--muted);
+	font-weight: 600;
+}
 .mini-logo {
+	flex: 0 0 auto;
 	width: 22px;
 	height: 22px;
 	vertical-align: middle;
-	margin-right: 5px;
 }
 .logo {
 	width: 28px;

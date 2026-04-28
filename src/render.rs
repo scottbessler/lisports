@@ -408,13 +408,13 @@ fn compact_game_status(game: &Game) -> String {
 fn game_summary(game: &Game, show_status: bool, league: League) -> String {
     let class = match league {
         League::Mlb => "game-card mlb-game-card",
-        League::Nba | League::Nfl => "game-card",
+        League::Nba | League::Nfl => "game-card period-game-card",
     };
     let mut html = format!(r#"<table class="{class}"><thead><tr><th></th>"#);
     match league {
         League::Nba | League::Nfl => {
-            for period in &game.away_team.periods {
-                html.push_str(&format!("<th>{}</th>", period.period));
+            for period in 1..=period_column_count(game) {
+                html.push_str(&format!("<th>{period}</th>"));
             }
             html.push_str("<th>T</th></tr></thead><tbody>");
         }
@@ -424,7 +424,7 @@ fn game_summary(game: &Game, show_status: bool, league: League) -> String {
     html.push_str(&team_summary_row(game, &game.home_team, true, league));
     if show_status {
         let colspan = match league {
-            League::Nba | League::Nfl => game.away_team.periods.len() + 2,
+            League::Nba | League::Nfl => period_column_count(game) + 2,
             League::Mlb => 4,
         };
         html.push_str(&format!(
@@ -438,9 +438,9 @@ fn game_summary(game: &Game, show_status: bool, league: League) -> String {
 
 fn team_summary_row(game: &Game, team: &Team, is_home: bool, league: League) -> String {
     let mut html = String::from("<tr><th>");
-    html.push_str(&team_logo(team, "mini-logo", league));
     html.push_str(&format!(
-        r#"<span title="{}">{}</span> <small>({})</small> {}"#,
+        r#"<span class="team-label">{}<span title="{}">{}</span> <small>({})</small> {}</span>"#,
+        team_logo(team, "mini-logo", league),
         escape_attr(&format!("{} {}", team.team_city, team.team_name)),
         escape(&team.team_tricode),
         escape(&team_record(team)),
@@ -449,17 +449,13 @@ fn team_summary_row(game: &Game, team: &Team, is_home: bool, league: League) -> 
     html.push_str("</th>");
     match league {
         League::Nba | League::Nfl => {
-            for period in &team.periods {
-                html.push_str(&format!(
-                    "<td>{}</td>",
-                    if period.score == 0 {
-                        "-".to_string()
-                    } else {
-                        period.score.to_string()
-                    }
-                ));
+            for period in 1..=period_column_count(game) {
+                html.push_str(&format!("<td>{}</td>", period_score(team, period)));
             }
-            html.push_str(&format!("<td>{}</td></tr>", team.score));
+            html.push_str(&format!(
+                r#"<td class="score-total">{}</td></tr>"#,
+                team.score
+            ));
         }
         League::Mlb if game.game_status == 1 => {
             html.push_str(r#"<td class="score-total">-</td><td>-</td><td>-</td></tr>"#);
@@ -472,6 +468,31 @@ fn team_summary_row(game: &Game, team: &Team, is_home: bool, league: League) -> 
         }
     }
     html
+}
+
+fn period_column_count(game: &Game) -> i64 {
+    game.away_team
+        .periods
+        .iter()
+        .chain(game.home_team.periods.iter())
+        .map(|period| period.period)
+        .max()
+        .unwrap_or(0)
+        .max(4)
+}
+
+fn period_score(team: &Team, period: i64) -> String {
+    team.periods
+        .iter()
+        .find(|score| score.period == period)
+        .map(|period| {
+            if period.score == 0 {
+                "-".to_string()
+            } else {
+                period.score.to_string()
+            }
+        })
+        .unwrap_or_default()
 }
 
 fn game_details(game: &BoxScore) -> String {
@@ -487,12 +508,6 @@ fn game_details(game: &BoxScore) -> String {
         &game.home_team,
         &game.away_team,
         true,
-    ));
-    html.push_str(&format!(
-        r#"<p><a href="https://www.nba.com/game/{}-vs-{}-{}?watchFullGame">Watch on League Pass</a></p>"#,
-        escape_attr(&game.away_team.team.team_tricode),
-        escape_attr(&game.home_team.team.team_tricode),
-        escape_attr(&game.game_id)
     ));
     html.push_str("</section>");
     html
@@ -1159,7 +1174,7 @@ fn table_cell_class(base: &str, extra: &str) -> String {
 }
 
 fn game_status(game: &Game) -> String {
-    if game.game_status == 1 && !game.game_time_utc.is_empty() {
+    if game.game_status == 1 && !game_has_started(game) && !game.game_time_utc.is_empty() {
         return format!(
             r#"<time data-local-game-time datetime="{}">{}</time>"#,
             escape_attr(&game.game_time_utc),
@@ -1167,6 +1182,14 @@ fn game_status(game: &Game) -> String {
         );
     }
     escape(&game.game_status_text)
+}
+
+fn game_has_started(game: &Game) -> bool {
+    game.period > 0
+        || game.home_team.score > 0
+        || game.away_team.score > 0
+        || !game.home_team.periods.is_empty()
+        || !game.away_team.periods.is_empty()
 }
 
 fn team_record(team: &Team) -> String {
@@ -1351,5 +1374,47 @@ mod tests {
         assert!(table.contains(
             r#"<td class="text">Jaylen Brown</td><td class="num">31</td><td class="text">2026-04-26</td>"#
         ));
+    }
+
+    #[test]
+    fn started_games_do_not_localize_status_as_tip_time() {
+        let game = Game {
+            game_id: "1".to_string(),
+            game_status: 1,
+            game_status_text: "Halftime".to_string(),
+            period: 2,
+            game_clock: "0.0".to_string(),
+            game_time_utc: "2026-04-28T02:30Z".to_string(),
+            home_team: Team {
+                team_id: 1,
+                team_name: "Nuggets".to_string(),
+                team_city: "Denver".to_string(),
+                team_tricode: "DEN".to_string(),
+                wins: 0,
+                losses: 0,
+                display_record: String::new(),
+                score: 60,
+                hits: 0,
+                errors: 0,
+                periods: Vec::new(),
+            },
+            away_team: Team {
+                team_id: 2,
+                team_name: "Timberwolves".to_string(),
+                team_city: "Minnesota".to_string(),
+                team_tricode: "MIN".to_string(),
+                wins: 0,
+                losses: 0,
+                display_record: String::new(),
+                score: 51,
+                hits: 0,
+                errors: 0,
+                periods: Vec::new(),
+            },
+            home_leaders: Default::default(),
+            away_leaders: Default::default(),
+        };
+
+        assert_eq!(game_status(&game), "Halftime");
     }
 }

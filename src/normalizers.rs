@@ -880,6 +880,12 @@ fn playoff_series_record(competitor: &Value, competition: &Value) -> Option<Stri
 }
 
 fn espn_status_to_game_status(status: &Value) -> i64 {
+    if bool_at(status, &["type", "completed"]) {
+        return 3;
+    }
+    if str_at(status, &["type", "state"]).as_deref() == Some("in") {
+        return 2;
+    }
     match str_at(status, &["type", "name"]).as_deref() {
         Some("STATUS_FINAL") => 3,
         Some("STATUS_IN_PROGRESS") => 2,
@@ -1290,6 +1296,37 @@ mod tests {
         assert_eq!(scoreboard.games[0].home_team.display_record, "2-1");
         assert_eq!(scoreboard.games[0].away_team.score, 128);
         assert_eq!(scoreboard.games[0].game_status, 3);
+    }
+
+    #[test]
+    fn espn_scoreboard_conversion_treats_halftime_as_live() {
+        let data: EspnScoreboardDto = serde_json::from_value(serde_json::json!({
+            "events": [{
+                "id": "401869401",
+                "date": "2026-04-27T23:30:00Z",
+                "competitions": [{
+                    "status": {
+                        "period": 2,
+                        "displayClock": "0.0",
+                        "type": {
+                            "name": "STATUS_HALFTIME",
+                            "state": "in",
+                            "completed": false,
+                            "shortDetail": "Halftime"
+                        }
+                    },
+                    "competitors": [
+                        {"homeAway": "away", "id": "16", "score": "51", "team": {"id": "16", "abbreviation": "MIN"}, "records": [{"type": "total", "summary": "3-1"}], "linescores": [{"period": 1, "value": 29}, {"period": 2, "value": 22}]},
+                        {"homeAway": "home", "id": "7", "score": "60", "team": {"id": "7", "abbreviation": "DEN"}, "records": [{"type": "total", "summary": "1-3"}], "linescores": [{"period": 1, "value": 34}, {"period": 2, "value": 26}]}
+                    ]
+                }]
+            }]
+        }))
+        .unwrap();
+        let scoreboard = espn_scoreboard("2026-04-27", data).unwrap();
+
+        assert_eq!(scoreboard.games[0].game_status, 2);
+        assert_eq!(scoreboard.games[0].game_status_text, "Halftime");
     }
 
     #[test]
