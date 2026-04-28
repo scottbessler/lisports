@@ -12,6 +12,8 @@ FROM debian:bookworm-slim
 ENV DATA_PATH=/data
 ENV PORT=8080
 
+RUN mkdir -p /data
+
 WORKDIR /app
 
 COPY --from=build /app/target/release/lisports /app/lisports

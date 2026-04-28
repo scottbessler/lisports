@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 export const fetchFromCache = async (key: string) => {
@@ -22,8 +22,13 @@ function toFileName(key: string) {
 }
 
 export const saveToCache = async (key: string, value: unknown) => {
-	console.log(`storing cache to ${toFileName(key)}`);
-	await writeFile(toFileName(key), JSON.stringify(value), {
-		encoding: 'utf-8',
-	});
+	try {
+		await mkdir(dataPath, { recursive: true });
+		console.log(`storing cache to ${toFileName(key)}`);
+		await writeFile(toFileName(key), JSON.stringify(value), {
+			encoding: 'utf-8',
+		});
+	} catch (err) {
+		console.error('Failed to save cache:', err);
+	}
 };
