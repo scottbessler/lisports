@@ -31,12 +31,6 @@ Run the Rust service in dev mode to restart automatically when Rust sources, sta
 ./dev.sh
 ```
 
-The same mode is also available through the package scripts:
-
-```sh
-bun run dev:rust
-```
-
 To watch different paths or change the poll interval:
 
 ```sh

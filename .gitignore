@@ -1,16 +1,4 @@
-node_modules
 target
 
-/build
-/public/build
 .env
-
-/cypress/screenshots
-/cypress/videos
-
-.yarn/*
-!.yarn/releases
-!.yarn/plugins
 data
-
-.react-router/

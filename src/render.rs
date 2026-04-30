@@ -42,12 +42,21 @@ pub fn layout(title: &str, body: &str) -> String {
 pub fn nav() -> &'static str {
     r#"<nav class="nav">
   <div class="brand">LiSports</div>
-  <a href="/nba/scoreboard">NBA Scoreboard</a>
-  <a href="/nba/standings">NBA Standings</a>
-  <a href="/mlb/scoreboard">MLB Scoreboard</a>
-  <a href="/mlb/standings">MLB Standings</a>
-  <a href="/nfl/scoreboard">NFL Scoreboard</a>
-  <a href="/nfl/standings">NFL Standings</a>
+  <div class="nav-section">
+    <span class="nav-label">NBA</span>
+    <a href="/nba/scoreboard" aria-label="NBA Scoreboard">Scoreboard</a>
+    <a href="/nba/standings" aria-label="NBA Standings">Standings</a>
+  </div>
+  <div class="nav-section">
+    <span class="nav-label">MLB</span>
+    <a href="/mlb/scoreboard" aria-label="MLB Scoreboard">Scoreboard</a>
+    <a href="/mlb/standings" aria-label="MLB Standings">Standings</a>
+  </div>
+  <div class="nav-section">
+    <span class="nav-label">NFL</span>
+    <a href="/nfl/scoreboard" aria-label="NFL Scoreboard">Scoreboard</a>
+    <a href="/nfl/standings" aria-label="NFL Standings">Standings</a>
+  </div>
 </nav>"#
 }
 
