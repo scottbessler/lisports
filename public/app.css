@@ -276,12 +276,24 @@ table.sortable thead th.num {
 	display: inline-flex;
 	align-items: center;
 	gap: 5px;
+	line-height: 1;
 	min-width: 0;
+	max-width: 100%;
 	vertical-align: middle;
+	white-space: nowrap;
+}
+.team-name {
+	display: inline-flex;
+	gap: 4px;
+	align-items: center;
+	flex: 0 0 auto;
+	line-height: 1;
 }
 .team-label small {
 	color: var(--muted);
+	flex: 0 0 auto;
 	font-weight: 600;
+	line-height: 1;
 }
 .mini-logo {
 	flex: 0 0 auto;

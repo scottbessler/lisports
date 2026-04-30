@@ -448,7 +448,7 @@ fn game_summary(game: &Game, show_status: bool, league: League) -> String {
 fn team_summary_row(game: &Game, team: &Team, is_home: bool, league: League) -> String {
     let mut html = String::from("<tr><th>");
     html.push_str(&format!(
-        r#"<span class="team-label">{}<span title="{}">{}</span> <small>({})</small> {}</span>"#,
+        r#"<span class="team-label">{}<span class="team-name" title="{}"><span>{}</span> <small>({})</small></span>{}</span>"#,
         team_logo(team, "mini-logo", league),
         escape_attr(&format!("{} {}", team.team_city, team.team_name)),
         escape(&team.team_tricode),
