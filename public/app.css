@@ -205,15 +205,15 @@ table {
 }
 .period-game-card th:not(:first-child),
 .period-game-card td:not(:first-child) {
-	width: clamp(44px, 8.8vw, 58px);
-	min-width: clamp(44px, 8.8vw, 58px);
-	max-width: clamp(44px, 8.8vw, 58px);
+	width: clamp(40px, 7vw, 48px);
+	min-width: clamp(40px, 7vw, 48px);
+	max-width: clamp(40px, 7vw, 48px);
 }
 .mlb-game-card th:not(:first-child),
 .mlb-game-card td:not(:first-child) {
-	width: clamp(44px, 12vw, 56px);
-	min-width: clamp(44px, 12vw, 56px);
-	max-width: clamp(44px, 12vw, 56px);
+	width: clamp(40px, 10vw, 48px);
+	min-width: clamp(40px, 10vw, 48px);
+	max-width: clamp(40px, 10vw, 48px);
 }
 th,
 td {
@@ -239,7 +239,7 @@ thead th {
 	text-align: center;
 }
 .game-card thead th:not(:first-child) {
-	padding-right: 14px;
+	padding-right: 10px;
 	text-align: right;
 }
 .game-card .score-total {
