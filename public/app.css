@@ -205,15 +205,15 @@ table {
 }
 .period-game-card th:not(:first-child),
 .period-game-card td:not(:first-child) {
-	width: 58px;
-	min-width: 58px;
-	max-width: 58px;
+	width: clamp(44px, 8.8vw, 58px);
+	min-width: clamp(44px, 8.8vw, 58px);
+	max-width: clamp(44px, 8.8vw, 58px);
 }
 .mlb-game-card th:not(:first-child),
 .mlb-game-card td:not(:first-child) {
-	width: 56px;
-	min-width: 56px;
-	max-width: 56px;
+	width: clamp(44px, 12vw, 56px);
+	min-width: clamp(44px, 12vw, 56px);
+	max-width: clamp(44px, 12vw, 56px);
 }
 th,
 td {
@@ -397,6 +397,23 @@ table.sortable thead th.num {
 @media (max-width: 520px) {
 	.date-nav .date-near {
 		display: none;
+	}
+	th,
+	td {
+		padding-right: 6px;
+		padding-left: 6px;
+	}
+	.period-game-card th:not(:first-child),
+	.period-game-card td:not(:first-child) {
+		width: clamp(39px, 9.6vw, 44px);
+		min-width: clamp(39px, 9.6vw, 44px);
+		max-width: clamp(39px, 9.6vw, 44px);
+	}
+	.mlb-game-card th:not(:first-child),
+	.mlb-game-card td:not(:first-child) {
+		width: clamp(40px, 11vw, 44px);
+		min-width: clamp(40px, 11vw, 44px);
+		max-width: clamp(40px, 11vw, 44px);
 	}
 	.detail-actions {
 		grid-template-columns: 1fr;
