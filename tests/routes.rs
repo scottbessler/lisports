@@ -143,8 +143,51 @@ async fn scoreboard_renders_nav_and_game_cards() {
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("NBA Scoreboard"));
     assert!(body.contains("class=\"nav\""));
+    assert!(body.contains(r#"<link rel="manifest" href="/public/manifest.webmanifest">"#));
     assert!(body.contains("class=\"game-card period-game-card\""));
     assert!(body.contains("<th>1</th><th>2</th><th>3</th><th>4</th><th>T</th>"));
+}
+
+#[tokio::test]
+async fn today_scoreboard_urls_render_without_redirecting() {
+    let (nba_status, nba_body) = request("/nba/scoreboard/today").await;
+    let (mlb_status, mlb_body) = request("/mlb/scoreboard/today").await;
+    let (nfl_status, nfl_body) = request("/nfl/scoreboard/today").await;
+
+    assert_eq!(nba_status, StatusCode::OK);
+    assert!(nba_body.contains("NBA Scoreboard"));
+    assert!(nba_body.contains("class=\"game-card period-game-card\""));
+
+    assert_eq!(mlb_status, StatusCode::OK);
+    assert!(mlb_body.contains("MLB Scoreboard"));
+    assert!(mlb_body.contains("class=\"game-card mlb-game-card\""));
+
+    assert_eq!(nfl_status, StatusCode::OK);
+    assert!(nfl_body.contains("NFL Scoreboard"));
+    assert!(nfl_body.contains("Super Bowl"));
+}
+
+#[tokio::test]
+async fn dayless_scoreboard_urls_redirect_to_today() {
+    let (nba_status, nba_location) = request_redirect_location("/nba/scoreboard").await;
+    let (mlb_status, mlb_location) = request_redirect_location("/mlb/scoreboard").await;
+    let (nfl_status, nfl_location) = request_redirect_location("/nfl/scoreboard").await;
+
+    assert_eq!(nba_status, StatusCode::TEMPORARY_REDIRECT);
+    assert_eq!(nba_location, "/nba/scoreboard/today");
+    assert_eq!(mlb_status, StatusCode::TEMPORARY_REDIRECT);
+    assert_eq!(mlb_location, "/mlb/scoreboard/today");
+    assert_eq!(nfl_status, StatusCode::TEMPORARY_REDIRECT);
+    assert_eq!(nfl_location, "/nfl/scoreboard/today");
+}
+
+#[tokio::test]
+async fn manifest_is_served_from_public_assets() {
+    let (status, body) = request("/public/manifest.webmanifest").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains(r#""name": "LiSports""#));
+    assert!(body.contains(r#""start_url": "/nba/scoreboard/today""#));
+    assert!(body.contains(r#""display": "standalone""#));
 }
 
 #[tokio::test]
@@ -228,13 +271,6 @@ async fn nfl_scoreboard_renders_nav_and_game_cards() {
     assert!(body.contains("Week 1"));
     assert!(body.contains("class=\"game-card period-game-card\""));
     assert!(body.contains("<th>T</th>"));
-}
-
-#[tokio::test]
-async fn nfl_scoreboard_redirects_to_latest_playoff_week() {
-    let (status, location) = request_redirect_location("/nfl/scoreboard").await;
-    assert_eq!(status, StatusCode::TEMPORARY_REDIRECT);
-    assert_eq!(location, "/nfl/scoreboard/23");
 }
 
 #[tokio::test]

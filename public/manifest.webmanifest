@@ -1,0 +1,24 @@
+{
+	"name": "LiSports",
+	"short_name": "LiSports",
+	"description": "A small sports dashboard for scores, standings, and player stats.",
+	"start_url": "/nba/scoreboard/today",
+	"scope": "/",
+	"display": "standalone",
+	"background_color": "#e7ebee",
+	"theme_color": "#15181d",
+	"icons": [
+		{
+			"src": "/public/app-icon.svg",
+			"sizes": "any",
+			"type": "image/svg+xml",
+			"purpose": "any maskable"
+		},
+		{
+			"src": "/public/favicon.ico",
+			"sizes": "64x64",
+			"type": "image/x-icon",
+			"purpose": "any"
+		}
+	]
+}

@@ -2,7 +2,6 @@ use axum::{
     extract::{Path, State},
     response::{Html, IntoResponse, Redirect, Response},
 };
-use chrono::Utc;
 
 use crate::{
     app::AppState,
@@ -19,23 +18,14 @@ pub async fn healthcheck() -> &'static str {
     "OK"
 }
 
-pub async fn nba_scoreboard(State(state): State<AppState>) -> Result<Response, AppError> {
-    let scoreboard = state.data.todays_scoreboard().await?;
-    let has_live_or_completed = scoreboard.games.iter().any(|game| game.game_status >= 2);
-    let target = if has_live_or_completed {
-        scoreboard.game_date
-    } else {
-        parse_day(&scoreboard.game_date)?
-            .checked_sub_days(chrono::Days::new(1))
-            .unwrap_or_else(|| Utc::now().date_naive())
-            .to_string()
-    };
-    Ok(Redirect::temporary(&format!("/nba/scoreboard/{target}")).into_response())
+pub async fn nba_scoreboard() -> Redirect {
+    Redirect::temporary("/nba/scoreboard/today")
 }
 
 pub async fn nba_scoreboard_today(State(state): State<AppState>) -> Result<Response, AppError> {
     let scoreboard = state.data.todays_scoreboard().await?;
-    Ok(Redirect::temporary(&format!("/nba/scoreboard/{}", scoreboard.game_date)).into_response())
+    let parsed_day = parse_day(&scoreboard.game_date)?;
+    Ok(Html(render::scoreboard_page(parsed_day, &scoreboard, None)).into_response())
 }
 
 pub async fn nba_scoreboard_day(
@@ -76,23 +66,14 @@ pub async fn nba_player(
     Ok(Html(render::player_page(&stats)))
 }
 
-pub async fn mlb_scoreboard(State(state): State<AppState>) -> Result<Response, AppError> {
-    let scoreboard = state.data.mlb_todays_scoreboard().await?;
-    let has_live_or_completed = scoreboard.games.iter().any(|game| game.game_status >= 2);
-    let target = if has_live_or_completed {
-        scoreboard.game_date
-    } else {
-        parse_day(&scoreboard.game_date)?
-            .checked_sub_days(chrono::Days::new(1))
-            .unwrap_or_else(|| Utc::now().date_naive())
-            .to_string()
-    };
-    Ok(Redirect::temporary(&format!("/mlb/scoreboard/{target}")).into_response())
+pub async fn mlb_scoreboard() -> Redirect {
+    Redirect::temporary("/mlb/scoreboard/today")
 }
 
 pub async fn mlb_scoreboard_today(State(state): State<AppState>) -> Result<Response, AppError> {
     let scoreboard = state.data.mlb_todays_scoreboard().await?;
-    Ok(Redirect::temporary(&format!("/mlb/scoreboard/{}", scoreboard.game_date)).into_response())
+    let parsed_day = parse_day(&scoreboard.game_date)?;
+    Ok(Html(render::mlb_scoreboard_page(parsed_day, &scoreboard, None)).into_response())
 }
 
 pub async fn mlb_scoreboard_day(
@@ -128,14 +109,14 @@ pub async fn mlb_standings(State(state): State<AppState>) -> Result<Html<String>
     Ok(Html(render::mlb_standings_page(&standings)))
 }
 
-pub async fn nfl_scoreboard(State(state): State<AppState>) -> Result<Response, AppError> {
-    let scoreboard = state.data.nfl_current_scoreboard().await?;
-    Ok(Redirect::temporary(&format!("/nfl/scoreboard/{}", scoreboard.game_date)).into_response())
+pub async fn nfl_scoreboard() -> Redirect {
+    Redirect::temporary("/nfl/scoreboard/today")
 }
 
 pub async fn nfl_scoreboard_today(State(state): State<AppState>) -> Result<Response, AppError> {
     let scoreboard = state.data.nfl_current_scoreboard().await?;
-    Ok(Redirect::temporary(&format!("/nfl/scoreboard/{}", scoreboard.game_date)).into_response())
+    let week = nfl_week(&scoreboard.game_date)?;
+    Ok(Html(render::nfl_scoreboard_page(week, &scoreboard, None)).into_response())
 }
 
 pub async fn nfl_scoreboard_week(

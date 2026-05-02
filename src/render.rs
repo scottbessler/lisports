@@ -25,6 +25,7 @@ pub fn layout(title: &str, body: &str) -> String {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>{}</title>
   <link rel="icon" href="/public/favicon.ico">
+  <link rel="manifest" href="/public/manifest.webmanifest">
   <link rel="stylesheet" href="/public/app.css">
 </head>
 <body>
