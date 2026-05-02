@@ -5,6 +5,7 @@ use axum::{
     body::{Body, to_bytes},
     http::{Request, StatusCode, header},
 };
+use chrono::{Datelike, Local};
 use lisports::{
     app,
     clients::SportsData,
@@ -150,21 +151,54 @@ async fn scoreboard_renders_nav_and_game_cards() {
 
 #[tokio::test]
 async fn today_scoreboard_urls_render_without_redirecting() {
+    let today = Local::now().date_naive();
+    let label = format!(
+        "{} {}/{} *",
+        weekday_label(today.weekday().num_days_from_sunday()),
+        today.month(),
+        today.day()
+    );
     let (nba_status, nba_body) = request("/nba/scoreboard/today").await;
     let (mlb_status, mlb_body) = request("/mlb/scoreboard/today").await;
     let (nfl_status, nfl_body) = request("/nfl/scoreboard/today").await;
 
     assert_eq!(nba_status, StatusCode::OK);
     assert!(nba_body.contains("NBA Scoreboard"));
+    assert!(nba_body.contains(&format!(
+        r#"<a class="button active date-current" href="/nba/scoreboard/{today}">{label}</a>"#
+    )));
+    assert!(!date_nav(&nba_body).contains("/nba/scoreboard/today"));
     assert!(nba_body.contains("class=\"game-card period-game-card\""));
 
     assert_eq!(mlb_status, StatusCode::OK);
     assert!(mlb_body.contains("MLB Scoreboard"));
+    assert!(mlb_body.contains(&format!(
+        r#"<a class="button active date-current" href="/mlb/scoreboard/{today}">{label}</a>"#
+    )));
+    assert!(!date_nav(&mlb_body).contains("/mlb/scoreboard/today"));
     assert!(mlb_body.contains("class=\"game-card mlb-game-card\""));
 
     assert_eq!(nfl_status, StatusCode::OK);
     assert!(nfl_body.contains("NFL Scoreboard"));
     assert!(nfl_body.contains("Super Bowl"));
+}
+
+#[tokio::test]
+async fn dated_scoreboard_nav_marks_calendar_today() {
+    let today = Local::now().date_naive();
+    let (status, body) = request(&format!("/nba/scoreboard/{today}")).await;
+    let label = format!(
+        "{} {}/{} *",
+        weekday_label(today.weekday().num_days_from_sunday()),
+        today.month(),
+        today.day()
+    );
+
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains(&format!(
+        r#"<a class="button active date-current" href="/nba/scoreboard/{today}">{label}</a>"#
+    )));
+    assert!(!date_nav(&body).contains("/nba/scoreboard/today"));
 }
 
 #[tokio::test]
@@ -352,6 +386,25 @@ async fn request_redirect_location(uri: &str) -> (StatusCode, String) {
         .unwrap_or_default()
         .to_string();
     (status, location)
+}
+
+fn date_nav(body: &str) -> &str {
+    let start = body.find(r#"<div class="date-nav">"#).unwrap();
+    let after_start = &body[start..];
+    let end = after_start.find("</div>").unwrap() + "</div>".len();
+    &after_start[..end]
+}
+
+fn weekday_label(index: u32) -> &'static str {
+    match index {
+        0 => "Sun",
+        1 => "Mon",
+        2 => "Tue",
+        3 => "Wed",
+        4 => "Thu",
+        5 => "Fri",
+        _ => "Sat",
+    }
 }
 
 fn scoreboard() -> Scoreboard {

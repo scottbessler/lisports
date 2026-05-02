@@ -2,6 +2,7 @@ use axum::{
     extract::{Path, State},
     response::{Html, IntoResponse, Redirect, Response},
 };
+use chrono::Local;
 
 use crate::{
     app::AppState,
@@ -23,9 +24,9 @@ pub async fn nba_scoreboard() -> Redirect {
 }
 
 pub async fn nba_scoreboard_today(State(state): State<AppState>) -> Result<Response, AppError> {
-    let scoreboard = state.data.todays_scoreboard().await?;
-    let parsed_day = parse_day(&scoreboard.game_date)?;
-    Ok(Html(render::scoreboard_page(parsed_day, &scoreboard, None)).into_response())
+    let parsed_day = Local::now().date_naive();
+    let scoreboard = state.data.days_games(&parsed_day.to_string()).await?;
+    Ok(Html(render::todays_scoreboard_page(parsed_day, &scoreboard)).into_response())
 }
 
 pub async fn nba_scoreboard_day(
@@ -71,9 +72,9 @@ pub async fn mlb_scoreboard() -> Redirect {
 }
 
 pub async fn mlb_scoreboard_today(State(state): State<AppState>) -> Result<Response, AppError> {
-    let scoreboard = state.data.mlb_todays_scoreboard().await?;
-    let parsed_day = parse_day(&scoreboard.game_date)?;
-    Ok(Html(render::mlb_scoreboard_page(parsed_day, &scoreboard, None)).into_response())
+    let parsed_day = Local::now().date_naive();
+    let scoreboard = state.data.mlb_days_games(&parsed_day.to_string()).await?;
+    Ok(Html(render::mlb_todays_scoreboard_page(parsed_day, &scoreboard)).into_response())
 }
 
 pub async fn mlb_scoreboard_day(

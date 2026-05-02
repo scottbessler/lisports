@@ -1,4 +1,4 @@
-use chrono::{Datelike, Days, NaiveDate, Utc};
+use chrono::{Datelike, Days, Local, NaiveDate};
 
 use crate::{
     models::{
@@ -77,16 +77,21 @@ pub fn scoreboard_page(
     scoreboard: &Scoreboard,
     selected: Option<&BoxScore>,
 ) -> String {
-    basketball_scoreboard_page(day, scoreboard, selected)
+    basketball_scoreboard_page(day, scoreboard, selected, None)
+}
+
+pub fn todays_scoreboard_page(day: NaiveDate, scoreboard: &Scoreboard) -> String {
+    basketball_scoreboard_page(day, scoreboard, None, Some(day))
 }
 
 fn basketball_scoreboard_page(
     day: NaiveDate,
     scoreboard: &Scoreboard,
     selected: Option<&BoxScore>,
+    today_day: Option<NaiveDate>,
 ) -> String {
     let mut html = String::from(r#"<main class="page">"#);
-    html.push_str(&date_nav(day, "/nba/scoreboard"));
+    html.push_str(&date_nav(day, "/nba/scoreboard", today_day));
     if scoreboard.games.is_empty() {
         html.push_str(r#"<section class="center"><h1>No Games Scheduled</h1></section>"#);
     } else {
@@ -130,8 +135,21 @@ pub fn mlb_scoreboard_page(
     scoreboard: &Scoreboard,
     selected: Option<&MlbBoxScore>,
 ) -> String {
+    mlb_scoreboard_page_with_today(day, scoreboard, selected, None)
+}
+
+pub fn mlb_todays_scoreboard_page(day: NaiveDate, scoreboard: &Scoreboard) -> String {
+    mlb_scoreboard_page_with_today(day, scoreboard, None, Some(day))
+}
+
+fn mlb_scoreboard_page_with_today(
+    day: NaiveDate,
+    scoreboard: &Scoreboard,
+    selected: Option<&MlbBoxScore>,
+    today_day: Option<NaiveDate>,
+) -> String {
     let mut html = String::from(r#"<main class="page">"#);
-    html.push_str(&date_nav(day, "/mlb/scoreboard"));
+    html.push_str(&date_nav(day, "/mlb/scoreboard", today_day));
     if scoreboard.games.is_empty() {
         html.push_str(r#"<section class="center"><h1>No Games Scheduled</h1></section>"#);
     } else {
@@ -254,8 +272,9 @@ fn nfl_week_label(week: i64) -> String {
     }
 }
 
-fn date_nav(day: NaiveDate, base_path: &str) -> String {
+fn date_nav(day: NaiveDate, base_path: &str, today_day: Option<NaiveDate>) -> String {
     let mut html = String::from(r#"<div class="date-nav">"#);
+    let marked_day = today_day.unwrap_or_else(|| Local::now().date_naive());
     html.push_str(&format!(
         r#"<a class="button" href="{}/{}">Prev</a>"#,
         base_path,
@@ -263,16 +282,16 @@ fn date_nav(day: NaiveDate, base_path: &str) -> String {
     ));
     for offset in -3..=3 {
         let d = day + chrono::Duration::days(offset);
-        let label = if d == Utc::now().date_naive() {
-            "Today".to_string()
-        } else {
-            format!(
-                "{} {}/{}",
-                weekday(d.weekday().num_days_from_sunday()),
-                d.month(),
-                d.day()
-            )
-        };
+        let is_today = d == marked_day;
+        let mut label = format!(
+            "{} {}/{}",
+            weekday(d.weekday().num_days_from_sunday()),
+            d.month(),
+            d.day()
+        );
+        if is_today {
+            label.push_str(" *");
+        }
         let visibility_class = match offset.abs() {
             0 => "date-current",
             1 => "date-near",
