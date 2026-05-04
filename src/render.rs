@@ -1,4 +1,4 @@
-use chrono::{Datelike, Days, Local, NaiveDate};
+use chrono::{Datelike, Days, NaiveDate};
 
 use crate::{
     models::{
@@ -80,8 +80,13 @@ pub fn scoreboard_page(
     basketball_scoreboard_page(day, scoreboard, selected, None)
 }
 
-pub fn todays_scoreboard_page(day: NaiveDate, scoreboard: &Scoreboard) -> String {
-    basketball_scoreboard_page(day, scoreboard, None, Some(day))
+pub fn scoreboard_page_with_today(
+    day: NaiveDate,
+    scoreboard: &Scoreboard,
+    selected: Option<&BoxScore>,
+    today_day: NaiveDate,
+) -> String {
+    basketball_scoreboard_page(day, scoreboard, selected, Some(today_day))
 }
 
 fn basketball_scoreboard_page(
@@ -135,14 +140,19 @@ pub fn mlb_scoreboard_page(
     scoreboard: &Scoreboard,
     selected: Option<&MlbBoxScore>,
 ) -> String {
-    mlb_scoreboard_page_with_today(day, scoreboard, selected, None)
+    mlb_scoreboard_page_with_today_marker(day, scoreboard, selected, None)
 }
 
-pub fn mlb_todays_scoreboard_page(day: NaiveDate, scoreboard: &Scoreboard) -> String {
-    mlb_scoreboard_page_with_today(day, scoreboard, None, Some(day))
+pub fn mlb_scoreboard_page_with_today(
+    day: NaiveDate,
+    scoreboard: &Scoreboard,
+    selected: Option<&MlbBoxScore>,
+    today_day: NaiveDate,
+) -> String {
+    mlb_scoreboard_page_with_today_marker(day, scoreboard, selected, Some(today_day))
 }
 
-fn mlb_scoreboard_page_with_today(
+fn mlb_scoreboard_page_with_today_marker(
     day: NaiveDate,
     scoreboard: &Scoreboard,
     selected: Option<&MlbBoxScore>,
@@ -274,7 +284,6 @@ fn nfl_week_label(week: i64) -> String {
 
 fn date_nav(day: NaiveDate, base_path: &str, today_day: Option<NaiveDate>) -> String {
     let mut html = String::from(r#"<div class="date-nav">"#);
-    let marked_day = today_day.unwrap_or_else(|| Local::now().date_naive());
     html.push_str(&format!(
         r#"<a class="button" href="{}/{}">Prev</a>"#,
         base_path,
@@ -282,7 +291,7 @@ fn date_nav(day: NaiveDate, base_path: &str, today_day: Option<NaiveDate>) -> St
     ));
     for offset in -3..=3 {
         let d = day + chrono::Duration::days(offset);
-        let is_today = d == marked_day;
+        let is_today = today_day == Some(d);
         let mut label = format!(
             "{} {}/{}",
             weekday(d.weekday().num_days_from_sunday()),
