@@ -39,29 +39,30 @@ a {
 	top: 0;
 	z-index: 10;
 	display: flex;
-	gap: 8px;
+	gap: 6px;
 	align-items: center;
 	justify-content: center;
-	padding: 10px;
+	padding: 6px 8px;
 	border-bottom: 1px solid var(--line);
 	background: rgba(255, 255, 255, 0.9);
 	backdrop-filter: blur(10px);
+	flex-wrap: wrap;
 }
 .nav-section {
 	display: flex;
-	gap: 4px;
+	gap: 2px;
 	align-items: center;
-	padding: 4px;
-	border-radius: 8px;
+	padding: 2px;
+	border-radius: 7px;
 	background: #f4f6f7;
 	white-space: nowrap;
 }
 .nav-label {
-	padding: 0 5px;
+	padding: 0 4px;
 	color: var(--muted);
-	font-size: 13px;
+	font-size: 12px;
 	font-weight: 800;
-	letter-spacing: 0.04em;
+	line-height: 1;
 }
 .nav a,
 .button {
@@ -71,6 +72,11 @@ a {
 	text-decoration: none;
 	background: #f4f6f7;
 	white-space: nowrap;
+}
+.nav a {
+	padding: 5px 7px;
+	font-size: 13px;
+	line-height: 1;
 }
 .nav-section a {
 	background: transparent;
@@ -82,8 +88,9 @@ a {
 	color: white;
 }
 .brand {
-	font-size: 20px;
-	padding: 0 8px;
+	font-size: 17px;
+	line-height: 1;
+	padding: 0 5px;
 }
 .date-nav {
 	display: flex;
@@ -387,8 +394,12 @@ table.sortable thead th.num {
 		width: 100%;
 	}
 	.nav {
+		flex-wrap: nowrap;
 		overflow: auto;
 		justify-content: flex-start;
+	}
+	.nav-section {
+		flex: 0 0 auto;
 	}
 	.brand {
 		flex: 0 0 auto;

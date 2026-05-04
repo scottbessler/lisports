@@ -12,7 +12,8 @@ use lisports::{
     models::{
         BoxScore, BoxScoreTeam, Game, Leaders, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsDivision,
         MlbStandingsTable, MlbStandingsTeam, NflBoxScore, NflBoxScoreTeam, NflStandingsDivision,
-        NflStandingsTable, NflStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard,
+        NflStandingsTable, NflStandingsTeam, NhlBoxScore, NhlBoxScoreTeam, NhlStandingsDivision,
+        NhlStandingsTable, NhlStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard,
         StandingsTable, StandingsTeam, Statistics, Table, Team, TeamStatistics,
     },
 };
@@ -27,12 +28,20 @@ impl SportsData for FakeSportsData {
         Ok(scoreboard())
     }
 
-    async fn days_games(&self, _day: &str) -> Result<Scoreboard, AppError> {
-        Ok(scoreboard())
+    async fn days_games(&self, day: &str) -> Result<Scoreboard, AppError> {
+        if day == "2026-05-02" {
+            Ok(live_scoreboard())
+        } else {
+            Ok(scoreboard())
+        }
     }
 
-    async fn game(&self, _game_id: &str) -> Result<Option<BoxScore>, AppError> {
-        Ok(Some(box_score()))
+    async fn game(&self, game_id: &str) -> Result<Option<BoxScore>, AppError> {
+        if game_id == "401000000" {
+            Ok(Some(live_box_score()))
+        } else {
+            Ok(Some(box_score()))
+        }
     }
 
     async fn standings(&self) -> Result<StandingsTable, AppError> {
@@ -128,6 +137,34 @@ impl SportsData for FakeSportsData {
             ],
         })
     }
+
+    async fn nhl_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
+        Ok(nhl_scoreboard())
+    }
+
+    async fn nhl_days_games(&self, _day: &str) -> Result<Scoreboard, AppError> {
+        Ok(nhl_scoreboard())
+    }
+
+    async fn nhl_game(&self, _game_id: &str) -> Result<Option<NhlBoxScore>, AppError> {
+        Ok(Some(nhl_box_score()))
+    }
+
+    async fn nhl_standings(&self) -> Result<NhlStandingsTable, AppError> {
+        Ok(NhlStandingsTable {
+            divisions: vec![NhlStandingsDivision {
+                conference: "East".to_string(),
+                division: "Atlantic".to_string(),
+                teams: vec![nhl_standing_team(
+                    1,
+                    "Boston Bruins",
+                    "BOS",
+                    "East",
+                    "Atlantic",
+                )],
+            }],
+        })
+    }
 }
 
 #[tokio::test]
@@ -187,10 +224,33 @@ async fn dated_scoreboard_nav_marks_calendar_today() {
 }
 
 #[tokio::test]
+async fn live_scoreboard_pages_include_refresh_timestamp() {
+    let (scoreboard_status, scoreboard_body) = request("/nba/scoreboard/2026-05-02").await;
+    let (game_status, game_body) = request("/nba/scoreboard/2026-05-02/game/401000000").await;
+
+    assert_eq!(scoreboard_status, StatusCode::OK);
+    assert!(scoreboard_body.contains(r#"<body data-refresh-at=""#));
+    assert!(scoreboard_body.contains("Q2 5:12"));
+
+    assert_eq!(game_status, StatusCode::OK);
+    assert!(game_body.contains(r#"<body data-refresh-at=""#));
+    assert!(game_body.contains("scoreboard has-game"));
+}
+
+#[tokio::test]
+async fn completed_scoreboard_pages_do_not_include_refresh_timestamp() {
+    let (status, body) = request("/nba/scoreboard/2026-04-26").await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert!(!body.contains("data-refresh-at"));
+}
+
+#[tokio::test]
 async fn dayless_scoreboard_urls_redirect_to_today() {
     let (nba_status, nba_location) = request_redirect_location("/nba/scoreboard").await;
     let (mlb_status, mlb_location) = request_redirect_location("/mlb/scoreboard").await;
     let (nfl_status, nfl_location) = request_redirect_location("/nfl/scoreboard").await;
+    let (nhl_status, nhl_location) = request_redirect_location("/nhl/scoreboard").await;
 
     assert_eq!(nba_status, StatusCode::TEMPORARY_REDIRECT);
     assert_eq!(nba_location, "/nba/scoreboard/today");
@@ -198,6 +258,8 @@ async fn dayless_scoreboard_urls_redirect_to_today() {
     assert_eq!(mlb_location, "/mlb/scoreboard/today");
     assert_eq!(nfl_status, StatusCode::TEMPORARY_REDIRECT);
     assert_eq!(nfl_location, "/nfl/scoreboard/today");
+    assert_eq!(nhl_status, StatusCode::TEMPORARY_REDIRECT);
+    assert_eq!(nhl_location, "/nhl/scoreboard/today");
 }
 
 #[tokio::test]
@@ -327,6 +389,41 @@ async fn nfl_standings_render_sortable_tables() {
 }
 
 #[tokio::test]
+async fn nhl_scoreboard_renders_nav_and_game_cards() {
+    let (status, body) = request("/nhl/scoreboard/2026-04-26").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("NHL Scoreboard"));
+    assert!(body.contains("NHL Standings"));
+    assert!(body.contains("class=\"game-card period-game-card\""));
+    assert!(body.contains("<th>1</th><th>2</th><th>3</th><th>T</th>"));
+    assert!(!body.contains("<th>4</th>"));
+}
+
+#[tokio::test]
+async fn nhl_game_view_renders_selected_box_score() {
+    let (status, body) = request("/nhl/scoreboard/2026-04-26/game/401900001").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("scoreboard has-game"));
+    assert!(body.contains("Team Stats"));
+    assert!(body.contains("BOS</th><th"));
+    assert!(body.contains("NYR</th>"));
+    assert!(body.contains(r#"<td class="num good">31</td><td class="num">29</td>"#));
+    assert!(body.contains("Boston Skaters"));
+    assert!(body.contains("David Pastrnak"));
+}
+
+#[tokio::test]
+async fn nhl_standings_render_sortable_tables() {
+    let (status, body) = request("/nhl/standings").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("NHL Standings"));
+    assert!(body.contains("East Atlantic"));
+    assert!(body.contains("Boston Bruins"));
+    assert!(body.contains("OTL"));
+    assert!(body.contains("table class=\"sortable\""));
+}
+
+#[tokio::test]
 async fn invalid_route_params_return_bad_request() {
     let (bad_day, _) = request("/nba/scoreboard/not-a-day").await;
     let (bad_game, _) = request("/nba/scoreboard/2026-04-26/game/abc").await;
@@ -336,6 +433,8 @@ async fn invalid_route_params_return_bad_request() {
     let (bad_nfl_day, _) = request("/nfl/scoreboard/not-a-week").await;
     let (bad_nfl_week, _) = request("/nfl/scoreboard/24").await;
     let (bad_nfl_game, _) = request("/nfl/scoreboard/1/game/abc").await;
+    let (bad_nhl_day, _) = request("/nhl/scoreboard/not-a-day").await;
+    let (bad_nhl_game, _) = request("/nhl/scoreboard/2026-04-26/game/abc").await;
     assert_eq!(bad_day, StatusCode::BAD_REQUEST);
     assert_eq!(bad_game, StatusCode::BAD_REQUEST);
     assert_eq!(bad_player, StatusCode::BAD_REQUEST);
@@ -344,6 +443,8 @@ async fn invalid_route_params_return_bad_request() {
     assert_eq!(bad_nfl_day, StatusCode::BAD_REQUEST);
     assert_eq!(bad_nfl_week, StatusCode::BAD_REQUEST);
     assert_eq!(bad_nfl_game, StatusCode::BAD_REQUEST);
+    assert_eq!(bad_nhl_day, StatusCode::BAD_REQUEST);
+    assert_eq!(bad_nhl_game, StatusCode::BAD_REQUEST);
 }
 
 async fn request(uri: &str) -> (StatusCode, String) {
@@ -398,6 +499,30 @@ fn scoreboard() -> Scoreboard {
     }
 }
 
+fn live_scoreboard() -> Scoreboard {
+    let mut away_team = celtics_team();
+    away_team.score = 55;
+    away_team.periods = periods([29, 26, 0, 0]);
+    let mut home_team = lakers_team();
+    home_team.score = 51;
+    home_team.periods = periods([24, 27, 0, 0]);
+    Scoreboard {
+        game_date: "2026-05-02".to_string(),
+        games: vec![Game {
+            game_id: "401000000".to_string(),
+            game_status: 2,
+            game_status_text: "Q2 5:12".to_string(),
+            period: 2,
+            game_clock: "5:12".to_string(),
+            game_time_utc: "2026-05-02T23:30:00Z".to_string(),
+            away_team,
+            home_team,
+            away_leaders: Leaders::default(),
+            home_leaders: Leaders::default(),
+        }],
+    }
+}
+
 fn box_score() -> BoxScore {
     BoxScore {
         game_id: "401869385".to_string(),
@@ -446,6 +571,13 @@ fn box_score() -> BoxScore {
             },
         },
     }
+}
+
+fn live_box_score() -> BoxScore {
+    let mut game = box_score();
+    game.game_id = "401000000".to_string();
+    game.game_status = 2;
+    game
 }
 
 fn celtics_team() -> Team {
@@ -694,6 +826,71 @@ fn nfl_box_score() -> NflBoxScore {
     }
 }
 
+fn nhl_scoreboard() -> Scoreboard {
+    Scoreboard {
+        game_date: "2026-04-26".to_string(),
+        games: vec![Game {
+            game_id: "401900001".to_string(),
+            game_status: 3,
+            game_status_text: "Final".to_string(),
+            period: 3,
+            game_clock: String::new(),
+            game_time_utc: "2026-04-26T23:00:00Z".to_string(),
+            away_team: bruins_team(),
+            home_team: rangers_team(),
+            away_leaders: Leaders::default(),
+            home_leaders: Leaders::default(),
+        }],
+    }
+}
+
+fn nhl_box_score() -> NhlBoxScore {
+    NhlBoxScore {
+        game_id: "401900001".to_string(),
+        game_status: 3,
+        away_team: NhlBoxScoreTeam {
+            team: bruins_team(),
+            team_stats: Table {
+                name: "Team Stats".to_string(),
+                headers: vec!["Stat".to_string(), "Value".to_string()],
+                rows: vec![
+                    vec!["Shots".to_string(), "31".to_string()],
+                    vec!["Hits".to_string(), "24".to_string()],
+                ],
+            },
+            player_stats: vec![Table {
+                name: "Boston Skaters".to_string(),
+                headers: vec!["Name".to_string(), "G".to_string(), "A".to_string()],
+                rows: vec![vec![
+                    "David Pastrnak".to_string(),
+                    "1".to_string(),
+                    "1".to_string(),
+                ]],
+            }],
+        },
+        home_team: NhlBoxScoreTeam {
+            team: rangers_team(),
+            team_stats: Table {
+                name: "Team Stats".to_string(),
+                headers: vec!["Stat".to_string(), "Value".to_string()],
+                rows: vec![
+                    vec!["Shots".to_string(), "29".to_string()],
+                    vec!["Hits".to_string(), "20".to_string()],
+                ],
+            },
+            player_stats: vec![Table {
+                name: "New York Skaters".to_string(),
+                headers: vec!["Name".to_string(), "G".to_string(), "A".to_string()],
+                rows: vec![vec![
+                    "Artemi Panarin".to_string(),
+                    "0".to_string(),
+                    "1".to_string(),
+                ]],
+            }],
+        },
+    }
+}
+
 fn eagles_team() -> Team {
     Team {
         team_id: 21,
@@ -723,6 +920,38 @@ fn buccaneers_team() -> Team {
         hits: 0,
         errors: 0,
         periods: periods([3, 3, 14, 5]),
+    }
+}
+
+fn bruins_team() -> Team {
+    Team {
+        team_id: 1,
+        team_name: "Bruins".to_string(),
+        team_city: "Boston".to_string(),
+        team_tricode: "BOS".to_string(),
+        wins: 45,
+        losses: 27,
+        display_record: "45-27-10".to_string(),
+        score: 3,
+        hits: 0,
+        errors: 0,
+        periods: periods([1, 1, 1]),
+    }
+}
+
+fn rangers_team() -> Team {
+    Team {
+        team_id: 13,
+        team_name: "Rangers".to_string(),
+        team_city: "New York".to_string(),
+        team_tricode: "NYR".to_string(),
+        wins: 47,
+        losses: 25,
+        display_record: "47-25-10".to_string(),
+        score: 2,
+        hits: 0,
+        errors: 0,
+        periods: periods([0, 1, 1]),
     }
 }
 
@@ -809,5 +1038,35 @@ fn nfl_standing_team(
         division_record: "5-1".to_string(),
         conference_record: "10-2".to_string(),
         streak: "W8".to_string(),
+    }
+}
+
+fn nhl_standing_team(
+    rank: i64,
+    name: &str,
+    tricode: &str,
+    conference: &str,
+    division: &str,
+) -> NhlStandingsTeam {
+    NhlStandingsTeam {
+        team_id: rank,
+        team_name: name.to_string(),
+        team_tricode: tricode.to_string(),
+        conference: conference.to_string(),
+        division: division.to_string(),
+        playoff_rank: rank,
+        wins: 45,
+        losses: 27,
+        ot_losses: 10,
+        points: 100,
+        games_back: "-".to_string(),
+        goals_for: 263,
+        goals_against: 241,
+        goal_diff: "+22".to_string(),
+        home: "24-12-5".to_string(),
+        road: "21-15-5".to_string(),
+        division_record: "14-8-4".to_string(),
+        last_ten: "6-3-1".to_string(),
+        streak: "W2".to_string(),
     }
 }

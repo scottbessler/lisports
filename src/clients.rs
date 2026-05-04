@@ -13,11 +13,13 @@ use crate::{
     cache::Cache,
     error::AppError,
     models::{
-        BoxScore, MlbBoxScore, MlbStandingsTable, NflBoxScore, NflStandingsTable, PlayerStatsPage,
-        Scoreboard, StandingsTable,
+        BoxScore, MlbBoxScore, MlbStandingsTable, NflBoxScore, NflStandingsTable, NhlBoxScore,
+        NhlStandingsTable, PlayerStatsPage, Scoreboard, StandingsTable,
     },
     normalizers,
 };
+
+pub const LIVE_DATA_CACHE_SECONDS: u64 = 30;
 
 #[async_trait]
 pub trait SportsData: Send + Sync {
@@ -34,6 +36,10 @@ pub trait SportsData: Send + Sync {
     async fn nfl_week_games(&self, week: i64) -> Result<Scoreboard, AppError>;
     async fn nfl_game(&self, game_id: &str) -> Result<Option<NflBoxScore>, AppError>;
     async fn nfl_standings(&self) -> Result<NflStandingsTable, AppError>;
+    async fn nhl_todays_scoreboard(&self) -> Result<Scoreboard, AppError>;
+    async fn nhl_days_games(&self, day: &str) -> Result<Scoreboard, AppError>;
+    async fn nhl_game(&self, game_id: &str) -> Result<Option<NhlBoxScore>, AppError>;
+    async fn nhl_standings(&self) -> Result<NhlStandingsTable, AppError>;
 }
 
 #[derive(Clone)]
@@ -43,6 +49,7 @@ pub struct EspnSportsData {
     today_cache: Arc<RwLock<Option<TodayCache>>>,
     mlb_today_cache: Arc<RwLock<Option<TodayCache>>>,
     nfl_today_cache: Arc<RwLock<Option<TodayCache>>>,
+    nhl_today_cache: Arc<RwLock<Option<TodayCache>>>,
 }
 
 #[derive(Clone)]
@@ -64,6 +71,7 @@ impl EspnSportsData {
             today_cache: Arc::new(RwLock::new(None)),
             mlb_today_cache: Arc::new(RwLock::new(None)),
             nfl_today_cache: Arc::new(RwLock::new(None)),
+            nhl_today_cache: Arc::new(RwLock::new(None)),
         })
     }
 }
@@ -72,7 +80,7 @@ impl EspnSportsData {
 impl SportsData for EspnSportsData {
     async fn todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
         if let Some(cache) = self.today_cache.read().await.as_ref()
-            && cache.fetched_at.elapsed() < Duration::from_secs(30)
+            && cache.fetched_at.elapsed() < Duration::from_secs(LIVE_DATA_CACHE_SECONDS)
         {
             return Ok(cache.scoreboard.clone());
         }
@@ -168,7 +176,7 @@ impl SportsData for EspnSportsData {
 
     async fn mlb_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
         if let Some(cache) = self.mlb_today_cache.read().await.as_ref()
-            && cache.fetched_at.elapsed() < Duration::from_secs(30)
+            && cache.fetched_at.elapsed() < Duration::from_secs(LIVE_DATA_CACHE_SECONDS)
         {
             return Ok(cache.scoreboard.clone());
         }
@@ -237,7 +245,7 @@ impl SportsData for EspnSportsData {
 
     async fn nfl_current_scoreboard(&self) -> Result<Scoreboard, AppError> {
         if let Some(cache) = self.nfl_today_cache.read().await.as_ref()
-            && cache.fetched_at.elapsed() < Duration::from_secs(30)
+            && cache.fetched_at.elapsed() < Duration::from_secs(LIVE_DATA_CACHE_SECONDS)
         {
             return Ok(cache.scoreboard.clone());
         }
@@ -310,6 +318,75 @@ impl SportsData for EspnSportsData {
             )
             .await?;
         let standings = normalizers::espn_nfl_standings(data);
+        self.cache.set_json(&cache_key, &standings).await?;
+        Ok(standings)
+    }
+
+    async fn nhl_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
+        if let Some(cache) = self.nhl_today_cache.read().await.as_ref()
+            && cache.fetched_at.elapsed() < Duration::from_secs(LIVE_DATA_CACHE_SECONDS)
+        {
+            return Ok(cache.scoreboard.clone());
+        }
+
+        let day = chrono::Utc::now().date_naive().to_string();
+        let scoreboard = self.nhl_days_games(&day).await?;
+        *self.nhl_today_cache.write().await = Some(TodayCache {
+            fetched_at: Instant::now(),
+            scoreboard: scoreboard.clone(),
+        });
+        Ok(scoreboard)
+    }
+
+    async fn nhl_days_games(&self, day: &str) -> Result<Scoreboard, AppError> {
+        let cache_key = format!("nhl-day:{day}");
+        if let Some(cached) = self.cache.get_json::<Scoreboard>(&cache_key).await? {
+            return Ok(cached);
+        }
+
+        let espn_date = day.replace('-', "");
+        let url = format!(
+            "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates={espn_date}"
+        );
+        let data: EspnScoreboardDto = self.http.get_json(&url, false, None).await?;
+        let scoreboard = normalizers::espn_nhl_scoreboard(day, data)?;
+        if scoreboard.games.iter().all(|game| game.game_status == 3) {
+            self.cache.set_json(&cache_key, &scoreboard).await?;
+        }
+        Ok(scoreboard)
+    }
+
+    async fn nhl_game(&self, game_id: &str) -> Result<Option<NhlBoxScore>, AppError> {
+        let cache_key = format!("nhl-game:{game_id}");
+        if let Some(cached) = self.cache.get_json::<NhlBoxScore>(&cache_key).await? {
+            return Ok(Some(cached));
+        }
+
+        let url = format!(
+            "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/summary?event={game_id}"
+        );
+        let data: EspnSummaryDto = self.http.get_json(&url, false, None).await?;
+        let game = normalizers::espn_nhl_summary(data)?;
+        if game.game_status == 3 {
+            self.cache.set_json(&cache_key, &game).await?;
+        }
+        Ok(Some(game))
+    }
+
+    async fn nhl_standings(&self) -> Result<NhlStandingsTable, AppError> {
+        let cache_key = format!("nhl-standings:{}", chrono::Utc::now().date_naive());
+        if let Some(cached) = self.cache.get_json::<NhlStandingsTable>(&cache_key).await? {
+            return Ok(cached);
+        }
+        let data: EspnStandingsDto = self
+            .http
+            .get_json(
+                "https://site.api.espn.com/apis/v2/sports/hockey/nhl/standings",
+                false,
+                None,
+            )
+            .await?;
+        let standings = normalizers::espn_nhl_standings(data);
         self.cache.set_json(&cache_key, &standings).await?;
         Ok(standings)
     }

@@ -174,6 +174,58 @@ pub async fn nfl_standings(State(state): State<AppState>) -> Result<Html<String>
     Ok(Html(render::nfl_standings_page(&standings)))
 }
 
+pub async fn nhl_scoreboard() -> Redirect {
+    Redirect::temporary("/nhl/scoreboard/today")
+}
+
+pub async fn nhl_scoreboard_today(State(state): State<AppState>) -> Result<Response, AppError> {
+    let (today_day, scoreboard) = nhl_today_scoreboard(&state).await?;
+    Ok(Html(render::nhl_scoreboard_page_with_today(
+        today_day,
+        &scoreboard,
+        None,
+        today_day,
+    ))
+    .into_response())
+}
+
+pub async fn nhl_scoreboard_day(
+    State(state): State<AppState>,
+    Path(day): Path<String>,
+) -> Result<Html<String>, AppError> {
+    let parsed_day = parse_day(&day)?;
+    let scoreboard = state.data.nhl_days_games(&day).await?;
+    let today_day = nhl_today_scoreboard(&state).await?.0;
+    Ok(Html(render::nhl_scoreboard_page_with_today(
+        parsed_day,
+        &scoreboard,
+        None,
+        today_day,
+    )))
+}
+
+pub async fn nhl_game(
+    State(state): State<AppState>,
+    Path((day, game_id)): Path<(String, String)>,
+) -> Result<Html<String>, AppError> {
+    let parsed_day = parse_day(&day)?;
+    let game_id = numeric_id(&game_id, "game_id")?;
+    let scoreboard = state.data.nhl_days_games(&day).await?;
+    let game = state.data.nhl_game(&game_id).await?;
+    let today_day = nhl_today_scoreboard(&state).await?.0;
+    Ok(Html(render::nhl_scoreboard_page_with_today(
+        parsed_day,
+        &scoreboard,
+        game.as_ref(),
+        today_day,
+    )))
+}
+
+pub async fn nhl_standings(State(state): State<AppState>) -> Result<Html<String>, AppError> {
+    let standings = state.data.nhl_standings().await?;
+    Ok(Html(render::nhl_standings_page(&standings)))
+}
+
 async fn nba_today_scoreboard(state: &AppState) -> Result<(NaiveDate, Scoreboard), AppError> {
     let scoreboard = state.data.todays_scoreboard().await?;
     let feed_day = parse_day(&scoreboard.game_date)?;
@@ -203,6 +255,24 @@ async fn mlb_today_scoreboard(state: &AppState) -> Result<(NaiveDate, Scoreboard
             break;
         };
         let scoreboard = state.data.mlb_days_games(&day.to_string()).await?;
+        if has_live_or_completed_games(&scoreboard) {
+            return Ok((day, scoreboard));
+        }
+    }
+    Ok((feed_day, scoreboard))
+}
+
+async fn nhl_today_scoreboard(state: &AppState) -> Result<(NaiveDate, Scoreboard), AppError> {
+    let scoreboard = state.data.nhl_todays_scoreboard().await?;
+    let feed_day = parse_day(&scoreboard.game_date)?;
+    if has_live_or_completed_games(&scoreboard) {
+        return Ok((feed_day, scoreboard));
+    }
+    for offset in 1..=TODAY_LOOKBACK_DAYS {
+        let Some(day) = feed_day.checked_sub_days(Days::new(offset)) else {
+            break;
+        };
+        let scoreboard = state.data.nhl_days_games(&day.to_string()).await?;
         if has_live_or_completed_games(&scoreboard) {
             return Ok((day, scoreboard));
         }

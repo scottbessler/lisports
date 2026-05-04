@@ -21,6 +21,11 @@ LiSports is a Rust web server that renders static HTML for a small sports dashbo
 - `/nfl/scoreboard/:week` renders the NFL games for week `1` to `23`, where `19` to `23` are playoff weeks
 - `/nfl/scoreboard/:week/game/:game_id` renders the week scoreboard plus NFL stat tables
 - `/nfl/standings` renders NFL standings
+- `/nhl/scoreboard` redirects to `/nhl/scoreboard/today`
+- `/nhl/scoreboard/today` renders today's NHL scoreboard
+- `/nhl/scoreboard/:day` renders the NHL games for a date in `YYYY-MM-DD` format
+- `/nhl/scoreboard/:day/game/:game_id` renders the date scoreboard plus NHL stat tables
+- `/nhl/standings` renders NHL standings
 - `/healthcheck` returns `OK`
 
 ## Development

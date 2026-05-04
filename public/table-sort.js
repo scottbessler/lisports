@@ -1,4 +1,17 @@
 (() => {
+	const scheduleReload = () => {
+		const refreshAt = document.body?.dataset.refreshAt;
+		if (!refreshAt) return;
+
+		const refreshTime = new Date(refreshAt).valueOf();
+		if (Number.isNaN(refreshTime)) return;
+
+		const delay = Math.max(0, refreshTime - Date.now());
+		window.setTimeout(() => {
+			window.location.reload();
+		}, delay);
+	};
+
 	const formatLocalTimes = () => {
 		document.querySelectorAll('time[data-local-game-time]').forEach((time) => {
 			const date = new Date(time.dateTime);
@@ -99,4 +112,5 @@
 	});
 
 	formatLocalTimes();
+	scheduleReload();
 })();

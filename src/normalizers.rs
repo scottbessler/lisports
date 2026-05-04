@@ -9,7 +9,8 @@ use crate::{
     models::{
         BoxScore, BoxScoreTeam, Game, Leaders, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsDivision,
         MlbStandingsTable, MlbStandingsTeam, NflBoxScore, NflBoxScoreTeam, NflStandingsDivision,
-        NflStandingsTable, NflStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard,
+        NflStandingsTable, NflStandingsTeam, NhlBoxScore, NhlBoxScoreTeam, NhlStandingsDivision,
+        NhlStandingsTable, NhlStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard,
         StandingsTable, StandingsTeam, Statistics, Table, Team, TeamStatistics,
     },
 };
@@ -36,6 +37,10 @@ pub fn espn_mlb_scoreboard(day: &str, data: EspnScoreboardDto) -> Result<Scorebo
 
 pub fn espn_nfl_scoreboard(day: &str, data: EspnScoreboardDto) -> Result<Scoreboard, AppError> {
     espn_scoreboard_with(day, data, espn_nfl_competitor_to_team)
+}
+
+pub fn espn_nhl_scoreboard(day: &str, data: EspnScoreboardDto) -> Result<Scoreboard, AppError> {
+    espn_scoreboard_with(day, data, espn_nhl_competitor_to_team)
 }
 
 fn espn_scoreboard_with(
@@ -149,6 +154,29 @@ pub fn espn_nfl_summary(data: EspnSummaryDto) -> Result<NflBoxScore, AppError> {
         game_status: espn_status_to_game_status(status),
         home_team: nfl_summary_team(&data.boxscore, home_comp),
         away_team: nfl_summary_team(&data.boxscore, away_comp),
+    })
+}
+
+pub fn espn_nhl_summary(data: EspnSummaryDto) -> Result<NhlBoxScore, AppError> {
+    let header_comp = data
+        .header
+        .pointer("/competitions/0")
+        .ok_or_else(|| AppError::parse("missing header competition"))?;
+    let status = header_comp.get("status").unwrap_or(&Value::Null);
+    let competitors = array_at(header_comp, &["competitors"]);
+    let home_comp = competitors
+        .iter()
+        .find(|c| str_at(c, &["homeAway"]).as_deref() == Some("home"))
+        .ok_or_else(|| AppError::parse("missing home"))?;
+    let away_comp = competitors
+        .iter()
+        .find(|c| str_at(c, &["homeAway"]).as_deref() == Some("away"))
+        .ok_or_else(|| AppError::parse("missing away"))?;
+    Ok(NhlBoxScore {
+        game_id: str_at(&data.header, &["id"]).unwrap_or_default(),
+        game_status: espn_status_to_game_status(status),
+        home_team: nhl_summary_team(&data.boxscore, home_comp),
+        away_team: nhl_summary_team(&data.boxscore, away_comp),
     })
 }
 
@@ -339,6 +367,29 @@ pub fn espn_nfl_standings(data: EspnStandingsDto) -> NflStandingsTable {
         }
     }
     NflStandingsTable { divisions }
+}
+
+pub fn espn_nhl_standings(data: EspnStandingsDto) -> NhlStandingsTable {
+    let mut divisions = nhl_empty_divisions();
+    for group in data.children {
+        collect_nhl_standings(&group, None, None, &mut divisions);
+    }
+    for division in &mut divisions {
+        division.teams.sort_by(|left, right| {
+            right
+                .points
+                .cmp(&left.points)
+                .then_with(|| right.wins.cmp(&left.wins))
+                .then_with(|| left.losses.cmp(&right.losses))
+                .then_with(|| left.ot_losses.cmp(&right.ot_losses))
+        });
+        for (idx, team) in division.teams.iter_mut().enumerate() {
+            if team.playoff_rank == 0 {
+                team.playoff_rank = idx as i64 + 1;
+            }
+        }
+    }
+    NhlStandingsTable { divisions }
 }
 
 pub fn espn_player_gamelog(player_id: &str, data: EspnPlayerGamelogDto) -> PlayerStatsPage {
@@ -589,6 +640,37 @@ fn espn_nfl_competitor_to_team(c: &Value, _competition: &Value) -> Team {
     }
 }
 
+fn espn_nhl_competitor_to_team(c: &Value, _competition: &Value) -> Team {
+    let (wins, losses) = total_record_summary(c)
+        .map(|s| parse_record(&s))
+        .unwrap_or((0, 0));
+    Team {
+        team_id: str_at(c, &["team", "id"])
+            .or_else(|| str_at(c, &["id"]))
+            .map(|s| i64_from_str(&s))
+            .unwrap_or(0),
+        team_name: str_at(c, &["team", "name"]).unwrap_or_default(),
+        team_city: str_at(c, &["team", "location"]).unwrap_or_default(),
+        team_tricode: str_at(c, &["team", "abbreviation"]).unwrap_or_default(),
+        wins,
+        losses,
+        display_record: total_record_summary(c).unwrap_or_else(|| format!("{wins}-{losses}")),
+        score: str_at(c, &["score"]).map(|s| i64_from_str(&s)).unwrap_or(0),
+        hits: 0,
+        errors: 0,
+        periods: array_at(c, &["linescores"])
+            .iter()
+            .enumerate()
+            .map(|(idx, ls)| Period {
+                period: i64_at(ls, &["period"]).max(idx as i64 + 1),
+                score: str_at(ls, &["displayValue"])
+                    .map(|s| i64_from_str(&s))
+                    .unwrap_or_else(|| f64_at(ls, &["value"]) as i64),
+            })
+            .collect(),
+    }
+}
+
 fn summary_team(boxscore: &Value, abbr: &str, comp: &Value) -> BoxScoreTeam {
     let (tri, id, city, name) = team_mapping(abbr).unwrap_or((abbr, 0, "", ""));
     let team_stats = array_at(boxscore, &["teams"])
@@ -665,6 +747,27 @@ fn nfl_summary_team(boxscore: &Value, comp: &Value) -> NflBoxScoreTeam {
         .find(|t| str_at(t, &["team", "abbreviation"]).as_deref() == Some(abbr.as_str()))
         .unwrap_or(Value::Null);
     NflBoxScoreTeam {
+        team,
+        team_stats: nfl_team_stats_table(&team_group),
+        player_stats: nfl_player_tables(&player_group),
+    }
+}
+
+fn nhl_summary_team(boxscore: &Value, comp: &Value) -> NhlBoxScoreTeam {
+    let team = espn_nhl_competitor_to_team(comp, &Value::Null);
+    let abbr = team.team_tricode.clone();
+    let team_group = array_at(boxscore, &["teams"])
+        .into_iter()
+        .find(|t| {
+            str_at(t, &["team", "abbreviation"]).as_deref() == Some(abbr.as_str())
+                || str_at(t, &["homeAway"]) == str_at(comp, &["homeAway"])
+        })
+        .unwrap_or(Value::Null);
+    let player_group = array_at(boxscore, &["players"])
+        .into_iter()
+        .find(|t| str_at(t, &["team", "abbreviation"]).as_deref() == Some(abbr.as_str()))
+        .unwrap_or(Value::Null);
+    NhlBoxScoreTeam {
         team,
         team_stats: nfl_team_stats_table(&team_group),
         player_stats: nfl_player_tables(&player_group),
@@ -1061,6 +1164,115 @@ fn nfl_division(abbr: &str) -> Option<(&'static str, &'static str)> {
     })
 }
 
+fn nhl_empty_divisions() -> Vec<NhlStandingsDivision> {
+    [
+        ("Eastern", "Atlantic"),
+        ("Eastern", "Metropolitan"),
+        ("Western", "Central"),
+        ("Western", "Pacific"),
+    ]
+    .iter()
+    .map(|(conference, division)| NhlStandingsDivision {
+        conference: (*conference).to_string(),
+        division: (*division).to_string(),
+        teams: Vec::new(),
+    })
+    .collect()
+}
+
+fn collect_nhl_standings(
+    group: &Value,
+    conference_hint: Option<&str>,
+    division_hint: Option<&str>,
+    divisions: &mut [NhlStandingsDivision],
+) {
+    let group_name = str_at(group, &["name"]).unwrap_or_default();
+    let group_abbr = str_at(group, &["abbreviation"]).unwrap_or_default();
+    let conference = if group_abbr == "East" || group_name.contains("Eastern") {
+        Some("Eastern")
+    } else if group_abbr == "West" || group_name.contains("Western") {
+        Some("Western")
+    } else {
+        conference_hint
+    };
+    let division = nhl_division_name(&group_name).or(division_hint);
+    for child in array_at(group, &["children"]) {
+        collect_nhl_standings(&child, conference, division, divisions);
+    }
+    for entry in array_at(group, &["standings", "entries"]) {
+        let stats = array_at(&entry, &["stats"]);
+        let id = str_at(&entry, &["team", "id"])
+            .map(|s| i64_from_str(&s))
+            .unwrap_or(0);
+        let abbr = str_at(&entry, &["team", "abbreviation"]).unwrap_or_default();
+        let (fallback_conference, fallback_division) =
+            nhl_division(&abbr).unwrap_or(("Eastern", "Atlantic"));
+        let conference = conference.unwrap_or(fallback_conference);
+        let division = division.unwrap_or(fallback_division);
+        let row = NhlStandingsTeam {
+            team_id: id,
+            team_name: str_at(&entry, &["team", "displayName"])
+                .or_else(|| str_at(&entry, &["team", "name"]))
+                .unwrap_or_default(),
+            team_tricode: abbr,
+            conference: conference.to_string(),
+            division: division.to_string(),
+            playoff_rank: stat_value(&stats, "playoffSeed")
+                .or_else(|| stat_value(&stats, "rank"))
+                .unwrap_or(0.0) as i64,
+            wins: stat_value(&stats, "wins").unwrap_or(0.0) as i64,
+            losses: stat_value(&stats, "losses").unwrap_or(0.0) as i64,
+            ot_losses: stat_value(&stats, "otLosses")
+                .or_else(|| stat_value(&stats, "overtimeLosses"))
+                .unwrap_or(0.0) as i64,
+            points: stat_value(&stats, "points").unwrap_or(0.0) as i64,
+            games_back: stat_display(&stats, "gamesBehind").unwrap_or_default(),
+            goals_for: stat_value(&stats, "pointsFor").unwrap_or(0.0) as i64,
+            goals_against: stat_value(&stats, "pointsAgainst").unwrap_or(0.0) as i64,
+            goal_diff: stat_display(&stats, "pointDifferential")
+                .or_else(|| stat_display(&stats, "pointsDiff"))
+                .unwrap_or_default(),
+            home: stat_display(&stats, "Home").unwrap_or_default(),
+            road: stat_display(&stats, "Road").unwrap_or_default(),
+            division_record: stat_display(&stats, "vs. Div.").unwrap_or_default(),
+            last_ten: stat_display(&stats, "Last Ten Games").unwrap_or_default(),
+            streak: stat_display(&stats, "streak").unwrap_or_default(),
+        };
+        if let Some(group) = divisions
+            .iter_mut()
+            .find(|group| group.conference == conference && group.division == division)
+        {
+            group.teams.push(row);
+        }
+    }
+}
+
+fn nhl_division_name(name: &str) -> Option<&'static str> {
+    if name.contains("Atlantic") {
+        Some("Atlantic")
+    } else if name.contains("Metropolitan") {
+        Some("Metropolitan")
+    } else if name.contains("Central") {
+        Some("Central")
+    } else if name.contains("Pacific") {
+        Some("Pacific")
+    } else {
+        None
+    }
+}
+
+fn nhl_division(abbr: &str) -> Option<(&'static str, &'static str)> {
+    Some(match abbr {
+        "BOS" | "BUF" | "DET" | "FLA" | "MTL" | "OTT" | "TB" | "TOR" => ("Eastern", "Atlantic"),
+        "CAR" | "CBJ" | "NJ" | "NYI" | "NYR" | "PHI" | "PIT" | "WSH" => ("Eastern", "Metropolitan"),
+        "ARI" | "CHI" | "COL" | "DAL" | "MIN" | "NSH" | "STL" | "WPG" | "UTA" => {
+            ("Western", "Central")
+        }
+        "ANA" | "CGY" | "EDM" | "LA" | "SEA" | "SJ" | "VAN" | "VGK" => ("Western", "Pacific"),
+        _ => return None,
+    })
+}
+
 fn nfl_team_info(id: i64, abbr: &str) -> (&'static str, i64, &'static str, &'static str) {
     match (id, abbr) {
         (22, _) | (_, "ARI") => ("ARI", 22, "Arizona", "Cardinals"),
@@ -1219,6 +1431,14 @@ fn parse_record(summary: &str) -> (i64, i64) {
         parts.next().map(i64_from_str).unwrap_or(0),
         parts.next().map(i64_from_str).unwrap_or(0),
     )
+}
+
+fn total_record_summary(c: &Value) -> Option<String> {
+    array_at(c, &["records"])
+        .into_iter()
+        .chain(array_at(c, &["record"]))
+        .find(|r| str_at(r, &["type"]).as_deref() == Some("total"))
+        .and_then(|r| str_at(&r, &["summary"]))
 }
 fn parse_made_attempted(val: &str) -> (i64, i64) {
     let mut parts = val.split('-');
@@ -1486,6 +1706,63 @@ mod tests {
     }
 
     #[test]
+    fn espn_nhl_scoreboard_conversion_uses_hockey_records() {
+        let data: EspnScoreboardDto = serde_json::from_value(serde_json::json!({
+            "events": [{
+                "id": "401900001",
+                "date": "2026-04-26T23:00:00Z",
+                "competitions": [{
+                    "status": {"period": 3, "displayClock": "0:00", "type": {"name": "STATUS_FINAL", "completed": true, "shortDetail": "Final"}},
+                    "competitors": [
+                        {"homeAway": "away", "id": "1", "score": "3", "team": {"id": "1", "location": "Boston", "name": "Bruins", "abbreviation": "BOS"}, "record": [{"type": "total", "summary": "45-27-10"}], "linescores": [{"displayValue": "1"}, {"displayValue": "1"}, {"displayValue": "1"}]},
+                        {"homeAway": "home", "id": "13", "score": "2", "team": {"id": "13", "location": "New York", "name": "Rangers", "abbreviation": "NYR"}, "record": [{"type": "total", "summary": "47-25-10"}], "linescores": [{"displayValue": "0"}, {"displayValue": "1"}, {"displayValue": "1"}]}
+                    ]
+                }]
+            }]
+        }))
+        .unwrap();
+        let scoreboard = espn_nhl_scoreboard("2026-04-26", data).unwrap();
+        assert_eq!(scoreboard.games.len(), 1);
+        assert_eq!(scoreboard.games[0].away_team.team_tricode, "BOS");
+        assert_eq!(scoreboard.games[0].away_team.display_record, "45-27-10");
+        assert_eq!(scoreboard.games[0].away_team.periods[2].score, 1);
+        assert_eq!(scoreboard.games[0].game_status, 3);
+    }
+
+    #[test]
+    fn espn_nhl_summary_conversion_produces_team_and_player_tables() {
+        let data: EspnSummaryDto = serde_json::from_value(serde_json::json!({
+            "header": {
+                "id": "401900001",
+                "competitions": [{
+                    "status": {"type": {"name": "STATUS_FINAL"}},
+                    "competitors": [
+                        {"homeAway": "away", "id": "1", "score": "3", "team": {"id": "1", "location": "Boston", "name": "Bruins", "abbreviation": "BOS"}, "record": [{"type": "total", "summary": "45-27-10"}], "linescores": [{"displayValue": "1"}, {"displayValue": "1"}, {"displayValue": "1"}]},
+                        {"homeAway": "home", "id": "13", "score": "2", "team": {"id": "13", "location": "New York", "name": "Rangers", "abbreviation": "NYR"}, "record": [{"type": "total", "summary": "47-25-10"}], "linescores": [{"displayValue": "0"}, {"displayValue": "1"}, {"displayValue": "1"}]}
+                    ]
+                }]
+            },
+            "boxscore": {
+                "teams": [
+                    {"homeAway": "away", "team": {"abbreviation": "BOS"}, "statistics": [{"label": "Shots", "displayValue": "31"}]},
+                    {"homeAway": "home", "team": {"abbreviation": "NYR"}, "statistics": [{"label": "Shots", "displayValue": "29"}]}
+                ],
+                "players": [
+                    {"team": {"abbreviation": "BOS"}, "statistics": [{"text": "Boston Skaters", "labels": ["G", "A"], "athletes": [{"athlete": {"displayName": "David Pastrnak"}, "stats": ["1", "1"]}]}]},
+                    {"team": {"abbreviation": "NYR"}, "statistics": [{"text": "New York Skaters", "labels": ["G", "A"], "athletes": [{"athlete": {"displayName": "Artemi Panarin"}, "stats": ["0", "1"]}]}]}
+                ]
+            },
+            "gameInfo": null
+        }))
+        .unwrap();
+        let game = espn_nhl_summary(data).unwrap();
+        assert_eq!(game.away_team.team.team_tricode, "BOS");
+        assert_eq!(game.away_team.team_stats.rows[0][0], "Shots");
+        assert_eq!(game.away_team.player_stats[0].name, "Boston Skaters");
+        assert_eq!(game.away_team.player_stats[0].rows[0][0], "David Pastrnak");
+    }
+
+    #[test]
     fn espn_mlb_standings_conversion_groups_by_division() {
         let data: EspnStandingsDto = serde_json::from_value(serde_json::json!({
             "children": [
@@ -1620,5 +1897,61 @@ mod tests {
         assert_eq!(afc_east.teams[0].conference_record, "10-2");
         assert_eq!(nfc_east.teams[0].team_name, "Philadelphia Eagles");
         assert_eq!(nfc_east.teams[0].point_diff, "+170");
+    }
+
+    #[test]
+    fn espn_nhl_standings_conversion_groups_by_division() {
+        let data: EspnStandingsDto = serde_json::from_value(serde_json::json!({
+            "children": [
+                {"abbreviation": "East", "standings": {"entries": [
+                    {"team": {"id": "1", "displayName": "Boston Bruins", "abbreviation": "BOS"}, "stats": [
+                        {"name": "playoffSeed", "value": 2, "displayValue": "2"},
+                        {"name": "wins", "value": 45, "displayValue": "45"},
+                        {"name": "losses", "value": 27, "displayValue": "27"},
+                        {"name": "otLosses", "value": 10, "displayValue": "10"},
+                        {"name": "points", "value": 100, "displayValue": "100"},
+                        {"name": "gamesBehind", "value": 0, "displayValue": "-"},
+                        {"name": "pointsFor", "value": 263, "displayValue": "263"},
+                        {"name": "pointsAgainst", "value": 241, "displayValue": "241"},
+                        {"name": "pointDifferential", "value": 22, "displayValue": "+22"},
+                        {"name": "Home", "displayValue": "24-12-5"},
+                        {"name": "Road", "displayValue": "21-15-5"},
+                        {"name": "vs. Div.", "displayValue": "14-8-4"},
+                        {"name": "Last Ten Games", "displayValue": "6-3-1"},
+                        {"name": "streak", "displayValue": "W2"}
+                    ]}
+                ]}},
+                {"abbreviation": "West", "standings": {"entries": [
+                    {"team": {"id": "37", "displayName": "Vegas Golden Knights", "abbreviation": "VGK"}, "stats": [
+                        {"name": "playoffSeed", "value": 4, "displayValue": "4"},
+                        {"name": "wins", "value": 39, "displayValue": "39"},
+                        {"name": "losses", "value": 26, "displayValue": "26"},
+                        {"name": "otLosses", "value": 17, "displayValue": "17"},
+                        {"name": "points", "value": 95, "displayValue": "95"},
+                        {"name": "pointsFor", "value": 265, "displayValue": "265"},
+                        {"name": "pointsAgainst", "value": 250, "displayValue": "250"},
+                        {"name": "pointsDiff", "value": 15, "displayValue": "+15"},
+                        {"name": "streak", "displayValue": "W3"}
+                    ]}
+                ]}}
+            ]
+        }))
+        .unwrap();
+        let standings = espn_nhl_standings(data);
+        let atlantic = standings
+            .divisions
+            .iter()
+            .find(|division| division.conference == "Eastern" && division.division == "Atlantic")
+            .unwrap();
+        let pacific = standings
+            .divisions
+            .iter()
+            .find(|division| division.conference == "Western" && division.division == "Pacific")
+            .unwrap();
+        assert_eq!(atlantic.teams[0].team_name, "Boston Bruins");
+        assert_eq!(atlantic.teams[0].ot_losses, 10);
+        assert_eq!(atlantic.teams[0].division_record, "14-8-4");
+        assert_eq!(pacific.teams[0].team_tricode, "VGK");
+        assert_eq!(pacific.teams[0].goal_diff, "+15");
     }
 }
