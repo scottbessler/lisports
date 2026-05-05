@@ -323,8 +323,8 @@ pub fn espn_mlb_standings(data: EspnStandingsDto) -> MlbStandingsTable {
     }
     for division in &mut divisions {
         division.teams.sort_by(|left, right| {
-            win_pct_value(&right)
-                .partial_cmp(&win_pct_value(&left))
+            win_pct_value(right)
+                .partial_cmp(&win_pct_value(left))
                 .unwrap_or(std::cmp::Ordering::Equal)
                 .then_with(|| right.wins.cmp(&left.wins))
                 .then_with(|| left.losses.cmp(&right.losses))

@@ -1069,7 +1069,6 @@ fn team_box(team: &BoxScoreTeam, other: &BoxScoreTeam) -> String {
             sort_group: Some("box-score"),
             default_sort_index: Some(5),
             default_sort_dir: Some("desc"),
-            ..TableOptions::default()
         },
     )
 }
