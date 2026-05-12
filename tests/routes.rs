@@ -282,6 +282,9 @@ async fn game_view_renders_selected_box_score() {
     assert!(!body.contains(r#"<div class="game-list">"#));
     assert!(body.contains("table class=\"sortable box-score-table\""));
     assert!(body.contains("Jaylen Brown"));
+    assert!(body.contains(
+        r#"<td class="text"><strong>Team</strong></td><td class="num">240</td><td class="num">128</td>"#
+    ));
 }
 
 #[tokio::test]
@@ -560,10 +563,16 @@ fn box_score() -> BoxScore {
             }],
             statistics: TeamStatistics {
                 field_goals_attempted: 88,
+                field_goals_made: 45,
                 free_throws_attempted: 20,
+                free_throws_made: 18,
                 turnovers: 11,
                 minutes: 240,
                 points: 128,
+                rebounds_total: 43,
+                assists: 28,
+                three_pointers_attempted: 35,
+                three_pointers_made: 14,
                 ..TeamStatistics::default()
             },
         },
@@ -572,10 +581,16 @@ fn box_score() -> BoxScore {
             players: vec![],
             statistics: TeamStatistics {
                 field_goals_attempted: 91,
+                field_goals_made: 37,
                 free_throws_attempted: 18,
+                free_throws_made: 14,
                 turnovers: 14,
                 minutes: 240,
                 points: 96,
+                rebounds_total: 39,
+                assists: 22,
+                three_pointers_attempted: 32,
+                three_pointers_made: 8,
                 ..TeamStatistics::default()
             },
         },

@@ -5,8 +5,8 @@ use crate::{
     models::{
         BoxScore, BoxScoreTeam, Game, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsTable,
         MlbStandingsTeam, NflBoxScore, NflBoxScoreTeam, NflStandingsTable, NflStandingsTeam,
-        NhlBoxScore, NhlBoxScoreTeam, NhlStandingsTable, NhlStandingsTeam, PlayerStatsPage,
-        Scoreboard, StandingsTable, StandingsTeam, Table, Team,
+        NhlBoxScore, NhlBoxScoreTeam, NhlStandingsTable, NhlStandingsTeam, Player, PlayerStatsPage,
+        Scoreboard, StandingsTable, StandingsTeam, Statistics, Table, Team, TeamStatistics,
     },
     stats,
 };
@@ -1058,6 +1058,7 @@ fn team_box(team: &BoxScoreTeam, other: &BoxScoreTeam) -> String {
             ),
         ]);
     }
+    rows.push(box_score_team_summary_row(&team.players, &team.statistics));
     sortable_table_cells(
         &[
             "Name", "MIN", "PTS", "RB", "AS", "PIE", "FG", "3P", "FT", "PPS", "TO", "ST", "BK",
@@ -1071,6 +1072,88 @@ fn team_box(team: &BoxScoreTeam, other: &BoxScoreTeam) -> String {
             default_sort_dir: Some("desc"),
         },
     )
+}
+
+fn box_score_team_summary_row(players: &[Player], fallback: &TeamStatistics) -> Vec<TableCell> {
+    let team_stats = players.iter().filter(|player| player.played).fold(
+        Statistics::default(),
+        |mut total, player| {
+            let stats = &player.statistics;
+            total.assists += stats.assists;
+            total.blocks += stats.blocks;
+            total.field_goals_attempted += stats.field_goals_attempted;
+            total.field_goals_made += stats.field_goals_made;
+            total.fouls_personal += stats.fouls_personal;
+            total.free_throws_attempted += stats.free_throws_attempted;
+            total.free_throws_made += stats.free_throws_made;
+            total.minutes += stats.minutes;
+            total.points += stats.points;
+            total.rebounds_defensive += stats.rebounds_defensive;
+            total.rebounds_offensive += stats.rebounds_offensive;
+            total.rebounds_total += stats.rebounds_total;
+            total.steals += stats.steals;
+            total.three_pointers_attempted += stats.three_pointers_attempted;
+            total.three_pointers_made += stats.three_pointers_made;
+            total.turnovers += stats.turnovers;
+            total
+        },
+    );
+    let stats = merge_team_summary(team_stats, fallback);
+    vec![
+        table_cell("<strong>Team</strong>"),
+        table_cell(stats.minutes.to_string()),
+        table_cell(stats.points.to_string()),
+        table_cell(stats.rebounds_total.to_string()),
+        table_cell(stats.assists.to_string()),
+        table_cell(String::new()),
+        table_cell(format!(
+            "{}-{}",
+            stats.field_goals_made, stats.field_goals_attempted
+        )),
+        table_cell(format!(
+            "{}-{}",
+            stats.three_pointers_made, stats.three_pointers_attempted
+        )),
+        table_cell(format!(
+            "{}-{}",
+            stats.free_throws_made, stats.free_throws_attempted
+        )),
+        table_cell(
+            stats::points_per_shot(&stats)
+                .map(|value| format!("{value:.2}"))
+                .unwrap_or_default(),
+        ),
+        table_cell(stats.turnovers.to_string()),
+        table_cell(stats.steals.to_string()),
+        table_cell(stats.blocks.to_string()),
+        table_cell(stats.fouls_personal.to_string()),
+        table_cell(String::new()),
+        table_cell(String::new()),
+    ]
+}
+
+fn merge_team_summary(mut stats: Statistics, fallback: &TeamStatistics) -> Statistics {
+    stats.minutes = stats.minutes.max(fallback.minutes);
+    stats.points = stats.points.max(fallback.points);
+    if fallback.field_goals_attempted > stats.field_goals_attempted {
+        stats.field_goals_attempted = fallback.field_goals_attempted;
+        stats.field_goals_made = fallback.field_goals_made;
+    }
+    if fallback.three_pointers_attempted > stats.three_pointers_attempted {
+        stats.three_pointers_attempted = fallback.three_pointers_attempted;
+        stats.three_pointers_made = fallback.three_pointers_made;
+    }
+    if fallback.free_throws_attempted > stats.free_throws_attempted {
+        stats.free_throws_attempted = fallback.free_throws_attempted;
+        stats.free_throws_made = fallback.free_throws_made;
+    }
+    stats.rebounds_total = stats.rebounds_total.max(fallback.rebounds_total);
+    stats.assists = stats.assists.max(fallback.assists);
+    stats.turnovers = stats.turnovers.max(fallback.turnovers);
+    stats.steals = stats.steals.max(fallback.steals);
+    stats.blocks = stats.blocks.max(fallback.blocks);
+    stats.fouls_personal = stats.fouls_personal.max(fallback.fouls_personal);
+    stats
 }
 
 pub fn standings_page(standings: &StandingsTable) -> String {

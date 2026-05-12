@@ -152,7 +152,7 @@ impl SportsData for EspnSportsData {
     }
 
     async fn player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError> {
-        let cache_key = format!("player:{player_id}");
+        let cache_key = format!("player3:{player_id}");
         if let Some(cached) = self.cache.get_json::<PlayerStatsPage>(&cache_key).await? {
             return Ok(cached);
         }

@@ -15,6 +15,23 @@ use crate::{
     },
 };
 
+const PLAYER_BOX_SCORE_STATS: [(&str, &str); 11] = [
+    ("minutes", "MIN"),
+    ("points", "PTS"),
+    ("rebounds", "RB"),
+    ("assists", "AS"),
+    ("fieldGoalsMade-fieldGoalsAttempted", "FG"),
+    (
+        "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
+        "3P",
+    ),
+    ("freeThrowsMade-freeThrowsAttempted", "FT"),
+    ("turnovers", "TO"),
+    ("steals", "ST"),
+    ("blocks", "BK"),
+    ("fouls", "PF"),
+];
+
 pub fn nba_today_scoreboard(data: NbaTodaysScoreboardDto) -> Result<Scoreboard, AppError> {
     let day = str_at(&data.scoreboard, &["gameDate"]).unwrap_or_default();
     let games = array_at(&data.scoreboard, &["games"])
@@ -393,17 +410,23 @@ pub fn espn_nhl_standings(data: EspnStandingsDto) -> NhlStandingsTable {
 }
 
 pub fn espn_player_gamelog(player_id: &str, data: EspnPlayerGamelogDto) -> PlayerStatsPage {
+    let source_labels = data.labels.clone();
     let mut summary_rows = Vec::new();
     let mut game_rows = Vec::new();
     for season in data.season_types {
         let season_name = str_at(&season, &["displayName"]).unwrap_or_else(|| "Season".to_string());
         for summary in array_at(&season, &["summary", "stats"]) {
-            let mut row = vec![format!(
-                "{} {}",
-                season_name,
-                str_at(&summary, &["displayName"]).unwrap_or_else(|| "Summary".to_string())
-            )];
-            row.extend(array_at(&summary, &["stats"]).iter().map(value_to_string));
+            let summary_name =
+                str_at(&summary, &["displayName"]).unwrap_or_else(|| "Summary".to_string());
+            if !summary_name.to_ascii_lowercase().contains("average") {
+                continue;
+            }
+            let mut row = vec![format!("{} {}", season_name, summary_name)];
+            let stats: Vec<String> = array_at(&summary, &["stats"])
+                .iter()
+                .map(value_to_string)
+                .collect();
+            row.extend(ordered_player_stats(&source_labels, &stats));
             summary_rows.push(row);
         }
         for category in array_at(&season, &["categories"]) {
@@ -424,18 +447,22 @@ pub fn espn_player_gamelog(player_id: &str, data: EspnPlayerGamelogDto) -> Playe
                     str_at(info, &["score"]).unwrap_or_default(),
                     group.clone(),
                 ];
-                row.extend(array_at(&event, &["stats"]).iter().map(value_to_string));
+                let stats: Vec<String> = array_at(&event, &["stats"])
+                    .iter()
+                    .map(value_to_string)
+                    .collect();
+                row.extend(ordered_player_stats(&source_labels, &stats));
                 game_rows.push(row);
             }
         }
     }
     let mut summary_headers = vec!["Split".to_string()];
-    summary_headers.extend(data.labels.clone());
+    summary_headers.extend(player_box_score_headers());
     let mut game_headers = ["Date", "Opp", "Result", "Score", "Group"]
         .iter()
         .map(|v| v.to_string())
         .collect::<Vec<_>>();
-    game_headers.extend(data.labels);
+    game_headers.extend(player_box_score_headers());
     let _ = player_id;
     PlayerStatsPage {
         tables: vec![
@@ -451,6 +478,48 @@ pub fn espn_player_gamelog(player_id: &str, data: EspnPlayerGamelogDto) -> Playe
             },
         ],
     }
+}
+
+fn player_box_score_headers() -> Vec<String> {
+    PLAYER_BOX_SCORE_STATS
+        .iter()
+        .map(|(_, header)| (*header).to_string())
+        .collect()
+}
+
+fn ordered_player_stats(labels: &[String], stats: &[String]) -> Vec<String> {
+    PLAYER_BOX_SCORE_STATS
+        .iter()
+        .map(|(key, _)| {
+            labels
+                .iter()
+                .position(|label| player_stat_label_matches(key, label))
+                .and_then(|index| stats.get(index))
+                .cloned()
+                .unwrap_or_default()
+        })
+        .collect()
+}
+
+fn player_stat_label_matches(key: &str, label: &str) -> bool {
+    let normalized = label.to_ascii_lowercase();
+    normalized == key.to_ascii_lowercase()
+        || match key {
+            "minutes" => normalized == "min",
+            "points" => normalized == "pts",
+            "rebounds" => normalized == "reb",
+            "assists" => normalized == "ast",
+            "fieldGoalsMade-fieldGoalsAttempted" => normalized == "fg",
+            "threePointFieldGoalsMade-threePointFieldGoalsAttempted" => {
+                normalized == "3pt" || normalized == "3p"
+            }
+            "freeThrowsMade-freeThrowsAttempted" => normalized == "ft",
+            "turnovers" => normalized == "to",
+            "steals" => normalized == "stl" || normalized == "st",
+            "blocks" => normalized == "blk" || normalized == "bk",
+            "fouls" => normalized == "pf",
+            _ => false,
+        }
 }
 
 pub fn nba_player_stats(data: Value) -> PlayerStatsPage {
@@ -1484,14 +1553,33 @@ mod tests {
     #[test]
     fn player_gamelog_conversion_produces_tables() {
         let data: EspnPlayerGamelogDto = serde_json::from_value(serde_json::json!({
-            "labels": ["MIN", "PTS"],
+            "labels": ["MIN", "FG", "PTS", "REB", "AST", "TO"],
             "events": {"1": {"gameDate": "2026-01-01T00:00:00Z", "atVs": "@", "opponent": {"abbreviation": "BOS"}, "gameResult": "W", "score": "100-90"}},
-            "seasonTypes": [{"displayName": "Season", "summary": {"stats": [{"displayName": "Averages", "stats": ["30", "20"]}]}, "categories": [{"displayName": "january", "events": [{"eventId": "1", "stats": ["30", "20"]}]}]}]
+            "seasonTypes": [{"displayName": "Season", "summary": {"stats": [
+                {"displayName": "Totals", "stats": ["300", "80-160", "200", "50", "40", "20"]},
+                {"displayName": "Averages", "stats": ["30", "8-16", "20", "5", "4", "2"]}
+            ]}, "categories": [{"displayName": "january", "events": [{"eventId": "1", "stats": ["31", "9-17", "22", "6", "5", "3"]}]}]}]
         })).unwrap();
         let page = espn_player_gamelog("1", data);
         assert_eq!(page.tables.len(), 2);
         assert_eq!(page.tables[0].name, "Summary");
+        assert_eq!(
+            page.tables[0].headers,
+            [
+                "Split", "MIN", "PTS", "RB", "AS", "FG", "3P", "FT", "TO", "ST", "BK", "PF"
+            ]
+        );
+        assert_eq!(page.tables[0].rows.len(), 1);
+        assert_eq!(page.tables[0].rows[0][1..6], ["30", "20", "5", "4", "8-16"]);
+        assert_eq!(
+            page.tables[1].headers[5..10],
+            ["MIN", "PTS", "RB", "AS", "FG"]
+        );
         assert_eq!(page.tables[1].rows[0][1], "@ BOS");
+        assert_eq!(
+            page.tables[1].rows[0][5..10],
+            ["31", "22", "6", "5", "9-17"]
+        );
     }
 
     #[test]
