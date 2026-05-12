@@ -25,7 +25,7 @@ struct FakeSportsData;
 #[async_trait]
 impl SportsData for FakeSportsData {
     async fn todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
-        Ok(scoreboard())
+        Ok(nba_live_source_scoreboard())
     }
 
     async fn days_games(&self, day: &str) -> Result<Scoreboard, AppError> {
@@ -198,6 +198,8 @@ async fn today_scoreboard_urls_render_without_redirecting() {
     ));
     assert!(!date_nav(&nba_body).contains("/nba/scoreboard/today"));
     assert!(nba_body.contains("class=\"game-card period-game-card\""));
+    assert!(nba_body.contains(r#"/nba/scoreboard/2026-04-26/game/401869385"#));
+    assert!(!nba_body.contains("0042500224"));
 
     assert_eq!(mlb_status, StatusCode::OK);
     assert!(mlb_body.contains("MLB Scoreboard"));
@@ -497,6 +499,13 @@ fn scoreboard() -> Scoreboard {
             home_leaders: Leaders::default(),
         }],
     }
+}
+
+fn nba_live_source_scoreboard() -> Scoreboard {
+    let mut scoreboard = scoreboard();
+    scoreboard.game_date = "2026-05-11".to_string();
+    scoreboard.games[0].game_id = "0042500224".to_string();
+    scoreboard
 }
 
 fn live_scoreboard() -> Scoreboard {

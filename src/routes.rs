@@ -2,7 +2,7 @@ use axum::{
     extract::{Path, State},
     response::{Html, IntoResponse, Redirect, Response},
 };
-use chrono::{Days, NaiveDate};
+use chrono::{Days, Local, NaiveDate};
 
 use crate::{
     app::AppState,
@@ -227,21 +227,24 @@ pub async fn nhl_standings(State(state): State<AppState>) -> Result<Html<String>
 }
 
 async fn nba_today_scoreboard(state: &AppState) -> Result<(NaiveDate, Scoreboard), AppError> {
-    let scoreboard = state.data.todays_scoreboard().await?;
-    let feed_day = parse_day(&scoreboard.game_date)?;
+    let feed_day = Local::now().date_naive();
+    let scoreboard = state.data.days_games(&feed_day.to_string()).await?;
+    let scoreboard_day = parse_day(&scoreboard.game_date).unwrap_or(feed_day);
     if has_live_or_completed_games(&scoreboard) {
-        return Ok((feed_day, scoreboard));
+        return Ok((scoreboard_day, scoreboard));
     }
+
     for offset in 1..=TODAY_LOOKBACK_DAYS {
         let Some(day) = feed_day.checked_sub_days(Days::new(offset)) else {
             break;
         };
         let scoreboard = state.data.days_games(&day.to_string()).await?;
+        let scoreboard_day = parse_day(&scoreboard.game_date).unwrap_or(day);
         if has_live_or_completed_games(&scoreboard) {
-            return Ok((day, scoreboard));
+            return Ok((scoreboard_day, scoreboard));
         }
     }
-    Ok((feed_day, scoreboard))
+    Ok((scoreboard_day, scoreboard))
 }
 
 async fn mlb_today_scoreboard(state: &AppState) -> Result<(NaiveDate, Scoreboard), AppError> {
