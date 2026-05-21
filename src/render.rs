@@ -43,6 +43,19 @@ fn layout_with_refresh(title: &str, body: &str, refresh_at: Option<&str>) -> Str
   {}
   {}
   <script src="/public/table-sort.js"></script>
+  <script>
+    document.querySelectorAll('[data-nav]').forEach((nav) => {{
+      const toggle = nav.querySelector('.nav-toggle');
+      const links = nav.querySelector('.nav-links');
+      if (!toggle || !links) {{
+        return;
+      }}
+      toggle.addEventListener('click', () => {{
+        const isOpen = nav.classList.toggle('open');
+        toggle.setAttribute('aria-expanded', String(isOpen));
+      }});
+    }});
+  </script>
 </body>
 </html>"#,
         escape(title),
@@ -53,32 +66,38 @@ fn layout_with_refresh(title: &str, body: &str, refresh_at: Option<&str>) -> Str
 }
 
 pub fn nav() -> &'static str {
-    r#"<nav class="nav">
+    r#"<nav class="nav" data-nav>
   <div class="brand">LiSports</div>
-  <div class="nav-section">
-    <span class="nav-label">NBA</span>
-    <a href="/nba/scoreboard" aria-label="NBA Scoreboard">Scoreboard</a>
-    <a href="/nba/standings" aria-label="NBA Standings">Standings</a>
-  </div>
-  <div class="nav-section">
-    <span class="nav-label">WNBA</span>
-    <a href="/wnba/scoreboard" aria-label="WNBA Scoreboard">Scoreboard</a>
-    <a href="/wnba/standings" aria-label="WNBA Standings">Standings</a>
-  </div>
-  <div class="nav-section">
-    <span class="nav-label">MLB</span>
-    <a href="/mlb/scoreboard" aria-label="MLB Scoreboard">Scoreboard</a>
-    <a href="/mlb/standings" aria-label="MLB Standings">Standings</a>
-  </div>
-  <div class="nav-section">
-    <span class="nav-label">NFL</span>
-    <a href="/nfl/scoreboard" aria-label="NFL Scoreboard">Scoreboard</a>
-    <a href="/nfl/standings" aria-label="NFL Standings">Standings</a>
-  </div>
-  <div class="nav-section">
-    <span class="nav-label">NHL</span>
-    <a href="/nhl/scoreboard" aria-label="NHL Scoreboard">Scoreboard</a>
-    <a href="/nhl/standings" aria-label="NHL Standings">Standings</a>
+  <button class="nav-toggle" type="button" aria-controls="primary-nav" aria-expanded="false">
+    <span class="menu-icon" aria-hidden="true"></span>
+    <span>LiSports</span>
+  </button>
+  <div class="nav-links" id="primary-nav">
+    <div class="nav-section">
+      <span class="nav-label">NBA</span>
+      <a href="/nba/scoreboard" aria-label="NBA Scoreboard">Scoreboard</a>
+      <a href="/nba/standings" aria-label="NBA Standings">Standings</a>
+    </div>
+    <div class="nav-section">
+      <span class="nav-label">WNBA</span>
+      <a href="/wnba/scoreboard" aria-label="WNBA Scoreboard">Scoreboard</a>
+      <a href="/wnba/standings" aria-label="WNBA Standings">Standings</a>
+    </div>
+    <div class="nav-section">
+      <span class="nav-label">MLB</span>
+      <a href="/mlb/scoreboard" aria-label="MLB Scoreboard">Scoreboard</a>
+      <a href="/mlb/standings" aria-label="MLB Standings">Standings</a>
+    </div>
+    <div class="nav-section">
+      <span class="nav-label">NFL</span>
+      <a href="/nfl/scoreboard" aria-label="NFL Scoreboard">Scoreboard</a>
+      <a href="/nfl/standings" aria-label="NFL Standings">Standings</a>
+    </div>
+    <div class="nav-section">
+      <span class="nav-label">NHL</span>
+      <a href="/nhl/scoreboard" aria-label="NHL Scoreboard">Scoreboard</a>
+      <a href="/nhl/standings" aria-label="NHL Standings">Standings</a>
+    </div>
   </div>
 </nav>"#
 }
