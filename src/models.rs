@@ -130,6 +130,8 @@ pub struct StandingsTable {
 pub struct StandingsTeam {
     pub team_id: i64,
     pub team_name: String,
+    #[serde(default)]
+    pub team_tricode: String,
     pub conference: String,
     pub playoff_rank: i64,
     pub wins: i64,

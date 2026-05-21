@@ -48,6 +48,10 @@ pub fn espn_scoreboard(day: &str, data: EspnScoreboardDto) -> Result<Scoreboard,
     espn_scoreboard_with(day, data, espn_competitor_to_team)
 }
 
+pub fn espn_wnba_scoreboard(day: &str, data: EspnScoreboardDto) -> Result<Scoreboard, AppError> {
+    espn_scoreboard_with(day, data, espn_wnba_competitor_to_team)
+}
+
 pub fn espn_mlb_scoreboard(day: &str, data: EspnScoreboardDto) -> Result<Scoreboard, AppError> {
     espn_scoreboard_with(day, data, espn_mlb_competitor_to_team)
 }
@@ -104,6 +108,13 @@ fn espn_scoreboard_with(
 }
 
 pub fn espn_summary(data: EspnSummaryDto) -> Result<BoxScore, AppError> {
+    espn_basketball_summary_with(data, espn_competitor_to_team)
+}
+
+fn espn_basketball_summary_with(
+    data: EspnSummaryDto,
+    team_fn: fn(&Value, &Value) -> Team,
+) -> Result<BoxScore, AppError> {
     let header_comp = data
         .header
         .pointer("/competitions/0")
@@ -118,14 +129,16 @@ pub fn espn_summary(data: EspnSummaryDto) -> Result<BoxScore, AppError> {
         .iter()
         .find(|c| str_at(c, &["homeAway"]).as_deref() == Some("away"))
         .ok_or_else(|| AppError::parse("missing away"))?;
-    let home_abbr = str_at(home_comp, &["team", "abbreviation"]).unwrap_or_default();
-    let away_abbr = str_at(away_comp, &["team", "abbreviation"]).unwrap_or_default();
     Ok(BoxScore {
         game_id: str_at(&data.header, &["id"]).unwrap_or_default(),
         game_status: espn_status_to_game_status(status),
-        home_team: summary_team(&data.boxscore, &home_abbr, home_comp),
-        away_team: summary_team(&data.boxscore, &away_abbr, away_comp),
+        home_team: summary_team(&data.boxscore, home_comp, team_fn),
+        away_team: summary_team(&data.boxscore, away_comp, team_fn),
     })
+}
+
+pub fn espn_wnba_summary(data: EspnSummaryDto) -> Result<BoxScore, AppError> {
+    espn_basketball_summary_with(data, espn_wnba_competitor_to_team)
 }
 
 pub fn espn_mlb_summary(data: EspnSummaryDto) -> Result<MlbBoxScore, AppError> {
@@ -198,6 +211,10 @@ pub fn espn_nhl_summary(data: EspnSummaryDto) -> Result<NhlBoxScore, AppError> {
 }
 
 pub fn espn_standings(data: EspnStandingsDto) -> StandingsTable {
+    espn_basketball_standings_with(data, true)
+}
+
+fn espn_basketball_standings_with(data: EspnStandingsDto, use_nba_mapping: bool) -> StandingsTable {
     let mut east = Vec::new();
     let mut west = Vec::new();
     for group in data.children {
@@ -210,12 +227,9 @@ pub fn espn_standings(data: EspnStandingsDto) -> StandingsTable {
         };
         for entry in array_at(&group, &["standings", "entries"]) {
             let abbr = str_at(&entry, &["team", "abbreviation"]).unwrap_or_default();
-            let (_, id, _, name) = team_mapping(&abbr).unwrap_or((
-                abbr.as_str(),
-                i64_from_str(&str_at(&entry, &["team", "id"]).unwrap_or_default()),
-                "",
-                "",
-            ));
+            let fallback_id = i64_from_str(&str_at(&entry, &["team", "id"]).unwrap_or_default());
+            let mapped = use_nba_mapping.then(|| team_mapping(&abbr)).flatten();
+            let (_, id, _, name) = mapped.unwrap_or((abbr.as_str(), fallback_id, "", ""));
             let stats = array_at(&entry, &["stats"]);
             let row = StandingsTeam {
                 team_id: id,
@@ -224,6 +238,7 @@ pub fn espn_standings(data: EspnStandingsDto) -> StandingsTable {
                 } else {
                     name.to_string()
                 },
+                team_tricode: abbr,
                 conference: conference.to_string(),
                 playoff_rank: stat_value(&stats, "playoffSeed")
                     .or_else(|| stat_value(&stats, "rank"))
@@ -254,6 +269,10 @@ pub fn espn_standings(data: EspnStandingsDto) -> StandingsTable {
         }
     }
     StandingsTable { east, west }
+}
+
+pub fn espn_wnba_standings(data: EspnStandingsDto) -> StandingsTable {
+    espn_basketball_standings_with(data, false)
 }
 
 pub fn espn_mlb_standings(data: EspnStandingsDto) -> MlbStandingsTable {
@@ -634,6 +653,42 @@ fn espn_competitor_to_team(c: &Value, competition: &Value) -> Team {
     }
 }
 
+fn espn_wnba_competitor_to_team(c: &Value, competition: &Value) -> Team {
+    let (wins, losses) = array_at(c, &["records"])
+        .iter()
+        .find(|r| str_at(r, &["type"]).as_deref() == Some("total"))
+        .and_then(|r| str_at(r, &["summary"]))
+        .map(|s| parse_record(&s))
+        .unwrap_or((0, 0));
+    let display_record =
+        playoff_series_record(c, competition).unwrap_or_else(|| format!("{wins}-{losses}"));
+    Team {
+        team_id: str_at(c, &["team", "id"])
+            .or_else(|| str_at(c, &["id"]))
+            .map(|s| i64_from_str(&s))
+            .unwrap_or(0),
+        team_name: str_at(c, &["team", "name"]).unwrap_or_default(),
+        team_city: str_at(c, &["team", "location"]).unwrap_or_default(),
+        team_tricode: str_at(c, &["team", "abbreviation"]).unwrap_or_default(),
+        wins,
+        losses,
+        display_record,
+        score: str_at(c, &["score"]).map(|s| i64_from_str(&s)).unwrap_or(0),
+        hits: 0,
+        errors: 0,
+        periods: array_at(c, &["linescores"])
+            .iter()
+            .enumerate()
+            .map(|(idx, ls)| Period {
+                period: i64_at(ls, &["period"]).max(idx as i64 + 1),
+                score: str_at(ls, &["displayValue"])
+                    .map(|s| i64_from_str(&s))
+                    .unwrap_or_else(|| f64_at(ls, &["value"]) as i64),
+            })
+            .collect(),
+    }
+}
+
 fn espn_mlb_competitor_to_team(c: &Value, _competition: &Value) -> Team {
     let (wins, losses) = array_at(c, &["records"])
         .iter()
@@ -740,32 +795,28 @@ fn espn_nhl_competitor_to_team(c: &Value, _competition: &Value) -> Team {
     }
 }
 
-fn summary_team(boxscore: &Value, abbr: &str, comp: &Value) -> BoxScoreTeam {
-    let (tri, id, city, name) = team_mapping(abbr).unwrap_or((abbr, 0, "", ""));
+fn summary_team(
+    boxscore: &Value,
+    comp: &Value,
+    team_fn: fn(&Value, &Value) -> Team,
+) -> BoxScoreTeam {
+    let abbr = str_at(comp, &["team", "abbreviation"]).unwrap_or_default();
+    let team = team_fn(comp, &Value::Null);
     let team_stats = array_at(boxscore, &["teams"])
         .into_iter()
-        .find(|t| str_at(t, &["team", "abbreviation"]).as_deref() == Some(abbr))
+        .find(|t| str_at(t, &["team", "abbreviation"]).as_deref() == Some(abbr.as_str()))
         .map(|t| array_at(&t, &["statistics"]))
         .unwrap_or_default();
     let players = array_at(boxscore, &["players"])
         .into_iter()
-        .find(|t| str_at(t, &["team", "abbreviation"]).as_deref() == Some(abbr))
+        .find(|t| str_at(t, &["team", "abbreviation"]).as_deref() == Some(abbr.as_str()))
         .map(|t| summary_players(&t))
         .unwrap_or_default();
     BoxScoreTeam {
         team: Team {
-            team_id: id,
-            team_name: name.to_string(),
-            team_city: city.to_string(),
-            team_tricode: tri.to_string(),
-            wins: 0,
-            losses: 0,
-            display_record: String::new(),
             score: str_at(comp, &["score"])
                 .map(|s| i64_from_str(&s))
                 .unwrap_or(0),
-            hits: 0,
-            errors: 0,
             periods: array_at(comp, &["linescores"])
                 .iter()
                 .enumerate()
@@ -776,6 +827,7 @@ fn summary_team(boxscore: &Value, abbr: &str, comp: &Value) -> BoxScoreTeam {
                         .unwrap_or(0),
                 })
                 .collect(),
+            ..team
         },
         players,
         statistics: summary_team_stats(

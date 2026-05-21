@@ -83,6 +83,58 @@ pub async fn nba_player(
     Ok(Html(render::player_page(&stats)))
 }
 
+pub async fn wnba_scoreboard() -> Redirect {
+    Redirect::temporary("/wnba/scoreboard/today")
+}
+
+pub async fn wnba_scoreboard_today(State(state): State<AppState>) -> Result<Response, AppError> {
+    let (today_day, scoreboard) = wnba_today_scoreboard(&state).await?;
+    Ok(Html(render::wnba_scoreboard_page_with_today(
+        today_day,
+        &scoreboard,
+        None,
+        today_day,
+    ))
+    .into_response())
+}
+
+pub async fn wnba_scoreboard_day(
+    State(state): State<AppState>,
+    Path(day): Path<String>,
+) -> Result<Html<String>, AppError> {
+    let parsed_day = parse_day(&day)?;
+    let scoreboard = state.data.wnba_days_games(&day).await?;
+    let today_day = wnba_today_scoreboard(&state).await?.0;
+    Ok(Html(render::wnba_scoreboard_page_with_today(
+        parsed_day,
+        &scoreboard,
+        None,
+        today_day,
+    )))
+}
+
+pub async fn wnba_game(
+    State(state): State<AppState>,
+    Path((day, game_id)): Path<(String, String)>,
+) -> Result<Html<String>, AppError> {
+    let parsed_day = parse_day(&day)?;
+    let game_id = numeric_id(&game_id, "game_id")?;
+    let scoreboard = state.data.wnba_days_games(&day).await?;
+    let game = state.data.wnba_game(&game_id).await?;
+    let today_day = wnba_today_scoreboard(&state).await?.0;
+    Ok(Html(render::wnba_scoreboard_page_with_today(
+        parsed_day,
+        &scoreboard,
+        game.as_ref(),
+        today_day,
+    )))
+}
+
+pub async fn wnba_standings(State(state): State<AppState>) -> Result<Html<String>, AppError> {
+    let standings = state.data.wnba_standings().await?;
+    Ok(Html(render::wnba_standings_page(&standings)))
+}
+
 pub async fn mlb_scoreboard() -> Redirect {
     Redirect::temporary("/mlb/scoreboard/today")
 }
@@ -245,6 +297,24 @@ async fn nba_today_scoreboard(state: &AppState) -> Result<(NaiveDate, Scoreboard
         }
     }
     Ok((scoreboard_day, scoreboard))
+}
+
+async fn wnba_today_scoreboard(state: &AppState) -> Result<(NaiveDate, Scoreboard), AppError> {
+    let scoreboard = state.data.wnba_todays_scoreboard().await?;
+    let feed_day = parse_day(&scoreboard.game_date)?;
+    if has_live_or_completed_games(&scoreboard) {
+        return Ok((feed_day, scoreboard));
+    }
+    for offset in 1..=TODAY_LOOKBACK_DAYS {
+        let Some(day) = feed_day.checked_sub_days(Days::new(offset)) else {
+            break;
+        };
+        let scoreboard = state.data.wnba_days_games(&day.to_string()).await?;
+        if has_live_or_completed_games(&scoreboard) {
+            return Ok((day, scoreboard));
+        }
+    }
+    Ok((feed_day, scoreboard))
 }
 
 async fn mlb_today_scoreboard(state: &AppState) -> Result<(NaiveDate, Scoreboard), AppError> {

@@ -11,6 +11,11 @@ LiSports is a Rust web server that renders static HTML for a small sports dashbo
 - `/nba/scoreboard/:day/game/:game_id` renders the date scoreboard plus a game box score
 - `/nba/standings` renders NBA standings
 - `/nba/player/:player_id` renders NBA player stats
+- `/wnba/scoreboard` redirects to `/wnba/scoreboard/today`
+- `/wnba/scoreboard/today` renders today's WNBA scoreboard
+- `/wnba/scoreboard/:day` renders the WNBA games for a date in `YYYY-MM-DD` format
+- `/wnba/scoreboard/:day/game/:game_id` renders the date scoreboard plus a game box score
+- `/wnba/standings` renders WNBA standings
 - `/mlb/scoreboard` redirects to `/mlb/scoreboard/today`
 - `/mlb/scoreboard/today` renders today's MLB scoreboard
 - `/mlb/scoreboard/:day` renders the MLB games for a date in `YYYY-MM-DD` format

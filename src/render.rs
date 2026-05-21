@@ -14,6 +14,7 @@ use crate::{
 #[derive(Clone, Copy)]
 enum League {
     Nba,
+    Wnba,
     Mlb,
     Nfl,
     Nhl,
@@ -58,6 +59,11 @@ pub fn nav() -> &'static str {
     <span class="nav-label">NBA</span>
     <a href="/nba/scoreboard" aria-label="NBA Scoreboard">Scoreboard</a>
     <a href="/nba/standings" aria-label="NBA Standings">Standings</a>
+  </div>
+  <div class="nav-section">
+    <span class="nav-label">WNBA</span>
+    <a href="/wnba/scoreboard" aria-label="WNBA Scoreboard">Scoreboard</a>
+    <a href="/wnba/standings" aria-label="WNBA Standings">Standings</a>
   </div>
   <div class="nav-section">
     <span class="nav-label">MLB</span>
@@ -105,14 +111,59 @@ pub fn scoreboard_page_with_today(
     basketball_scoreboard_page(day, scoreboard, selected, Some(today_day))
 }
 
+pub fn wnba_scoreboard_page_with_today(
+    day: NaiveDate,
+    scoreboard: &Scoreboard,
+    selected: Option<&BoxScore>,
+    today_day: NaiveDate,
+) -> String {
+    basketball_scoreboard_page_with_league(
+        day,
+        scoreboard,
+        selected,
+        Some(today_day),
+        BasketballPage {
+            league: League::Wnba,
+            base_path: "/wnba/scoreboard",
+            title: "WNBA",
+        },
+    )
+}
+
 fn basketball_scoreboard_page(
     day: NaiveDate,
     scoreboard: &Scoreboard,
     selected: Option<&BoxScore>,
     today_day: Option<NaiveDate>,
 ) -> String {
+    basketball_scoreboard_page_with_league(
+        day,
+        scoreboard,
+        selected,
+        today_day,
+        BasketballPage {
+            league: League::Nba,
+            base_path: "/nba/scoreboard",
+            title: "NBA",
+        },
+    )
+}
+
+struct BasketballPage {
+    league: League,
+    base_path: &'static str,
+    title: &'static str,
+}
+
+fn basketball_scoreboard_page_with_league(
+    day: NaiveDate,
+    scoreboard: &Scoreboard,
+    selected: Option<&BoxScore>,
+    today_day: Option<NaiveDate>,
+    page: BasketballPage,
+) -> String {
     let mut html = String::from(r#"<main class="page">"#);
-    html.push_str(&date_nav(day, "/nba/scoreboard", today_day));
+    html.push_str(&date_nav(day, page.base_path, today_day));
     if scoreboard.games.is_empty() {
         html.push_str(r#"<section class="center"><h1>No Games Scheduled</h1></section>"#);
     } else {
@@ -124,34 +175,31 @@ fn basketball_scoreboard_page(
         html.push_str(&format!(r#"<section class="{class}">"#));
         if let Some(game) = selected {
             html.push_str(&detail_nav(
-                "/nba/scoreboard",
+                page.base_path,
                 &day.to_string(),
                 &scoreboard.games,
                 &game.game_id,
-                League::Nba,
+                page.league,
             ));
-            html.push_str(&game_details(game));
+            html.push_str(&game_details(game, page.league));
         } else {
             html.push_str(&game_list(
-                "/nba/scoreboard",
+                page.base_path,
                 &day.to_string(),
                 &scoreboard.games,
-                League::Nba,
+                page.league,
             ));
         }
         html.push_str("</section>");
     }
     html.push_str("</main>");
     let refresh_at = basketball_refresh_at(scoreboard, selected);
-    layout_with_refresh(
-        if selected.is_some() {
-            "NBA Game"
-        } else {
-            "NBA Scoreboard"
-        },
-        &html,
-        refresh_at.as_deref(),
-    )
+    let title = if selected.is_some() {
+        format!("{} Game", page.title)
+    } else {
+        format!("{} Scoreboard", page.title)
+    };
+    layout_with_refresh(&title, &html, refresh_at.as_deref())
 }
 
 pub fn mlb_scoreboard_page(
@@ -573,11 +621,11 @@ fn live_period_label(period: i64, league: League) -> String {
 fn game_summary(game: &Game, show_status: bool, league: League) -> String {
     let class = match league {
         League::Mlb => "game-card mlb-game-card",
-        League::Nba | League::Nfl | League::Nhl => "game-card period-game-card",
+        League::Nba | League::Wnba | League::Nfl | League::Nhl => "game-card period-game-card",
     };
     let mut html = format!(r#"<table class="{class}"><thead><tr><th></th>"#);
     match league {
-        League::Nba | League::Nfl | League::Nhl => {
+        League::Nba | League::Wnba | League::Nfl | League::Nhl => {
             for period in 1..=period_column_count(game, league) {
                 html.push_str(&format!("<th>{}</th>", period_header(period, league)));
             }
@@ -589,7 +637,9 @@ fn game_summary(game: &Game, show_status: bool, league: League) -> String {
     html.push_str(&team_summary_row(game, &game.home_team, true, league));
     if show_status {
         let colspan = match league {
-            League::Nba | League::Nfl | League::Nhl => period_column_count(game, league) + 2,
+            League::Nba | League::Wnba | League::Nfl | League::Nhl => {
+                period_column_count(game, league) + 2
+            }
             League::Mlb => 4,
         };
         html.push_str(&format!(
@@ -613,7 +663,7 @@ fn team_summary_row(game: &Game, team: &Team, is_home: bool, league: League) -> 
     ));
     html.push_str("</th>");
     match league {
-        League::Nba | League::Nfl | League::Nhl => {
+        League::Nba | League::Wnba | League::Nfl | League::Nhl => {
             for period in 1..=period_column_count(game, league) {
                 html.push_str(&format!("<td>{}</td>", period_score(team, period)));
             }
@@ -671,19 +721,21 @@ fn period_score(team: &Team, period: i64) -> String {
         .unwrap_or_default()
 }
 
-fn game_details(game: &BoxScore) -> String {
+fn game_details(game: &BoxScore, league: League) -> String {
     let mut html = String::from(r#"<section class="details">"#);
     html.push_str(&team_game_details(
         game,
         &game.away_team,
         &game.home_team,
         false,
+        league,
     ));
     html.push_str(&team_game_details(
         game,
         &game.home_team,
         &game.away_team,
         true,
+        league,
     ));
     html.push_str("</section>");
     html
@@ -993,10 +1045,11 @@ fn team_game_details(
     team: &BoxScoreTeam,
     other: &BoxScoreTeam,
     is_home: bool,
+    league: League,
 ) -> String {
     let mut html = String::from(r#"<article class="team-details">"#);
     html.push_str("<h1>");
-    html.push_str(&team_logo(&team.team, "logo", League::Nba));
+    html.push_str(&team_logo(&team.team, "logo", league));
     html.push_str(&format!(
         "{} {} <strong>{}</strong> {}",
         escape(&team.team.team_city),
@@ -1005,22 +1058,29 @@ fn team_game_details(
         box_winner(game, is_home)
     ));
     html.push_str("</h1>");
-    html.push_str(&team_box(team, other));
+    html.push_str(&team_box(team, other, league));
     html.push_str("</article>");
     html
 }
 
-fn team_box(team: &BoxScoreTeam, other: &BoxScoreTeam) -> String {
+fn team_box(team: &BoxScoreTeam, other: &BoxScoreTeam, league: League) -> String {
     let mut rows = Vec::new();
     for player in team.players.iter().filter(|p| p.played) {
         let s = &player.statistics;
+        let player_name = format!(
+            "{}{}",
+            escape(&player.name),
+            if player.starter { "*" } else { "" }
+        );
+        let player_cell = match league {
+            League::Nba => format!(
+                r#"<a href="/nba/player/{}">{}</a>"#,
+                player.person_id, player_name
+            ),
+            _ => player_name,
+        };
         rows.push(vec![
-            table_cell(format!(
-                r#"<a href="/nba/player/{}">{}{}</a>"#,
-                player.person_id,
-                escape(&player.name),
-                if player.starter { "*" } else { "" }
-            )),
+            table_cell(player_cell),
             table_cell(s.minutes.to_string()),
             stat_cell(s.points, 20, true),
             stat_cell(s.rebounds_total, 10, true),
@@ -1161,8 +1221,19 @@ pub fn standings_page(standings: &StandingsTable) -> String {
         "NBA Standings",
         &format!(
             r#"<main class="page standings"><section>{}</section><section>{}</section></main>"#,
-            standings_table("East", &standings.east),
-            standings_table("West", &standings.west)
+            standings_table("East", &standings.east, League::Nba),
+            standings_table("West", &standings.west, League::Nba)
+        ),
+    )
+}
+
+pub fn wnba_standings_page(standings: &StandingsTable) -> String {
+    layout(
+        "WNBA Standings",
+        &format!(
+            r#"<main class="page standings"><section>{}</section><section>{}</section></main>"#,
+            standings_table("East", &standings.east, League::Wnba),
+            standings_table("West", &standings.west, League::Wnba)
         ),
     )
 }
@@ -1218,7 +1289,7 @@ pub fn nhl_standings_page(standings: &NhlStandingsTable) -> String {
     )
 }
 
-fn standings_table(title: &str, rows: &[StandingsTeam]) -> String {
+fn standings_table(title: &str, rows: &[StandingsTeam], league: League) -> String {
     let table_rows: Vec<Vec<String>> = rows
         .iter()
         .map(|row| {
@@ -1226,7 +1297,13 @@ fn standings_table(title: &str, rows: &[StandingsTeam]) -> String {
                 row.playoff_rank.to_string(),
                 format!(
                     "{}{}",
-                    team_logo_id(row.team_id, &row.team_name, "mini-logo"),
+                    team_logo_id_for_league(
+                        row.team_id,
+                        &row.team_tricode,
+                        &row.team_name,
+                        "mini-logo",
+                        league
+                    ),
                     escape(&row.team_name)
                 ),
                 row.wins.to_string(),
@@ -1604,6 +1681,7 @@ fn format_number(value: f64, decimals: usize) -> String {
 fn team_logo(team: &Team, class: &str, league: League) -> String {
     match league {
         League::Nba => team_logo_id(team.team_id, &team.team_name, class),
+        League::Wnba => wnba_team_logo(&team.team_tricode, &team.team_name, class),
         League::Mlb => mlb_team_logo(&team.team_tricode, &team.team_name, class),
         League::Nfl => nfl_team_logo(&team.team_tricode, &team.team_name, class),
         League::Nhl => nhl_team_logo(&team.team_tricode, &team.team_name, class),
@@ -1650,9 +1728,30 @@ fn mlb_box_winner(game: &MlbBoxScore, is_home: bool) -> &'static str {
 }
 
 fn team_logo_id(team_id: i64, team_name: &str, class: &str) -> String {
+    team_logo_id_for_league(team_id, "", team_name, class, League::Nba)
+}
+
+fn team_logo_id_for_league(
+    team_id: i64,
+    team_tricode: &str,
+    team_name: &str,
+    class: &str,
+    league: League,
+) -> String {
+    match league {
+        League::Wnba => wnba_team_logo(team_tricode, team_name, class),
+        _ => format!(
+            r#"<img class="{class}" src="https://cdn.nba.com/logos/nba/{}/primary/L/logo.svg" alt="{}">"#,
+            team_id,
+            escape_attr(team_name)
+        ),
+    }
+}
+
+fn wnba_team_logo(team_tricode: &str, team_name: &str, class: &str) -> String {
     format!(
-        r#"<img class="{class}" src="https://cdn.nba.com/logos/nba/{}/primary/L/logo.svg" alt="{}">"#,
-        team_id,
+        r#"<img class="{class}" src="https://a.espncdn.com/i/teamlogos/wnba/500/{}.png" alt="{}">"#,
+        escape_attr(&team_tricode.to_lowercase()),
         escape_attr(team_name)
     )
 }

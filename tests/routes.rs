@@ -68,6 +68,25 @@ impl SportsData for FakeSportsData {
         })
     }
 
+    async fn wnba_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
+        Ok(wnba_scoreboard())
+    }
+
+    async fn wnba_days_games(&self, _day: &str) -> Result<Scoreboard, AppError> {
+        Ok(wnba_scoreboard())
+    }
+
+    async fn wnba_game(&self, _game_id: &str) -> Result<Option<BoxScore>, AppError> {
+        Ok(Some(wnba_box_score()))
+    }
+
+    async fn wnba_standings(&self) -> Result<StandingsTable, AppError> {
+        Ok(StandingsTable {
+            east: vec![standing_team(1, "New York Liberty", "East")],
+            west: vec![standing_team(2, "Las Vegas Aces", "West")],
+        })
+    }
+
     async fn mlb_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
         Ok(mlb_scoreboard())
     }
@@ -190,6 +209,7 @@ async fn today_scoreboard_urls_render_without_redirecting() {
     let (nba_status, nba_body) = request("/nba/scoreboard/today").await;
     let (mlb_status, mlb_body) = request("/mlb/scoreboard/today").await;
     let (nfl_status, nfl_body) = request("/nfl/scoreboard/today").await;
+    let (wnba_status, wnba_body) = request("/wnba/scoreboard/today").await;
 
     assert_eq!(nba_status, StatusCode::OK);
     assert!(nba_body.contains("NBA Scoreboard"));
@@ -212,6 +232,15 @@ async fn today_scoreboard_urls_render_without_redirecting() {
     assert_eq!(nfl_status, StatusCode::OK);
     assert!(nfl_body.contains("NFL Scoreboard"));
     assert!(nfl_body.contains("Super Bowl"));
+
+    assert_eq!(wnba_status, StatusCode::OK);
+    assert!(wnba_body.contains("WNBA Scoreboard"));
+    assert!(wnba_body.contains(
+        r#"<a class="button active date-current" href="/wnba/scoreboard/2026-04-26">Sun 4/26 *</a>"#
+    ));
+    assert!(!date_nav(&wnba_body).contains("/wnba/scoreboard/today"));
+    assert!(wnba_body.contains("class=\"game-card period-game-card\""));
+    assert!(wnba_body.contains(r#"/wnba/scoreboard/2026-04-26/game/401900100"#));
 }
 
 #[tokio::test]
@@ -253,6 +282,7 @@ async fn dayless_scoreboard_urls_redirect_to_today() {
     let (mlb_status, mlb_location) = request_redirect_location("/mlb/scoreboard").await;
     let (nfl_status, nfl_location) = request_redirect_location("/nfl/scoreboard").await;
     let (nhl_status, nhl_location) = request_redirect_location("/nhl/scoreboard").await;
+    let (wnba_status, wnba_location) = request_redirect_location("/wnba/scoreboard").await;
 
     assert_eq!(nba_status, StatusCode::TEMPORARY_REDIRECT);
     assert_eq!(nba_location, "/nba/scoreboard/today");
@@ -262,6 +292,8 @@ async fn dayless_scoreboard_urls_redirect_to_today() {
     assert_eq!(nfl_location, "/nfl/scoreboard/today");
     assert_eq!(nhl_status, StatusCode::TEMPORARY_REDIRECT);
     assert_eq!(nhl_location, "/nhl/scoreboard/today");
+    assert_eq!(wnba_status, StatusCode::TEMPORARY_REDIRECT);
+    assert_eq!(wnba_location, "/wnba/scoreboard/today");
 }
 
 #[tokio::test]
@@ -302,6 +334,39 @@ async fn player_page_renders_summary_and_game_log() {
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("Summary"));
     assert!(body.contains("Game Log"));
+    assert!(body.contains("table class=\"sortable\""));
+}
+
+#[tokio::test]
+async fn wnba_scoreboard_renders_nav_and_game_cards() {
+    let (status, body) = request("/wnba/scoreboard/2026-04-26").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("WNBA Scoreboard"));
+    assert!(body.contains("WNBA Standings"));
+    assert!(body.contains("class=\"game-card period-game-card\""));
+    assert!(body.contains("<th>1</th><th>2</th><th>3</th><th>4</th><th>T</th>"));
+    assert!(body.contains("teamlogos/wnba/500/ny.png"));
+}
+
+#[tokio::test]
+async fn wnba_game_view_renders_selected_box_score() {
+    let (status, body) = request("/wnba/scoreboard/2026-04-26/game/401900100").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("scoreboard has-game"));
+    assert!(!body.contains("All games"));
+    assert!(body.contains("table class=\"sortable box-score-table\""));
+    assert!(body.contains("Breanna Stewart"));
+    assert!(!body.contains("/nba/player/2984190"));
+    assert!(body.contains("teamlogos/wnba/500/ny.png"));
+}
+
+#[tokio::test]
+async fn wnba_standings_render_sortable_tables() {
+    let (status, body) = request("/wnba/standings").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("WNBA Standings"));
+    assert!(body.contains("New York Liberty"));
+    assert!(body.contains("Las Vegas Aces"));
     assert!(body.contains("table class=\"sortable\""));
 }
 
@@ -440,6 +505,8 @@ async fn invalid_route_params_return_bad_request() {
     let (bad_nfl_game, _) = request("/nfl/scoreboard/1/game/abc").await;
     let (bad_nhl_day, _) = request("/nhl/scoreboard/not-a-day").await;
     let (bad_nhl_game, _) = request("/nhl/scoreboard/2026-04-26/game/abc").await;
+    let (bad_wnba_day, _) = request("/wnba/scoreboard/not-a-day").await;
+    let (bad_wnba_game, _) = request("/wnba/scoreboard/2026-04-26/game/abc").await;
     assert_eq!(bad_day, StatusCode::BAD_REQUEST);
     assert_eq!(bad_game, StatusCode::BAD_REQUEST);
     assert_eq!(bad_player, StatusCode::BAD_REQUEST);
@@ -450,6 +517,8 @@ async fn invalid_route_params_return_bad_request() {
     assert_eq!(bad_nfl_game, StatusCode::BAD_REQUEST);
     assert_eq!(bad_nhl_day, StatusCode::BAD_REQUEST);
     assert_eq!(bad_nhl_game, StatusCode::BAD_REQUEST);
+    assert_eq!(bad_wnba_day, StatusCode::BAD_REQUEST);
+    assert_eq!(bad_wnba_game, StatusCode::BAD_REQUEST);
 }
 
 async fn request(uri: &str) -> (StatusCode, String) {
@@ -604,6 +673,86 @@ fn live_box_score() -> BoxScore {
     game
 }
 
+fn wnba_scoreboard() -> Scoreboard {
+    Scoreboard {
+        game_date: "2026-04-26".to_string(),
+        games: vec![Game {
+            game_id: "401900100".to_string(),
+            game_status: 3,
+            game_status_text: "Final".to_string(),
+            period: 4,
+            game_clock: String::new(),
+            game_time_utc: "2026-04-26T19:00:00Z".to_string(),
+            away_team: liberty_team(),
+            home_team: aces_team(),
+            away_leaders: Leaders::default(),
+            home_leaders: Leaders::default(),
+        }],
+    }
+}
+
+fn wnba_box_score() -> BoxScore {
+    BoxScore {
+        game_id: "401900100".to_string(),
+        game_status: 3,
+        away_team: BoxScoreTeam {
+            team: liberty_team(),
+            players: vec![Player {
+                person_id: 2984190,
+                name: "Breanna Stewart".to_string(),
+                starter: true,
+                played: true,
+                statistics: Statistics {
+                    minutes: 34,
+                    points: 28,
+                    rebounds_total: 10,
+                    assists: 4,
+                    field_goals_made: 10,
+                    field_goals_attempted: 18,
+                    three_pointers_made: 2,
+                    three_pointers_attempted: 5,
+                    free_throws_made: 6,
+                    free_throws_attempted: 7,
+                    plus_minus_points: 8,
+                    ..Statistics::default()
+                },
+            }],
+            statistics: TeamStatistics {
+                field_goals_attempted: 72,
+                field_goals_made: 34,
+                free_throws_attempted: 18,
+                free_throws_made: 15,
+                turnovers: 9,
+                minutes: 200,
+                points: 92,
+                rebounds_total: 36,
+                assists: 21,
+                three_pointers_attempted: 25,
+                three_pointers_made: 9,
+                ..TeamStatistics::default()
+            },
+        },
+        home_team: BoxScoreTeam {
+            team: aces_team(),
+            players: vec![],
+            statistics: TeamStatistics {
+                field_goals_attempted: 70,
+                field_goals_made: 31,
+                free_throws_attempted: 20,
+                free_throws_made: 16,
+                turnovers: 12,
+                minutes: 200,
+                points: 85,
+                rebounds_total: 32,
+                assists: 19,
+                three_pointers_attempted: 22,
+                three_pointers_made: 7,
+                ..TeamStatistics::default()
+            },
+        },
+    }
+}
+
 fn celtics_team() -> Team {
     Team {
         team_id: 1610612738,
@@ -633,6 +782,38 @@ fn lakers_team() -> Team {
         hits: 0,
         errors: 0,
         periods: periods([21, 26, 18, 31]),
+    }
+}
+
+fn liberty_team() -> Team {
+    Team {
+        team_id: 9,
+        team_name: "Liberty".to_string(),
+        team_city: "New York".to_string(),
+        team_tricode: "NY".to_string(),
+        wins: 32,
+        losses: 8,
+        display_record: "32-8".to_string(),
+        score: 92,
+        hits: 0,
+        errors: 0,
+        periods: periods([24, 22, 25, 21]),
+    }
+}
+
+fn aces_team() -> Team {
+    Team {
+        team_id: 17,
+        team_name: "Aces".to_string(),
+        team_city: "Las Vegas".to_string(),
+        team_tricode: "LV".to_string(),
+        wins: 27,
+        losses: 13,
+        display_record: "27-13".to_string(),
+        score: 85,
+        hits: 0,
+        errors: 0,
+        periods: periods([21, 25, 18, 21]),
     }
 }
 
@@ -994,6 +1175,15 @@ fn standing_team(rank: i64, name: &str, conference: &str) -> StandingsTeam {
     StandingsTeam {
         team_id: 1610612738 + rank,
         team_name: name.to_string(),
+        team_tricode: if name.contains("Liberty") {
+            "NY".to_string()
+        } else if name.contains("Aces") {
+            "LV".to_string()
+        } else {
+            name.split_whitespace()
+                .map(|part| part.chars().next().unwrap_or_default())
+                .collect()
+        },
         conference: conference.to_string(),
         playoff_rank: rank,
         wins: 50,
