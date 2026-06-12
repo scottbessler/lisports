@@ -85,9 +85,13 @@ pub async fn wnba_standings(State(state): State<AppState>) -> Result<Html<String
     Ok(Html(render::wnba_standings_page(&standings)))
 }
 
-pub async fn wnba_player(Path(player_id): Path<String>) -> Result<Html<String>, AppError> {
-    numeric_id(&player_id, "player_id")?;
-    Ok(Html(render::unsupported_player_page("WNBA")))
+pub async fn wnba_player(
+    State(state): State<AppState>,
+    Path(player_id): Path<String>,
+) -> Result<Html<String>, AppError> {
+    let player_id = numeric_id(&player_id, "player_id")?;
+    let stats = state.data.wnba_player_stats(&player_id).await?;
+    Ok(Html(render::player_page_for_league("WNBA", &stats)))
 }
 
 pub async fn mlb_scoreboard() -> Redirect {
@@ -115,6 +119,15 @@ pub async fn mlb_game(
 pub async fn mlb_standings(State(state): State<AppState>) -> Result<Html<String>, AppError> {
     let standings = state.data.mlb_standings().await?;
     Ok(Html(render::mlb_standings_page(&standings)))
+}
+
+pub async fn mlb_player(
+    State(state): State<AppState>,
+    Path(player_id): Path<String>,
+) -> Result<Html<String>, AppError> {
+    let player_id = numeric_id(&player_id, "player_id")?;
+    let stats = state.data.mlb_player_stats(&player_id).await?;
+    Ok(Html(render::player_page_for_league("MLB", &stats)))
 }
 
 pub async fn nfl_scoreboard() -> Redirect {

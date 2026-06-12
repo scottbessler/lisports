@@ -33,18 +33,22 @@ pub trait SportsData: Send + Sync {
     async fn wnba_days_games(&self, day: &str) -> Result<Scoreboard, AppError>;
     async fn wnba_game(&self, game_id: &str) -> Result<Option<BoxScore>, AppError>;
     async fn wnba_standings(&self) -> Result<StandingsTable, AppError>;
+    async fn wnba_player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError>;
     async fn mlb_todays_scoreboard(&self) -> Result<Scoreboard, AppError>;
     async fn mlb_days_games(&self, day: &str) -> Result<Scoreboard, AppError>;
     async fn mlb_game(&self, game_id: &str) -> Result<Option<MlbBoxScore>, AppError>;
     async fn mlb_standings(&self) -> Result<MlbStandingsTable, AppError>;
+    async fn mlb_player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError>;
     async fn nfl_current_scoreboard(&self) -> Result<Scoreboard, AppError>;
     async fn nfl_week_games(&self, week: i64) -> Result<Scoreboard, AppError>;
     async fn nfl_game(&self, game_id: &str) -> Result<Option<NflBoxScore>, AppError>;
     async fn nfl_standings(&self) -> Result<NflStandingsTable, AppError>;
+    async fn nfl_player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError>;
     async fn nhl_todays_scoreboard(&self) -> Result<Scoreboard, AppError>;
     async fn nhl_days_games(&self, day: &str) -> Result<Scoreboard, AppError>;
     async fn nhl_game(&self, game_id: &str) -> Result<Option<NhlBoxScore>, AppError>;
     async fn nhl_standings(&self) -> Result<NhlStandingsTable, AppError>;
+    async fn nhl_player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError>;
 }
 
 #[derive(Clone)]
@@ -115,6 +119,13 @@ fn espn_summary_url(league: &League, game_id: &str) -> String {
 fn espn_standings_url(league: &League) -> String {
     format!(
         "https://site.api.espn.com/apis/v2/sports/{}/{}/standings",
+        league.sport_path, league.league_path
+    )
+}
+
+fn espn_player_gamelog_url(league: &League, player_id: &str) -> String {
+    format!(
+        "https://site.web.api.espn.com/apis/common/v3/sports/{}/{}/athletes/{player_id}/gamelog",
         league.sport_path, league.league_path
     )
 }
@@ -309,6 +320,18 @@ impl SportsData for EspnSportsData {
         Ok(standings)
     }
 
+    async fn wnba_player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError> {
+        let cache_key = format!("wnba-player:{player_id}");
+        if let Some(cached) = self.cache.get_json::<PlayerStatsPage>(&cache_key).await? {
+            return Ok(cached);
+        }
+        let page = self
+            .player_stats_espn_for_league(league("wnba"), player_id)
+            .await?;
+        self.cache.set_json(&cache_key, &page).await?;
+        Ok(page)
+    }
+
     async fn mlb_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
         if let Some(cache) = self.mlb_today_cache.read().await.as_ref()
             && cache.fetched_at.elapsed() < Duration::from_secs(LIVE_DATA_CACHE_SECONDS)
@@ -370,6 +393,18 @@ impl SportsData for EspnSportsData {
             .await?;
         self.cache.set_json(&cache_key, &standings).await?;
         Ok(standings)
+    }
+
+    async fn mlb_player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError> {
+        let cache_key = format!("mlb-player:{player_id}");
+        if let Some(cached) = self.cache.get_json::<PlayerStatsPage>(&cache_key).await? {
+            return Ok(cached);
+        }
+        let page = self
+            .player_stats_espn_for_league(league("mlb"), player_id)
+            .await?;
+        self.cache.set_json(&cache_key, &page).await?;
+        Ok(page)
     }
 
     async fn nfl_current_scoreboard(&self) -> Result<Scoreboard, AppError> {
@@ -449,6 +484,18 @@ impl SportsData for EspnSportsData {
         Ok(standings)
     }
 
+    async fn nfl_player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError> {
+        let cache_key = format!("nfl-player:{player_id}");
+        if let Some(cached) = self.cache.get_json::<PlayerStatsPage>(&cache_key).await? {
+            return Ok(cached);
+        }
+        let page = self
+            .player_stats_espn_for_league(league("nfl"), player_id)
+            .await?;
+        self.cache.set_json(&cache_key, &page).await?;
+        Ok(page)
+    }
+
     async fn nhl_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
         if let Some(cache) = self.nhl_today_cache.read().await.as_ref()
             && cache.fetched_at.elapsed() < Duration::from_secs(LIVE_DATA_CACHE_SECONDS)
@@ -511,6 +558,18 @@ impl SportsData for EspnSportsData {
         self.cache.set_json(&cache_key, &standings).await?;
         Ok(standings)
     }
+
+    async fn nhl_player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError> {
+        let cache_key = format!("nhl-player:{player_id}");
+        if let Some(cached) = self.cache.get_json::<PlayerStatsPage>(&cache_key).await? {
+            return Ok(cached);
+        }
+        let page = self
+            .player_stats_espn_for_league(league("nhl"), player_id)
+            .await?;
+        self.cache.set_json(&cache_key, &page).await?;
+        Ok(page)
+    }
 }
 
 fn nfl_espn_week(week: i64) -> (i64, i64) {
@@ -523,9 +582,16 @@ fn nfl_espn_week(week: i64) -> (i64, i64) {
 
 impl EspnSportsData {
     async fn player_stats_espn(&self, player_id: &str) -> Result<PlayerStatsPage, AppError> {
-        let url = format!(
-            "https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/{player_id}/gamelog"
-        );
+        self.player_stats_espn_for_league(league("nba"), player_id)
+            .await
+    }
+
+    async fn player_stats_espn_for_league(
+        &self,
+        league: &League,
+        player_id: &str,
+    ) -> Result<PlayerStatsPage, AppError> {
+        let url = espn_player_gamelog_url(league, player_id);
         let data: EspnPlayerGamelogDto = self.http.get_json(&url, false, None).await?;
         Ok(normalizers::espn_player_gamelog(player_id, data))
     }
@@ -621,6 +687,10 @@ mod tests {
         assert_eq!(
             espn_standings_url(nba),
             "https://site.api.espn.com/apis/v2/sports/basketball/nba/standings"
+        );
+        assert_eq!(
+            espn_player_gamelog_url(league("wnba"), "2984190"),
+            "https://site.web.api.espn.com/apis/common/v3/sports/basketball/wnba/athletes/2984190/gamelog"
         );
     }
 

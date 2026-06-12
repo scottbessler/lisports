@@ -53,20 +53,7 @@ impl SportsData for FakeSportsData {
     }
 
     async fn player_stats(&self, _player_id: &str) -> Result<PlayerStatsPage, AppError> {
-        Ok(PlayerStatsPage {
-            tables: vec![
-                Table {
-                    name: "Summary".to_string(),
-                    headers: vec!["Split".to_string(), "PTS".to_string()],
-                    rows: vec![vec!["Season Total".to_string(), "20.1".to_string()]],
-                },
-                Table {
-                    name: "Game Log".to_string(),
-                    headers: vec!["Date".to_string(), "PTS".to_string()],
-                    rows: vec![vec!["2026-04-26".to_string(), "31".to_string()]],
-                },
-            ],
-        })
+        Ok(player_stats_page())
     }
 
     async fn wnba_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
@@ -86,6 +73,10 @@ impl SportsData for FakeSportsData {
             east: vec![standing_team(1, "New York Liberty", "East")],
             west: vec![standing_team(2, "Las Vegas Aces", "West")],
         })
+    }
+
+    async fn wnba_player_stats(&self, _player_id: &str) -> Result<PlayerStatsPage, AppError> {
+        Ok(player_stats_page())
     }
 
     async fn mlb_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
@@ -123,6 +114,10 @@ impl SportsData for FakeSportsData {
         })
     }
 
+    async fn mlb_player_stats(&self, _player_id: &str) -> Result<PlayerStatsPage, AppError> {
+        Ok(player_stats_page())
+    }
+
     async fn nfl_current_scoreboard(&self) -> Result<Scoreboard, AppError> {
         Ok(nfl_scoreboard(23))
     }
@@ -158,6 +153,10 @@ impl SportsData for FakeSportsData {
         })
     }
 
+    async fn nfl_player_stats(&self, _player_id: &str) -> Result<PlayerStatsPage, AppError> {
+        Ok(player_stats_page())
+    }
+
     async fn nhl_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
         Ok(nhl_scoreboard())
     }
@@ -184,6 +183,10 @@ impl SportsData for FakeSportsData {
                 )],
             }],
         })
+    }
+
+    async fn nhl_player_stats(&self, _player_id: &str) -> Result<PlayerStatsPage, AppError> {
+        Ok(player_stats_page())
     }
 }
 
@@ -346,11 +349,7 @@ async fn league_registry_matches_route_surface() {
             }
             PlayerFeature::Unsupported => {
                 let (status, _) = request(&format!("{}/player/4278073", league.route_base)).await;
-                if league.slug == "wnba" {
-                    assert_eq!(status, StatusCode::OK);
-                } else {
-                    assert_eq!(status, StatusCode::NOT_FOUND);
-                }
+                assert_eq!(status, StatusCode::NOT_FOUND);
             }
         }
     }
@@ -431,11 +430,13 @@ async fn wnba_standings_render_sortable_tables() {
 }
 
 #[tokio::test]
-async fn wnba_player_route_renders_unsupported_state() {
+async fn wnba_player_route_renders_stats() {
     let (status, body) = request("/wnba/player/2984190").await;
     assert_eq!(status, StatusCode::OK);
-    assert!(body.contains("WNBA Player Stats"));
-    assert!(body.contains("Player pages are not available for WNBA."));
+    assert!(body.contains("WNBA Player"));
+    assert!(body.contains("Summary"));
+    assert!(body.contains("Game Log"));
+    assert!(body.contains("table class=\"sortable\""));
 }
 
 #[tokio::test]
@@ -478,6 +479,16 @@ async fn mlb_standings_render_sortable_tables() {
     assert!(body.contains("AL East"));
     assert!(body.contains("NL East"));
     assert!(body.contains("New York Yankees"));
+    assert!(body.contains("table class=\"sortable\""));
+}
+
+#[tokio::test]
+async fn mlb_player_route_renders_stats() {
+    let (status, body) = request("/mlb/player/12345").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("MLB Player"));
+    assert!(body.contains("Summary"));
+    assert!(body.contains("Game Log"));
     assert!(body.contains("table class=\"sortable\""));
 }
 
@@ -568,6 +579,7 @@ async fn invalid_route_params_return_bad_request() {
     let (bad_player, _) = request("/nba/player/abc").await;
     let (bad_mlb_day, _) = request("/mlb/scoreboard/not-a-day").await;
     let (bad_mlb_game, _) = request("/mlb/scoreboard/2026-04-26/game/abc").await;
+    let (bad_mlb_player, _) = request("/mlb/player/abc").await;
     let (bad_nfl_day, _) = request("/nfl/scoreboard/not-a-week").await;
     let (bad_nfl_week, _) = request("/nfl/scoreboard/24").await;
     let (bad_nfl_game, _) = request("/nfl/scoreboard/1/game/abc").await;
@@ -581,6 +593,7 @@ async fn invalid_route_params_return_bad_request() {
     assert_eq!(bad_player, StatusCode::BAD_REQUEST);
     assert_eq!(bad_mlb_day, StatusCode::BAD_REQUEST);
     assert_eq!(bad_mlb_game, StatusCode::BAD_REQUEST);
+    assert_eq!(bad_mlb_player, StatusCode::BAD_REQUEST);
     assert_eq!(bad_nfl_day, StatusCode::BAD_REQUEST);
     assert_eq!(bad_nfl_week, StatusCode::BAD_REQUEST);
     assert_eq!(bad_nfl_game, StatusCode::BAD_REQUEST);
@@ -623,6 +636,23 @@ fn date_nav(body: &str) -> &str {
     let after_start = &body[start..];
     let end = after_start.find("</div>").unwrap() + "</div>".len();
     &after_start[..end]
+}
+
+fn player_stats_page() -> PlayerStatsPage {
+    PlayerStatsPage {
+        tables: vec![
+            Table {
+                name: "Summary".to_string(),
+                headers: vec!["Split".to_string(), "PTS".to_string()],
+                rows: vec![vec!["Season Total".to_string(), "20.1".to_string()]],
+            },
+            Table {
+                name: "Game Log".to_string(),
+                headers: vec!["Date".to_string(), "PTS".to_string()],
+                rows: vec![vec!["2026-04-26".to_string(), "31".to_string()]],
+            },
+        ],
+    }
 }
 
 fn scoreboard() -> Scoreboard {

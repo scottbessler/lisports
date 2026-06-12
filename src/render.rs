@@ -1516,6 +1516,10 @@ fn mlb_standings_table(title: &str, rows: &[MlbStandingsTeam]) -> String {
 }
 
 pub fn player_page(stats: &PlayerStatsPage) -> String {
+    player_page_for_league("NBA", stats)
+}
+
+pub fn player_page_for_league(league_label: &str, stats: &PlayerStatsPage) -> String {
     let mut body = String::from(r#"<main class="page player">"#);
     if stats.tables.is_empty() {
         body.push_str(r#"<section class="center"><h1>No player stats available.</h1></section>"#);
@@ -1528,18 +1532,7 @@ pub fn player_page(stats: &PlayerStatsPage) -> String {
         ));
     }
     body.push_str("</main>");
-    layout("NBA Player", &body)
-}
-
-pub fn unsupported_player_page(league_label: &str) -> String {
-    layout(
-        &format!("{league_label} Player"),
-        &format!(
-            r#"<main class="page player"><section class="center"><h1>{} Player Stats</h1><p>Player pages are not available for {}.</p></section></main>"#,
-            escape(league_label),
-            escape(league_label),
-        ),
-    )
+    layout(&format!("{league_label} Player"), &body)
 }
 
 fn render_table(table: &Table) -> String {

@@ -62,7 +62,7 @@ T4|x|unify ESPN client methods behind parameterized league endpoints and typed s
 T5|x|extract common scoreboard renderer shell; keep sport adapters for card columns, periods, detail tables, refresh logic|V4,V5,V6,V8,V9,V10,V11,V18
 T6|x|extract common standings renderer shell; keep sport grouping/columns/ranking adapters|V12,V18
 T7|x|add WNBA player page support or explicit unsupported UX; prevent WNBA box-score links to NBA players|V8,V19,V20,I.http.wnba
-T8|.|add MLB player pages from ESPN athlete/gamelog or mark unsupported in registry and UI|V19,V20,I.http.mlb
+T8|x|add MLB player pages from ESPN athlete/gamelog or mark unsupported in registry and UI|V19,V20,I.http.mlb
 T9|.|add NFL player pages from ESPN athlete/gamelog or mark unsupported in registry and UI|V19,V20,I.http.nfl
 T10|.|add NHL player pages from ESPN athlete/gamelog or mark unsupported in registry and UI|V19,V20,I.http.nhl
 T11|.|replace hard-coded NBA fallback season `2023-24` with current/configured season or remove fallback if stale|C5,C6,I.up.nba.player_fallback,V20
