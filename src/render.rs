@@ -1244,75 +1244,89 @@ fn merge_team_summary(mut stats: Statistics, fallback: &TeamStatistics) -> Stati
 }
 
 pub fn standings_page(standings: &StandingsTable) -> String {
-    layout(
+    standings_shell(
         "NBA Standings",
-        &format!(
-            r#"<main class="page standings"><section>{}</section><section>{}</section></main>"#,
+        "",
+        format!(
+            r#"<section>{}</section><section>{}</section>"#,
             standings_table("East", &standings.east, League::Nba),
-            standings_table("West", &standings.west, League::Nba)
+            standings_table("West", &standings.west, League::Nba),
         ),
     )
 }
 
 pub fn wnba_standings_page(standings: &StandingsTable) -> String {
-    layout(
+    standings_shell(
         "WNBA Standings",
-        &format!(
-            r#"<main class="page standings"><section>{}</section><section>{}</section></main>"#,
+        "",
+        format!(
+            r#"<section>{}</section><section>{}</section>"#,
             standings_table("East", &standings.east, League::Wnba),
-            standings_table("West", &standings.west, League::Wnba)
+            standings_table("West", &standings.west, League::Wnba),
         ),
     )
 }
 
 pub fn mlb_standings_page(standings: &MlbStandingsTable) -> String {
-    layout(
+    standings_shell(
         "MLB Standings",
-        &format!(
-            r#"<main class="page standings mlb-standings">{}</main>"#,
-            standings
-                .divisions
-                .iter()
-                .map(|division| mlb_standings_table(
+        "mlb-standings",
+        standings
+            .divisions
+            .iter()
+            .map(|division| {
+                mlb_standings_table(
                     &format!("{} {}", division.league, division.division),
-                    &division.teams
-                ))
-                .collect::<String>()
-        ),
+                    &division.teams,
+                )
+            })
+            .collect::<String>(),
     )
 }
 
 pub fn nfl_standings_page(standings: &NflStandingsTable) -> String {
-    layout(
+    standings_shell(
         "NFL Standings",
-        &format!(
-            r#"<main class="page standings nfl-standings">{}</main>"#,
-            standings
-                .divisions
-                .iter()
-                .map(|division| nfl_standings_table(
+        "nfl-standings",
+        standings
+            .divisions
+            .iter()
+            .map(|division| {
+                nfl_standings_table(
                     &format!("{} {}", division.conference, division.division),
-                    &division.teams
-                ))
-                .collect::<String>()
-        ),
+                    &division.teams,
+                )
+            })
+            .collect::<String>(),
     )
 }
 
 pub fn nhl_standings_page(standings: &NhlStandingsTable) -> String {
-    layout(
+    standings_shell(
         "NHL Standings",
-        &format!(
-            r#"<main class="page standings nhl-standings">{}</main>"#,
-            standings
-                .divisions
-                .iter()
-                .map(|division| nhl_standings_table(
+        "nhl-standings",
+        standings
+            .divisions
+            .iter()
+            .map(|division| {
+                nhl_standings_table(
                     &format!("{} {}", division.conference, division.division),
-                    &division.teams
-                ))
-                .collect::<String>()
-        ),
+                    &division.teams,
+                )
+            })
+            .collect::<String>(),
+    )
+}
+
+fn standings_shell(title: &str, class_suffix: &str, content: String) -> String {
+    let class_suffix = if class_suffix.is_empty() {
+        String::new()
+    } else {
+        format!(" {class_suffix}")
+    };
+    layout(
+        title,
+        &format!(r#"<main class="page standings{class_suffix}">{content}</main>"#),
     )
 }
 
