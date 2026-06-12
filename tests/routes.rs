@@ -9,6 +9,7 @@ use lisports::{
     app,
     clients::SportsData,
     error::AppError,
+    leagues::{self, PlayerFeature, ScheduleBucket},
     models::{
         BoxScore, BoxScoreTeam, Game, Leaders, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsDivision,
         MlbStandingsTable, MlbStandingsTeam, NflBoxScore, NflBoxScoreTeam, NflStandingsDivision,
@@ -294,6 +295,48 @@ async fn dayless_scoreboard_urls_redirect_to_today() {
     assert_eq!(nhl_location, "/nhl/scoreboard/today");
     assert_eq!(wnba_status, StatusCode::TEMPORARY_REDIRECT);
     assert_eq!(wnba_location, "/wnba/scoreboard/today");
+}
+
+#[tokio::test]
+async fn league_registry_matches_route_surface() {
+    for league in leagues::all() {
+        assert!(league.scoreboard, "{} scoreboard undeclared", league.slug);
+        assert!(league.game, "{} game undeclared", league.slug);
+        assert!(league.standings, "{} standings undeclared", league.slug);
+
+        let (scoreboard_status, scoreboard_location) =
+            request_redirect_location(&format!("{}/scoreboard", league.route_base)).await;
+        assert_eq!(scoreboard_status, StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(
+            scoreboard_location,
+            format!("{}/scoreboard/today", league.route_base)
+        );
+
+        let bucket = match league.bucket {
+            ScheduleBucket::Date => "2026-04-26".to_string(),
+            ScheduleBucket::Week => "1".to_string(),
+        };
+        let (scoreboard_status, scoreboard_body) =
+            request(&format!("{}/scoreboard/{bucket}", league.route_base)).await;
+        assert_eq!(scoreboard_status, StatusCode::OK);
+        assert!(scoreboard_body.contains(&format!("{} Scoreboard", league.nav_label)));
+
+        let (standings_status, standings_body) =
+            request(&format!("{}/standings", league.route_base)).await;
+        assert_eq!(standings_status, StatusCode::OK);
+        assert!(standings_body.contains(&format!("{} Standings", league.nav_label)));
+
+        match league.player {
+            PlayerFeature::Supported => {
+                let (status, _) = request(&format!("{}/player/4278073", league.route_base)).await;
+                assert_eq!(status, StatusCode::OK);
+            }
+            PlayerFeature::Unsupported => {
+                let (status, _) = request(&format!("{}/player/4278073", league.route_base)).await;
+                assert_eq!(status, StatusCode::NOT_FOUND);
+            }
+        }
+    }
 }
 
 #[tokio::test]

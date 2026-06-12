@@ -55,7 +55,7 @@ V20 Player pages target: all player-capable leagues expose player pages or a doc
 
 §T
 id|status|task|cites
-T1|.|add league registry/config for route base, sport path, date-vs-week bucket, nav label, logo path, feature flags|V18,V19,I.http.nba,I.http.wnba,I.http.mlb,I.http.nfl,I.http.nhl
+T1|x|add league registry/config for route base, sport path, date-vs-week bucket, nav label, logo path, feature flags|V18,V19,I.http.nba,I.http.wnba,I.http.mlb,I.http.nfl,I.http.nhl
 T2|.|collapse duplicated route handlers into generic league handlers without changing URLs/status/render output|V1,V2,V3,V18,I.http.nba
 T3|.|unify today lookup policy: date leagues use same lookback semantics; NFL uses latest week with live/completed games|V2,V4,V7,V18
 T4|.|unify ESPN client methods behind parameterized league endpoints and typed sport adapters|V13,V16,V18,I.up.espn.scoreboard,I.up.espn.summary,I.up.espn.standings

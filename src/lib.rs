@@ -2,6 +2,7 @@ pub mod app;
 pub mod cache;
 pub mod clients;
 pub mod error;
+pub mod leagues;
 pub mod models;
 pub mod normalizers;
 pub mod render;
