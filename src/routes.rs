@@ -7,6 +7,7 @@ use chrono::{Days, Local, NaiveDate};
 use crate::{
     app::AppState,
     error::AppError,
+    leagues,
     models::Scoreboard,
     render,
     validation::{nfl_week, numeric_id, parse_day},
@@ -15,7 +16,10 @@ use crate::{
 const TODAY_LOOKBACK_DAYS: u64 = 7;
 
 pub async fn index() -> Redirect {
-    Redirect::temporary("/nba/scoreboard")
+    Redirect::temporary(&format!(
+        "{}/scoreboard",
+        leagues::default_league().route_base
+    ))
 }
 
 pub async fn healthcheck() -> &'static str {

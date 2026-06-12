@@ -70,7 +70,7 @@ T12|x|add tests for cache write policy on empty completed scoreboards per league
 T13|x|add route/render parity matrix test over all league registry entries|V1,V2,V3,V18,V19
 T14|x|add normalizer tests for WNBA standings/team identity and NHL/NFL/MLB missing optional upstream fields|V12,V14,V16
 T15|x|document feature matrix in README: scoreboard, game, standings, player, date/week bucket, upstream source|C8,C9,V19,V20
-T16|.|decide whether root `/` should remain NBA-first or redirect via configured default league|I.http.home,V19
+T16|x|decide whether root `/` should remain NBA-first or redirect via configured default league|I.http.home,V19
 
 §B
 id|date|cause|fix

@@ -314,6 +314,13 @@ async fn dayless_scoreboard_urls_redirect_to_today() {
 }
 
 #[tokio::test]
+async fn root_redirects_to_default_league_scoreboard() {
+    let (status, location) = request_redirect_location("/").await;
+    assert_eq!(status, StatusCode::TEMPORARY_REDIRECT);
+    assert_eq!(location, "/nba/scoreboard");
+}
+
+#[tokio::test]
 async fn league_registry_matches_route_surface() {
     for league in leagues::all() {
         assert!(league.scoreboard, "{} scoreboard undeclared", league.slug);

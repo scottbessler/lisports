@@ -108,12 +108,18 @@ pub const LEAGUES: &[League] = &[
     },
 ];
 
+pub const DEFAULT_LEAGUE_SLUG: &str = "nba";
+
 pub fn all() -> &'static [League] {
     LEAGUES
 }
 
 pub fn by_slug(slug: &str) -> Option<&'static League> {
     LEAGUES.iter().find(|league| league.slug == slug)
+}
+
+pub fn default_league() -> &'static League {
+    by_slug(DEFAULT_LEAGUE_SLUG).expect("default league registry entry")
 }
 
 #[cfg(test)]
@@ -146,5 +152,11 @@ mod tests {
         assert_eq!(by_slug("mlb").unwrap().player, PlayerFeature::Supported);
         assert_eq!(by_slug("nfl").unwrap().player, PlayerFeature::Supported);
         assert_eq!(by_slug("nhl").unwrap().player, PlayerFeature::Supported);
+    }
+
+    #[test]
+    fn default_league_is_nba_first() {
+        assert_eq!(default_league().slug, "nba");
+        assert_eq!(default_league().route_base, "/nba");
     }
 }
