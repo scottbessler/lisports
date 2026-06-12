@@ -1690,6 +1690,30 @@ mod tests {
     }
 
     #[test]
+    fn espn_wnba_standings_preserve_upstream_team_identity() {
+        let data: EspnStandingsDto = serde_json::from_value(serde_json::json!({
+            "children": [{
+                "abbreviation": "East",
+                "standings": {"entries": [{
+                    "team": {"id": "999", "name": "Boston WNBA", "abbreviation": "BOS"},
+                    "stats": [
+                        {"name": "wins", "value": 11, "displayValue": "11"},
+                        {"name": "losses", "value": 7, "displayValue": "7"}
+                    ]
+                }]}
+            }]
+        }))
+        .unwrap();
+
+        let standings = espn_wnba_standings(data);
+
+        assert_eq!(standings.east[0].team_id, 999);
+        assert_eq!(standings.east[0].team_name, "Boston WNBA");
+        assert_eq!(standings.east[0].team_tricode, "BOS");
+        assert_eq!(standings.east[0].wins, 11);
+    }
+
+    #[test]
     fn espn_mlb_scoreboard_conversion_produces_domain_game_with_rhe() {
         let data: EspnScoreboardDto = serde_json::from_value(serde_json::json!({
             "events": [{
@@ -1713,6 +1737,30 @@ mod tests {
         assert_eq!(scoreboard.games[0].away_team.hits, 7);
         assert_eq!(scoreboard.games[0].home_team.errors, 1);
         assert_eq!(scoreboard.games[0].game_status, 3);
+    }
+
+    #[test]
+    fn espn_mlb_scoreboard_tolerates_missing_optional_fields() {
+        let data: EspnScoreboardDto = serde_json::from_value(serde_json::json!({
+            "events": [{
+                "id": "401815096",
+                "date": "2026-04-26T17:35:00Z",
+                "competitions": [{
+                    "status": {"type": {"name": "STATUS_SCHEDULED", "shortDetail": "7:10 PM"}},
+                    "competitors": [
+                        {"homeAway": "away", "id": "2", "score": "0", "team": {"id": "2", "location": "Boston", "name": "Red Sox", "abbreviation": "BOS"}},
+                        {"homeAway": "home", "id": "1", "score": "0", "team": {"id": "1", "location": "Baltimore", "name": "Orioles", "abbreviation": "BAL"}}
+                    ]
+                }]
+            }]
+        }))
+        .unwrap();
+
+        let scoreboard = espn_mlb_scoreboard("2026-04-26", data).unwrap();
+
+        assert_eq!(scoreboard.games[0].away_team.display_record, "0-0");
+        assert_eq!(scoreboard.games[0].away_team.hits, 0);
+        assert!(scoreboard.games[0].away_team.periods.is_empty());
     }
 
     #[test]
@@ -1846,6 +1894,30 @@ mod tests {
     }
 
     #[test]
+    fn espn_nfl_summary_tolerates_missing_optional_boxscore_groups() {
+        let data: EspnSummaryDto = serde_json::from_value(serde_json::json!({
+            "header": {
+                "id": "401772846",
+                "competitions": [{
+                    "status": {"type": {"name": "STATUS_SCHEDULED"}},
+                    "competitors": [
+                        {"homeAway": "away", "id": "21", "score": "0", "team": {"id": "21"}},
+                        {"homeAway": "home", "id": "27", "score": "0", "team": {"id": "27"}}
+                    ]
+                }]
+            },
+            "boxscore": {},
+            "gameInfo": null
+        }))
+        .unwrap();
+
+        let game = espn_nfl_summary(data).unwrap();
+
+        assert!(game.away_team.team_stats.rows.is_empty());
+        assert!(game.home_team.player_stats.is_empty());
+    }
+
+    #[test]
     fn espn_nhl_scoreboard_conversion_uses_hockey_records() {
         let data: EspnScoreboardDto = serde_json::from_value(serde_json::json!({
             "events": [{
@@ -1900,6 +1972,30 @@ mod tests {
         assert_eq!(game.away_team.team_stats.rows[0][0], "Shots");
         assert_eq!(game.away_team.player_stats[0].name, "Boston Skaters");
         assert_eq!(game.away_team.player_stats[0].rows[0][0], "David Pastrnak");
+    }
+
+    #[test]
+    fn espn_nhl_summary_tolerates_missing_optional_boxscore_groups() {
+        let data: EspnSummaryDto = serde_json::from_value(serde_json::json!({
+            "header": {
+                "id": "401900002",
+                "competitions": [{
+                    "status": {"type": {"name": "STATUS_SCHEDULED"}},
+                    "competitors": [
+                        {"homeAway": "away", "id": "1", "score": "0", "team": {"id": "1", "location": "Boston", "name": "Bruins", "abbreviation": "BOS"}},
+                        {"homeAway": "home", "id": "13", "score": "0", "team": {"id": "13", "location": "New York", "name": "Rangers", "abbreviation": "NYR"}}
+                    ]
+                }]
+            },
+            "boxscore": {},
+            "gameInfo": null
+        }))
+        .unwrap();
+
+        let game = espn_nhl_summary(data).unwrap();
+
+        assert!(game.away_team.team_stats.rows.is_empty());
+        assert!(game.home_team.player_stats.is_empty());
     }
 
     #[test]
