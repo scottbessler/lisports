@@ -718,6 +718,7 @@ fn espn_nhl_competitor_to_team(c: &Value, competition: &Value) -> Team {
         .map(|s| parse_record(&s))
         .unwrap_or((0, 0));
     let display_record = playoff_series_record(c, competition)
+        .or_else(|| str_at(c, &["record"]))
         .unwrap_or_else(|| total_record_summary(c).unwrap_or_else(|| format!("{wins}-{losses}")));
     Team {
         team_id: str_at(c, &["team", "id"])
@@ -1964,8 +1965,8 @@ mod tests {
                     "series": {"type": "playoff", "competitors": [{"id": "1", "wins": 3}, {"id": "13", "wins": 2}]},
                     "status": {"period": 3, "displayClock": "0:00", "type": {"name": "STATUS_FINAL", "completed": true, "shortDetail": "Final"}},
                     "competitors": [
-                        {"homeAway": "away", "id": "1", "score": "3", "team": {"id": "1", "location": "Boston", "name": "Bruins", "abbreviation": "BOS"}, "record": [{"type": "total", "summary": "45-27-10"}], "linescores": [{"displayValue": "1"}, {"displayValue": "1"}, {"displayValue": "1"}]},
-                        {"homeAway": "home", "id": "13", "score": "2", "team": {"id": "13", "location": "New York", "name": "Rangers", "abbreviation": "NYR"}, "record": [{"type": "total", "summary": "47-25-10"}], "linescores": [{"displayValue": "0"}, {"displayValue": "1"}, {"displayValue": "1"}]}
+                        {"homeAway": "away", "id": "1", "score": "3", "team": {"id": "1", "location": "Boston", "name": "Bruins", "abbreviation": "BOS"}, "record": "3-2", "records": [{"type": "total", "summary": "45-27-10"}], "linescores": [{"displayValue": "1"}, {"displayValue": "1"}, {"displayValue": "1"}]},
+                        {"homeAway": "home", "id": "13", "score": "2", "team": {"id": "13", "location": "New York", "name": "Rangers", "abbreviation": "NYR"}, "record": "2-3", "records": [{"type": "total", "summary": "47-25-10"}], "linescores": [{"displayValue": "0"}, {"displayValue": "1"}, {"displayValue": "1"}]}
                     ]
                 }]
             }]

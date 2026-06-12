@@ -514,7 +514,7 @@ impl SportsData for EspnSportsData {
     }
 
     async fn nhl_days_games(&self, day: &str) -> Result<Scoreboard, AppError> {
-        let cache_key = format!("nhl-day:{day}");
+        let cache_key = format!("nhl-day2:{day}");
         if let Some(cached) = self.cache.get_json::<Scoreboard>(&cache_key).await? {
             return Ok(cached);
         }
@@ -534,7 +534,7 @@ impl SportsData for EspnSportsData {
     }
 
     async fn nhl_game(&self, game_id: &str) -> Result<Option<NhlBoxScore>, AppError> {
-        let cache_key = format!("nhl-game:{game_id}");
+        let cache_key = format!("nhl-game2:{game_id}");
         if let Some(cached) = self.cache.get_json::<NhlBoxScore>(&cache_key).await? {
             return Ok(Some(cached));
         }

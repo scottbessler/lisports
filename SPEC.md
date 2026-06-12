@@ -80,3 +80,4 @@ B1|2026-06-12|NHL summary ignored `competition` in record normalization|V14
 B2|2026-06-12|ESPN gamelog normalizer remapped all sports through NBA stat labels|V21
 B3|2026-06-12|MLB/NFL/NHL box-score stat tables discarded athlete ids|V22
 B4|2026-06-12|NHL summary `series[]` ignored; only `series{}` parsed|V14
+B5|2026-06-12|NHL playoff `record` string + stale cache showed season records|V14,V15
