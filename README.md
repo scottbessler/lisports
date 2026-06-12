@@ -16,22 +16,36 @@ LiSports is a Rust web server that renders static HTML for a small sports dashbo
 - `/wnba/scoreboard/:day` renders the WNBA games for a date in `YYYY-MM-DD` format
 - `/wnba/scoreboard/:day/game/:game_id` renders the date scoreboard plus a game box score
 - `/wnba/standings` renders WNBA standings
+- `/wnba/player/:player_id` renders WNBA player stats
 - `/mlb/scoreboard` redirects to `/mlb/scoreboard/today`
 - `/mlb/scoreboard/today` renders today's MLB scoreboard
 - `/mlb/scoreboard/:day` renders the MLB games for a date in `YYYY-MM-DD` format
 - `/mlb/scoreboard/:day/game/:game_id` renders the date scoreboard plus MLB batting and pitching tables
 - `/mlb/standings` renders MLB standings
+- `/mlb/player/:player_id` renders MLB player stats
 - `/nfl/scoreboard` redirects to `/nfl/scoreboard/today`
 - `/nfl/scoreboard/today` renders the latest NFL week with games played
 - `/nfl/scoreboard/:week` renders the NFL games for week `1` to `23`, where `19` to `23` are playoff weeks
 - `/nfl/scoreboard/:week/game/:game_id` renders the week scoreboard plus NFL stat tables
 - `/nfl/standings` renders NFL standings
+- `/nfl/player/:player_id` renders NFL player stats
 - `/nhl/scoreboard` redirects to `/nhl/scoreboard/today`
 - `/nhl/scoreboard/today` renders today's NHL scoreboard
 - `/nhl/scoreboard/:day` renders the NHL games for a date in `YYYY-MM-DD` format
 - `/nhl/scoreboard/:day/game/:game_id` renders the date scoreboard plus NHL stat tables
 - `/nhl/standings` renders NHL standings
+- `/nhl/player/:player_id` renders NHL player stats
 - `/healthcheck` returns `OK`
+
+## Feature Matrix
+
+| League | Scoreboard | Game | Standings | Player | Bucket | Upstream |
+| --- | --- | --- | --- | --- | --- | --- |
+| NBA | yes | yes | yes | yes | date | NBA live scoreboard, ESPN site APIs, NBA fallback player endpoint |
+| WNBA | yes | yes | yes | yes | date | ESPN site APIs |
+| MLB | yes | yes | yes | yes | date | ESPN site APIs |
+| NFL | yes | yes | yes | yes | week `1..23` | ESPN site APIs |
+| NHL | yes | yes | yes | yes | date | ESPN site APIs |
 
 ## Development
 
