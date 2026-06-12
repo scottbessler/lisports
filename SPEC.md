@@ -61,7 +61,7 @@ T3|x|unify today lookup policy: date leagues use same lookback semantics; NFL us
 T4|x|unify ESPN client methods behind parameterized league endpoints and typed sport adapters|V13,V16,V18,I.up.espn.scoreboard,I.up.espn.summary,I.up.espn.standings
 T5|x|extract common scoreboard renderer shell; keep sport adapters for card columns, periods, detail tables, refresh logic|V4,V5,V6,V8,V9,V10,V11,V18
 T6|x|extract common standings renderer shell; keep sport grouping/columns/ranking adapters|V12,V18
-T7|.|add WNBA player page support or explicit unsupported UX; prevent WNBA box-score links to NBA players|V8,V19,V20,I.http.wnba
+T7|x|add WNBA player page support or explicit unsupported UX; prevent WNBA box-score links to NBA players|V8,V19,V20,I.http.wnba
 T8|.|add MLB player pages from ESPN athlete/gamelog or mark unsupported in registry and UI|V19,V20,I.http.mlb
 T9|.|add NFL player pages from ESPN athlete/gamelog or mark unsupported in registry and UI|V19,V20,I.http.nfl
 T10|.|add NHL player pages from ESPN athlete/gamelog or mark unsupported in registry and UI|V19,V20,I.http.nhl

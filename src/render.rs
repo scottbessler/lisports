@@ -1531,6 +1531,17 @@ pub fn player_page(stats: &PlayerStatsPage) -> String {
     layout("NBA Player", &body)
 }
 
+pub fn unsupported_player_page(league_label: &str) -> String {
+    layout(
+        &format!("{league_label} Player"),
+        &format!(
+            r#"<main class="page player"><section class="center"><h1>{} Player Stats</h1><p>Player pages are not available for {}.</p></section></main>"#,
+            escape(league_label),
+            escape(league_label),
+        ),
+    )
+}
+
 fn render_table(table: &Table) -> String {
     let headers: Vec<&str> = table.headers.iter().map(String::as_str).collect();
     sortable_table(&headers, &table.rows)

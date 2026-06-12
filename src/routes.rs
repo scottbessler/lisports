@@ -85,6 +85,11 @@ pub async fn wnba_standings(State(state): State<AppState>) -> Result<Html<String
     Ok(Html(render::wnba_standings_page(&standings)))
 }
 
+pub async fn wnba_player(Path(player_id): Path<String>) -> Result<Html<String>, AppError> {
+    numeric_id(&player_id, "player_id")?;
+    Ok(Html(render::unsupported_player_page("WNBA")))
+}
+
 pub async fn mlb_scoreboard() -> Redirect {
     dayless_scoreboard(RouteLeague::Mlb)
 }

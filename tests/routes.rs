@@ -346,7 +346,11 @@ async fn league_registry_matches_route_surface() {
             }
             PlayerFeature::Unsupported => {
                 let (status, _) = request(&format!("{}/player/4278073", league.route_base)).await;
-                assert_eq!(status, StatusCode::NOT_FOUND);
+                if league.slug == "wnba" {
+                    assert_eq!(status, StatusCode::OK);
+                } else {
+                    assert_eq!(status, StatusCode::NOT_FOUND);
+                }
             }
         }
     }
@@ -424,6 +428,14 @@ async fn wnba_standings_render_sortable_tables() {
     assert!(body.contains("New York Liberty"));
     assert!(body.contains("Las Vegas Aces"));
     assert!(body.contains("table class=\"sortable\""));
+}
+
+#[tokio::test]
+async fn wnba_player_route_renders_unsupported_state() {
+    let (status, body) = request("/wnba/player/2984190").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("WNBA Player Stats"));
+    assert!(body.contains("Player pages are not available for WNBA."));
 }
 
 #[tokio::test]
@@ -563,6 +575,7 @@ async fn invalid_route_params_return_bad_request() {
     let (bad_nhl_game, _) = request("/nhl/scoreboard/2026-04-26/game/abc").await;
     let (bad_wnba_day, _) = request("/wnba/scoreboard/not-a-day").await;
     let (bad_wnba_game, _) = request("/wnba/scoreboard/2026-04-26/game/abc").await;
+    let (bad_wnba_player, _) = request("/wnba/player/abc").await;
     assert_eq!(bad_day, StatusCode::BAD_REQUEST);
     assert_eq!(bad_game, StatusCode::BAD_REQUEST);
     assert_eq!(bad_player, StatusCode::BAD_REQUEST);
@@ -575,6 +588,7 @@ async fn invalid_route_params_return_bad_request() {
     assert_eq!(bad_nhl_game, StatusCode::BAD_REQUEST);
     assert_eq!(bad_wnba_day, StatusCode::BAD_REQUEST);
     assert_eq!(bad_wnba_game, StatusCode::BAD_REQUEST);
+    assert_eq!(bad_wnba_player, StatusCode::BAD_REQUEST);
 }
 
 async fn request(uri: &str) -> (StatusCode, String) {
