@@ -337,6 +337,15 @@ async fn league_registry_matches_route_surface() {
         assert_eq!(scoreboard_status, StatusCode::OK);
         assert!(scoreboard_body.contains(&format!("{} Scoreboard", league.nav_label)));
 
+        let (game_status, game_body) = request(&format!(
+            "{}/scoreboard/{bucket}/game/{}",
+            league.route_base,
+            matrix_game_id(league.slug),
+        ))
+        .await;
+        assert_eq!(game_status, StatusCode::OK);
+        assert!(game_body.contains("scoreboard has-game"));
+
         let (standings_status, standings_body) =
             request(&format!("{}/standings", league.route_base)).await;
         assert_eq!(standings_status, StatusCode::OK);
@@ -676,6 +685,17 @@ fn player_stats_page() -> PlayerStatsPage {
                 rows: vec![vec!["2026-04-26".to_string(), "31".to_string()]],
             },
         ],
+    }
+}
+
+fn matrix_game_id(slug: &str) -> &'static str {
+    match slug {
+        "nba" => "401869385",
+        "wnba" => "401900100",
+        "mlb" => "401815095",
+        "nfl" => "401772845",
+        "nhl" => "401900001",
+        _ => "1",
     }
 }
 
