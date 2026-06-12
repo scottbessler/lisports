@@ -4,6 +4,7 @@ use std::{
 };
 
 use async_trait::async_trait;
+use chrono::{Datelike, NaiveDate};
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::Value;
@@ -245,8 +246,9 @@ impl SportsData for EspnSportsData {
             return Ok(data);
         }
 
+        let season = nba_fallback_season(chrono::Utc::now().date_naive());
         let url = format!(
-            "https://stats.nba.com/stats/playerdashboardbyyearoveryearcombined?DateFrom=&DateTo=&GameSegment=&LastNGames=0&LeagueID=00&Location=&MeasureType=Base&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=PerGame&Period=0&PlayerID={player_id}&PlusMinus=N&Rank=N&Season=2023-24&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&VsConference=&VsDivision="
+            "https://stats.nba.com/stats/playerdashboardbyyearoveryearcombined?DateFrom=&DateTo=&GameSegment=&LastNGames=0&LeagueID=00&Location=&MeasureType=Base&Month=0&OpponentTeamID=0&Outcome=&PORound=0&PaceAdjust=N&PerMode=PerGame&Period=0&PlayerID={player_id}&PlusMinus=N&Rank=N&Season={season}&SeasonSegment=&SeasonType=Regular%20Season&ShotClockRange=&VsConference=&VsDivision="
         );
         let data: Value = self
             .http
@@ -580,6 +582,15 @@ fn nfl_espn_week(week: i64) -> (i64, i64) {
     }
 }
 
+fn nba_fallback_season(today: NaiveDate) -> String {
+    let start_year = if today.month() >= 10 {
+        today.year()
+    } else {
+        today.year() - 1
+    };
+    format!("{start_year}-{:02}", (start_year + 1) % 100)
+}
+
 impl EspnSportsData {
     async fn player_stats_espn(&self, player_id: &str) -> Result<PlayerStatsPage, AppError> {
         self.player_stats_espn_for_league(league("nba"), player_id)
@@ -705,6 +716,18 @@ mod tests {
                 },
             ),
             "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=3&week=5"
+        );
+    }
+
+    #[test]
+    fn nba_fallback_season_tracks_current_season() {
+        assert_eq!(
+            nba_fallback_season(NaiveDate::from_ymd_opt(2026, 6, 12).unwrap()),
+            "2025-26"
+        );
+        assert_eq!(
+            nba_fallback_season(NaiveDate::from_ymd_opt(2026, 10, 1).unwrap()),
+            "2026-27"
         );
     }
 }
