@@ -583,6 +583,16 @@ async fn nhl_standings_render_sortable_tables() {
 }
 
 #[tokio::test]
+async fn nhl_player_route_renders_stats() {
+    let (status, body) = request("/nhl/player/12345").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("NHL Player"));
+    assert!(body.contains("Summary"));
+    assert!(body.contains("Game Log"));
+    assert!(body.contains("table class=\"sortable\""));
+}
+
+#[tokio::test]
 async fn invalid_route_params_return_bad_request() {
     let (bad_day, _) = request("/nba/scoreboard/not-a-day").await;
     let (bad_game, _) = request("/nba/scoreboard/2026-04-26/game/abc").await;
@@ -596,6 +606,7 @@ async fn invalid_route_params_return_bad_request() {
     let (bad_nfl_player, _) = request("/nfl/player/abc").await;
     let (bad_nhl_day, _) = request("/nhl/scoreboard/not-a-day").await;
     let (bad_nhl_game, _) = request("/nhl/scoreboard/2026-04-26/game/abc").await;
+    let (bad_nhl_player, _) = request("/nhl/player/abc").await;
     let (bad_wnba_day, _) = request("/wnba/scoreboard/not-a-day").await;
     let (bad_wnba_game, _) = request("/wnba/scoreboard/2026-04-26/game/abc").await;
     let (bad_wnba_player, _) = request("/wnba/player/abc").await;
@@ -611,6 +622,7 @@ async fn invalid_route_params_return_bad_request() {
     assert_eq!(bad_nfl_player, StatusCode::BAD_REQUEST);
     assert_eq!(bad_nhl_day, StatusCode::BAD_REQUEST);
     assert_eq!(bad_nhl_game, StatusCode::BAD_REQUEST);
+    assert_eq!(bad_nhl_player, StatusCode::BAD_REQUEST);
     assert_eq!(bad_wnba_day, StatusCode::BAD_REQUEST);
     assert_eq!(bad_wnba_game, StatusCode::BAD_REQUEST);
     assert_eq!(bad_wnba_player, StatusCode::BAD_REQUEST);

@@ -64,7 +64,7 @@ T6|x|extract common standings renderer shell; keep sport grouping/columns/rankin
 T7|x|add WNBA player page support or explicit unsupported UX; prevent WNBA box-score links to NBA players|V8,V19,V20,I.http.wnba
 T8|x|add MLB player pages from ESPN athlete/gamelog or mark unsupported in registry and UI|V19,V20,I.http.mlb
 T9|x|add NFL player pages from ESPN athlete/gamelog or mark unsupported in registry and UI|V19,V20,I.http.nfl
-T10|.|add NHL player pages from ESPN athlete/gamelog or mark unsupported in registry and UI|V19,V20,I.http.nhl
+T10|x|add NHL player pages from ESPN athlete/gamelog or mark unsupported in registry and UI|V19,V20,I.http.nhl
 T11|.|replace hard-coded NBA fallback season `2023-24` with current/configured season or remove fallback if stale|C5,C6,I.up.nba.player_fallback,V20
 T12|.|add tests for cache write policy on empty completed scoreboards per league|C6,V7,V15
 T13|.|add route/render parity matrix test over all league registry entries|V1,V2,V3,V18,V19

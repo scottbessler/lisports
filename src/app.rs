@@ -123,6 +123,10 @@ pub fn router(data: Arc<dyn SportsData>) -> Router {
             axum::routing::get(routes::nhl_game),
         )
         .route("/nhl/standings", axum::routing::get(routes::nhl_standings))
+        .route(
+            "/nhl/player/{player_id}",
+            axum::routing::get(routes::nhl_player),
+        )
         .nest_service("/public", ServeDir::new("public"))
         .layer(TraceLayer::new_for_http())
         .with_state(AppState { data })

@@ -205,6 +205,15 @@ pub async fn nhl_standings(State(state): State<AppState>) -> Result<Html<String>
     Ok(Html(render::nhl_standings_page(&standings)))
 }
 
+pub async fn nhl_player(
+    State(state): State<AppState>,
+    Path(player_id): Path<String>,
+) -> Result<Html<String>, AppError> {
+    let player_id = numeric_id(&player_id, "player_id")?;
+    let stats = state.data.nhl_player_stats(&player_id).await?;
+    Ok(Html(render::player_page_for_league("NHL", &stats)))
+}
+
 async fn date_today_scoreboard(
     state: &AppState,
     league: RouteLeague,
