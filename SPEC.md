@@ -58,7 +58,7 @@ id|status|task|cites
 T1|x|add league registry/config for route base, sport path, date-vs-week bucket, nav label, logo path, feature flags|V18,V19,I.http.nba,I.http.wnba,I.http.mlb,I.http.nfl,I.http.nhl
 T2|x|collapse duplicated route handlers into generic league handlers without changing URLs/status/render output|V1,V2,V3,V18,I.http.nba
 T3|x|unify today lookup policy: date leagues use same lookback semantics; NFL uses latest week with live/completed games|V2,V4,V7,V18
-T4|.|unify ESPN client methods behind parameterized league endpoints and typed sport adapters|V13,V16,V18,I.up.espn.scoreboard,I.up.espn.summary,I.up.espn.standings
+T4|x|unify ESPN client methods behind parameterized league endpoints and typed sport adapters|V13,V16,V18,I.up.espn.scoreboard,I.up.espn.summary,I.up.espn.standings
 T5|.|extract common scoreboard renderer shell; keep sport adapters for card columns, periods, detail tables, refresh logic|V4,V5,V6,V8,V9,V10,V11,V18
 T6|.|extract common standings renderer shell; keep sport grouping/columns/ranking adapters|V12,V18
 T7|.|add WNBA player page support or explicit unsupported UX; prevent WNBA box-score links to NBA players|V8,V19,V20,I.http.wnba

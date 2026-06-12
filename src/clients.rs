@@ -12,6 +12,7 @@ use tokio::sync::RwLock;
 use crate::{
     cache::Cache,
     error::AppError,
+    leagues::{self, League},
     models::{
         BoxScore, MlbBoxScore, MlbStandingsTable, NflBoxScore, NflStandingsTable, NhlBoxScore,
         NhlStandingsTable, PlayerStatsPage, Scoreboard, StandingsTable,
@@ -82,6 +83,77 @@ impl EspnSportsData {
     }
 }
 
+enum EspnScoreboardQuery {
+    Date(String),
+    NflWeek { season_type: i64, week: i64 },
+}
+
+fn league(slug: &str) -> &'static League {
+    leagues::by_slug(slug).expect("league registry entry")
+}
+
+fn espn_scoreboard_url(league: &League, query: EspnScoreboardQuery) -> String {
+    let base = format!(
+        "https://site.api.espn.com/apis/site/v2/sports/{}/{}/scoreboard",
+        league.sport_path, league.league_path
+    );
+    match query {
+        EspnScoreboardQuery::Date(day) => format!("{base}?dates={}", day.replace('-', "")),
+        EspnScoreboardQuery::NflWeek { season_type, week } => {
+            format!("{base}?seasontype={season_type}&week={week}")
+        }
+    }
+}
+
+fn espn_summary_url(league: &League, game_id: &str) -> String {
+    format!(
+        "https://site.api.espn.com/apis/site/v2/sports/{}/{}/summary?event={game_id}",
+        league.sport_path, league.league_path
+    )
+}
+
+fn espn_standings_url(league: &League) -> String {
+    format!(
+        "https://site.api.espn.com/apis/v2/sports/{}/{}/standings",
+        league.sport_path, league.league_path
+    )
+}
+
+impl EspnSportsData {
+    async fn espn_scoreboard(
+        &self,
+        league: &League,
+        source_bucket: &str,
+        query: EspnScoreboardQuery,
+        normalize: fn(&str, EspnScoreboardDto) -> Result<Scoreboard, AppError>,
+    ) -> Result<Scoreboard, AppError> {
+        let url = espn_scoreboard_url(league, query);
+        let data: EspnScoreboardDto = self.http.get_json(&url, false, None).await?;
+        normalize(source_bucket, data)
+    }
+
+    async fn espn_summary<T>(
+        &self,
+        league: &League,
+        game_id: &str,
+        normalize: fn(EspnSummaryDto) -> Result<T, AppError>,
+    ) -> Result<T, AppError> {
+        let url = espn_summary_url(league, game_id);
+        let data: EspnSummaryDto = self.http.get_json(&url, false, None).await?;
+        normalize(data)
+    }
+
+    async fn espn_standings<T>(
+        &self,
+        league: &League,
+        normalize: fn(EspnStandingsDto) -> T,
+    ) -> Result<T, AppError> {
+        let url = espn_standings_url(league);
+        let data: EspnStandingsDto = self.http.get_json(&url, false, None).await?;
+        Ok(normalize(data))
+    }
+}
+
 #[async_trait]
 impl SportsData for EspnSportsData {
     async fn todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
@@ -109,12 +181,14 @@ impl SportsData for EspnSportsData {
             return Ok(cached);
         }
 
-        let espn_date = day.replace('-', "");
-        let url = format!(
-            "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates={espn_date}"
-        );
-        let data: EspnScoreboardDto = self.http.get_json(&url, false, None).await?;
-        let scoreboard = normalizers::espn_scoreboard(day, data)?;
+        let scoreboard = self
+            .espn_scoreboard(
+                league("nba"),
+                day,
+                EspnScoreboardQuery::Date(day.to_string()),
+                normalizers::espn_scoreboard,
+            )
+            .await?;
         if !scoreboard.games.is_empty() && scoreboard.games.iter().all(|game| game.game_status == 3)
         {
             self.cache.set_json(&cache_key, &scoreboard).await?;
@@ -128,11 +202,9 @@ impl SportsData for EspnSportsData {
             return Ok(Some(cached));
         }
 
-        let url = format!(
-            "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event={game_id}"
-        );
-        let data: EspnSummaryDto = self.http.get_json(&url, false, None).await?;
-        let game = normalizers::espn_summary(data)?;
+        let game = self
+            .espn_summary(league("nba"), game_id, normalizers::espn_summary)
+            .await?;
         if game.game_status == 3 {
             self.cache.set_json(&cache_key, &game).await?;
         }
@@ -144,15 +216,9 @@ impl SportsData for EspnSportsData {
         if let Some(cached) = self.cache.get_json::<StandingsTable>(&cache_key).await? {
             return Ok(cached);
         }
-        let data: EspnStandingsDto = self
-            .http
-            .get_json(
-                "https://site.api.espn.com/apis/v2/sports/basketball/nba/standings",
-                false,
-                None,
-            )
+        let standings = self
+            .espn_standings(league("nba"), normalizers::espn_standings)
             .await?;
-        let standings = normalizers::espn_standings(data);
         self.cache.set_json(&cache_key, &standings).await?;
         Ok(standings)
     }
@@ -202,12 +268,14 @@ impl SportsData for EspnSportsData {
             return Ok(cached);
         }
 
-        let espn_date = day.replace('-', "");
-        let url = format!(
-            "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/scoreboard?dates={espn_date}"
-        );
-        let data: EspnScoreboardDto = self.http.get_json(&url, false, None).await?;
-        let scoreboard = normalizers::espn_wnba_scoreboard(day, data)?;
+        let scoreboard = self
+            .espn_scoreboard(
+                league("wnba"),
+                day,
+                EspnScoreboardQuery::Date(day.to_string()),
+                normalizers::espn_wnba_scoreboard,
+            )
+            .await?;
         if scoreboard.games.iter().all(|game| game.game_status == 3) {
             self.cache.set_json(&cache_key, &scoreboard).await?;
         }
@@ -220,11 +288,9 @@ impl SportsData for EspnSportsData {
             return Ok(Some(cached));
         }
 
-        let url = format!(
-            "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba/summary?event={game_id}"
-        );
-        let data: EspnSummaryDto = self.http.get_json(&url, false, None).await?;
-        let game = normalizers::espn_wnba_summary(data)?;
+        let game = self
+            .espn_summary(league("wnba"), game_id, normalizers::espn_wnba_summary)
+            .await?;
         if game.game_status == 3 {
             self.cache.set_json(&cache_key, &game).await?;
         }
@@ -236,15 +302,9 @@ impl SportsData for EspnSportsData {
         if let Some(cached) = self.cache.get_json::<StandingsTable>(&cache_key).await? {
             return Ok(cached);
         }
-        let data: EspnStandingsDto = self
-            .http
-            .get_json(
-                "https://site.api.espn.com/apis/v2/sports/basketball/wnba/standings",
-                false,
-                None,
-            )
+        let standings = self
+            .espn_standings(league("wnba"), normalizers::espn_wnba_standings)
             .await?;
-        let standings = normalizers::espn_wnba_standings(data);
         self.cache.set_json(&cache_key, &standings).await?;
         Ok(standings)
     }
@@ -271,12 +331,14 @@ impl SportsData for EspnSportsData {
             return Ok(cached);
         }
 
-        let espn_date = day.replace('-', "");
-        let url = format!(
-            "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard?dates={espn_date}"
-        );
-        let data: EspnScoreboardDto = self.http.get_json(&url, false, None).await?;
-        let scoreboard = normalizers::espn_mlb_scoreboard(day, data)?;
+        let scoreboard = self
+            .espn_scoreboard(
+                league("mlb"),
+                day,
+                EspnScoreboardQuery::Date(day.to_string()),
+                normalizers::espn_mlb_scoreboard,
+            )
+            .await?;
         if scoreboard.games.iter().all(|game| game.game_status == 3) {
             self.cache.set_json(&cache_key, &scoreboard).await?;
         }
@@ -289,11 +351,9 @@ impl SportsData for EspnSportsData {
             return Ok(Some(cached));
         }
 
-        let url = format!(
-            "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/summary?event={game_id}"
-        );
-        let data: EspnSummaryDto = self.http.get_json(&url, false, None).await?;
-        let game = normalizers::espn_mlb_summary(data)?;
+        let game = self
+            .espn_summary(league("mlb"), game_id, normalizers::espn_mlb_summary)
+            .await?;
         if game.game_status == 3 {
             self.cache.set_json(&cache_key, &game).await?;
         }
@@ -305,15 +365,9 @@ impl SportsData for EspnSportsData {
         if let Some(cached) = self.cache.get_json::<MlbStandingsTable>(&cache_key).await? {
             return Ok(cached);
         }
-        let data: EspnStandingsDto = self
-            .http
-            .get_json(
-                "https://site.api.espn.com/apis/v2/sports/baseball/mlb/standings",
-                false,
-                None,
-            )
+        let standings = self
+            .espn_standings(league("mlb"), normalizers::espn_mlb_standings)
             .await?;
-        let standings = normalizers::espn_mlb_standings(data);
         self.cache.set_json(&cache_key, &standings).await?;
         Ok(standings)
     }
@@ -351,11 +405,17 @@ impl SportsData for EspnSportsData {
         }
 
         let (season_type, espn_week) = nfl_espn_week(week);
-        let url = format!(
-            "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype={season_type}&week={espn_week}"
-        );
-        let data: EspnScoreboardDto = self.http.get_json(&url, false, None).await?;
-        let scoreboard = normalizers::espn_nfl_scoreboard(&week.to_string(), data)?;
+        let scoreboard = self
+            .espn_scoreboard(
+                league("nfl"),
+                &week.to_string(),
+                EspnScoreboardQuery::NflWeek {
+                    season_type,
+                    week: espn_week,
+                },
+                normalizers::espn_nfl_scoreboard,
+            )
+            .await?;
         if scoreboard.games.iter().all(|game| game.game_status == 3) {
             self.cache.set_json(&cache_key, &scoreboard).await?;
         }
@@ -368,11 +428,9 @@ impl SportsData for EspnSportsData {
             return Ok(Some(cached));
         }
 
-        let url = format!(
-            "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event={game_id}"
-        );
-        let data: EspnSummaryDto = self.http.get_json(&url, false, None).await?;
-        let game = normalizers::espn_nfl_summary(data)?;
+        let game = self
+            .espn_summary(league("nfl"), game_id, normalizers::espn_nfl_summary)
+            .await?;
         if game.game_status == 3 {
             self.cache.set_json(&cache_key, &game).await?;
         }
@@ -384,15 +442,9 @@ impl SportsData for EspnSportsData {
         if let Some(cached) = self.cache.get_json::<NflStandingsTable>(&cache_key).await? {
             return Ok(cached);
         }
-        let data: EspnStandingsDto = self
-            .http
-            .get_json(
-                "https://site.api.espn.com/apis/v2/sports/football/nfl/standings",
-                false,
-                None,
-            )
+        let standings = self
+            .espn_standings(league("nfl"), normalizers::espn_nfl_standings)
             .await?;
-        let standings = normalizers::espn_nfl_standings(data);
         self.cache.set_json(&cache_key, &standings).await?;
         Ok(standings)
     }
@@ -419,12 +471,14 @@ impl SportsData for EspnSportsData {
             return Ok(cached);
         }
 
-        let espn_date = day.replace('-', "");
-        let url = format!(
-            "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates={espn_date}"
-        );
-        let data: EspnScoreboardDto = self.http.get_json(&url, false, None).await?;
-        let scoreboard = normalizers::espn_nhl_scoreboard(day, data)?;
+        let scoreboard = self
+            .espn_scoreboard(
+                league("nhl"),
+                day,
+                EspnScoreboardQuery::Date(day.to_string()),
+                normalizers::espn_nhl_scoreboard,
+            )
+            .await?;
         if scoreboard.games.iter().all(|game| game.game_status == 3) {
             self.cache.set_json(&cache_key, &scoreboard).await?;
         }
@@ -437,11 +491,9 @@ impl SportsData for EspnSportsData {
             return Ok(Some(cached));
         }
 
-        let url = format!(
-            "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/summary?event={game_id}"
-        );
-        let data: EspnSummaryDto = self.http.get_json(&url, false, None).await?;
-        let game = normalizers::espn_nhl_summary(data)?;
+        let game = self
+            .espn_summary(league("nhl"), game_id, normalizers::espn_nhl_summary)
+            .await?;
         if game.game_status == 3 {
             self.cache.set_json(&cache_key, &game).await?;
         }
@@ -453,15 +505,9 @@ impl SportsData for EspnSportsData {
         if let Some(cached) = self.cache.get_json::<NhlStandingsTable>(&cache_key).await? {
             return Ok(cached);
         }
-        let data: EspnStandingsDto = self
-            .http
-            .get_json(
-                "https://site.api.espn.com/apis/v2/sports/hockey/nhl/standings",
-                false,
-                None,
-            )
+        let standings = self
+            .espn_standings(league("nhl"), normalizers::espn_nhl_standings)
             .await?;
-        let standings = normalizers::espn_nhl_standings(data);
         self.cache.set_json(&cache_key, &standings).await?;
         Ok(standings)
     }
@@ -555,4 +601,40 @@ pub struct EspnPlayerGamelogDto {
     pub events: Value,
     #[serde(rename = "seasonTypes")]
     pub season_types: Vec<Value>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn espn_endpoint_builders_use_registry_paths() {
+        let nba = league("nba");
+        assert_eq!(
+            espn_scoreboard_url(nba, EspnScoreboardQuery::Date("2026-04-26".to_string())),
+            "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20260426"
+        );
+        assert_eq!(
+            espn_summary_url(nba, "401869385"),
+            "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=401869385"
+        );
+        assert_eq!(
+            espn_standings_url(nba),
+            "https://site.api.espn.com/apis/v2/sports/basketball/nba/standings"
+        );
+    }
+
+    #[test]
+    fn nfl_scoreboard_endpoint_uses_season_type_and_week() {
+        assert_eq!(
+            espn_scoreboard_url(
+                league("nfl"),
+                EspnScoreboardQuery::NflWeek {
+                    season_type: 3,
+                    week: 5,
+                },
+            ),
+            "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?seasontype=3&week=5"
+        );
+    }
 }
