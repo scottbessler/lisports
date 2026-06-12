@@ -66,7 +66,7 @@ T8|x|add MLB player pages from ESPN athlete/gamelog or mark unsupported in regis
 T9|x|add NFL player pages from ESPN athlete/gamelog or mark unsupported in registry and UI|V19,V20,I.http.nfl
 T10|x|add NHL player pages from ESPN athlete/gamelog or mark unsupported in registry and UI|V19,V20,I.http.nhl
 T11|x|replace hard-coded NBA fallback season `2023-24` with current/configured season or remove fallback if stale|C5,C6,I.up.nba.player_fallback,V20
-T12|.|add tests for cache write policy on empty completed scoreboards per league|C6,V7,V15
+T12|x|add tests for cache write policy on empty completed scoreboards per league|C6,V7,V15
 T13|.|add route/render parity matrix test over all league registry entries|V1,V2,V3,V18,V19
 T14|.|add normalizer tests for WNBA standings/team identity and NHL/NFL/MLB missing optional upstream fields|V12,V14,V16
 T15|.|document feature matrix in README: scoreboard, game, standings, player, date/week bucket, upstream source|C8,C9,V19,V20

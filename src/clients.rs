@@ -201,8 +201,7 @@ impl SportsData for EspnSportsData {
                 normalizers::espn_scoreboard,
             )
             .await?;
-        if !scoreboard.games.is_empty() && scoreboard.games.iter().all(|game| game.game_status == 3)
-        {
+        if should_cache_completed_scoreboard(&scoreboard) {
             self.cache.set_json(&cache_key, &scoreboard).await?;
         }
         Ok(scoreboard)
@@ -289,7 +288,7 @@ impl SportsData for EspnSportsData {
                 normalizers::espn_wnba_scoreboard,
             )
             .await?;
-        if scoreboard.games.iter().all(|game| game.game_status == 3) {
+        if should_cache_completed_scoreboard(&scoreboard) {
             self.cache.set_json(&cache_key, &scoreboard).await?;
         }
         Ok(scoreboard)
@@ -364,7 +363,7 @@ impl SportsData for EspnSportsData {
                 normalizers::espn_mlb_scoreboard,
             )
             .await?;
-        if scoreboard.games.iter().all(|game| game.game_status == 3) {
+        if should_cache_completed_scoreboard(&scoreboard) {
             self.cache.set_json(&cache_key, &scoreboard).await?;
         }
         Ok(scoreboard)
@@ -453,7 +452,7 @@ impl SportsData for EspnSportsData {
                 normalizers::espn_nfl_scoreboard,
             )
             .await?;
-        if scoreboard.games.iter().all(|game| game.game_status == 3) {
+        if should_cache_completed_scoreboard(&scoreboard) {
             self.cache.set_json(&cache_key, &scoreboard).await?;
         }
         Ok(scoreboard)
@@ -528,7 +527,7 @@ impl SportsData for EspnSportsData {
                 normalizers::espn_nhl_scoreboard,
             )
             .await?;
-        if scoreboard.games.iter().all(|game| game.game_status == 3) {
+        if should_cache_completed_scoreboard(&scoreboard) {
             self.cache.set_json(&cache_key, &scoreboard).await?;
         }
         Ok(scoreboard)
@@ -589,6 +588,10 @@ fn nba_fallback_season(today: NaiveDate) -> String {
         today.year() - 1
     };
     format!("{start_year}-{:02}", (start_year + 1) % 100)
+}
+
+fn should_cache_completed_scoreboard(scoreboard: &Scoreboard) -> bool {
+    !scoreboard.games.is_empty() && scoreboard.games.iter().all(|game| game.game_status == 3)
 }
 
 impl EspnSportsData {
@@ -683,6 +686,7 @@ pub struct EspnPlayerGamelogDto {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::{Game, Leaders, Team};
 
     #[test]
     fn espn_endpoint_builders_use_registry_paths() {
@@ -729,5 +733,57 @@ mod tests {
             nba_fallback_season(NaiveDate::from_ymd_opt(2026, 10, 1).unwrap()),
             "2026-27"
         );
+    }
+
+    #[test]
+    fn empty_scoreboards_are_not_file_cached() {
+        let scoreboard = Scoreboard {
+            game_date: "2026-04-26".to_string(),
+            games: Vec::new(),
+        };
+        assert!(!should_cache_completed_scoreboard(&scoreboard));
+    }
+
+    #[test]
+    fn only_non_empty_completed_scoreboards_are_file_cached() {
+        let mut scoreboard = Scoreboard {
+            game_date: "2026-04-26".to_string(),
+            games: vec![game_with_status(3)],
+        };
+        assert!(should_cache_completed_scoreboard(&scoreboard));
+
+        scoreboard.games[0].game_status = 2;
+        assert!(!should_cache_completed_scoreboard(&scoreboard));
+    }
+
+    fn game_with_status(game_status: i64) -> Game {
+        Game {
+            game_id: "1".to_string(),
+            game_status,
+            game_status_text: String::new(),
+            period: 0,
+            game_clock: String::new(),
+            game_time_utc: String::new(),
+            home_team: team(),
+            away_team: team(),
+            home_leaders: Leaders::default(),
+            away_leaders: Leaders::default(),
+        }
+    }
+
+    fn team() -> Team {
+        Team {
+            team_id: 1,
+            team_name: "Team".to_string(),
+            team_city: "City".to_string(),
+            team_tricode: "CTY".to_string(),
+            wins: 0,
+            losses: 0,
+            display_record: String::new(),
+            score: 0,
+            hits: 0,
+            errors: 0,
+            periods: Vec::new(),
+        }
     }
 }
