@@ -1056,20 +1056,28 @@ fn extract_leaders(c: &Value) -> Leaders {
 }
 
 fn playoff_series_record(competitor: &Value, competition: &Value) -> Option<String> {
-    if str_at(competition, &["series", "type"]).as_deref() != Some("playoff") {
-        return None;
-    }
+    let series = playoff_series(competition)?;
     let team_id = str_at(competitor, &["team", "id"]).or_else(|| str_at(competitor, &["id"]))?;
-    let team_wins = array_at(competition, &["series", "competitors"])
+    let team_wins = array_at(series, &["competitors"])
         .iter()
         .find(|series_team| str_at(series_team, &["id"]).as_deref() == Some(team_id.as_str()))
         .map(|series_team| i64_at(series_team, &["wins"]))?;
-    let opponent_wins = array_at(competition, &["series", "competitors"])
+    let opponent_wins = array_at(series, &["competitors"])
         .iter()
         .find(|series_team| str_at(series_team, &["id"]).as_deref() != Some(team_id.as_str()))
         .map(|series_team| i64_at(series_team, &["wins"]))
         .unwrap_or(0);
     Some(format!("{team_wins}-{opponent_wins}"))
+}
+
+fn playoff_series(competition: &Value) -> Option<&Value> {
+    match competition.get("series")? {
+        Value::Array(series) => series
+            .iter()
+            .find(|entry| str_at(entry, &["type"]).as_deref() == Some("playoff")),
+        series if str_at(series, &["type"]).as_deref() == Some("playoff") => Some(series),
+        _ => None,
+    }
 }
 
 fn espn_status_to_game_status(status: &Value) -> i64 {
@@ -1978,7 +1986,10 @@ mod tests {
             "header": {
                 "id": "401900001",
                 "competitions": [{
-                    "series": {"type": "playoff", "competitors": [{"id": "1", "wins": 3}, {"id": "13", "wins": 2}]},
+                    "series": [
+                        {"type": "season", "competitors": [{"id": "1", "wins": 0}, {"id": "13", "wins": 2}]},
+                        {"type": "playoff", "competitors": [{"id": "1", "wins": 3}, {"id": "13", "wins": 2}]}
+                    ],
                     "status": {"type": {"name": "STATUS_FINAL"}},
                     "competitors": [
                         {"homeAway": "away", "id": "1", "score": "3", "team": {"id": "1", "location": "Boston", "name": "Bruins", "abbreviation": "BOS"}, "record": [{"type": "total", "summary": "45-27-10"}], "linescores": [{"displayValue": "1"}, {"displayValue": "1"}, {"displayValue": "1"}]},
