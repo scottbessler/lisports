@@ -181,44 +181,42 @@ fn basketball_scoreboard_page_with_league(
     today_day: Option<NaiveDate>,
     page: BasketballPage,
 ) -> String {
-    let mut html = String::from(r#"<main class="page">"#);
-    html.push_str(&date_nav(day, page.base_path, today_day));
-    if scoreboard.games.is_empty() {
-        html.push_str(r#"<section class="center"><h1>No Games Scheduled</h1></section>"#);
+    let content = if scoreboard.games.is_empty() {
+        None
     } else {
-        let class = if selected.is_some() {
-            "scoreboard has-game"
-        } else {
-            "scoreboard"
-        };
-        html.push_str(&format!(r#"<section class="{class}">"#));
+        let mut content = String::new();
         if let Some(game) = selected {
-            html.push_str(&detail_nav(
+            content.push_str(&detail_nav(
                 page.base_path,
                 &day.to_string(),
                 &scoreboard.games,
                 &game.game_id,
                 page.league,
             ));
-            html.push_str(&game_details(game, page.league));
+            content.push_str(&game_details(game, page.league));
         } else {
-            html.push_str(&game_list(
+            content.push_str(&game_list(
                 page.base_path,
                 &day.to_string(),
                 &scoreboard.games,
                 page.league,
             ));
         }
-        html.push_str("</section>");
-    }
-    html.push_str("</main>");
+        Some(content)
+    };
     let refresh_at = basketball_refresh_at(scoreboard, selected);
     let title = if selected.is_some() {
         format!("{} Game", page.title)
     } else {
         format!("{} Scoreboard", page.title)
     };
-    layout_with_refresh(&title, &html, refresh_at.as_deref())
+    scoreboard_shell(
+        date_nav(day, page.base_path, today_day),
+        selected.is_some(),
+        content,
+        &title,
+        refresh_at.as_deref(),
+    )
 }
 
 pub fn mlb_scoreboard_page(
@@ -244,49 +242,44 @@ fn mlb_scoreboard_page_with_today_marker(
     selected: Option<&MlbBoxScore>,
     today_day: Option<NaiveDate>,
 ) -> String {
-    let mut html = String::from(r#"<main class="page">"#);
-    html.push_str(&date_nav(day, "/mlb/scoreboard", today_day));
-    if scoreboard.games.is_empty() {
-        html.push_str(r#"<section class="center"><h1>No Games Scheduled</h1></section>"#);
+    let content = if scoreboard.games.is_empty() {
+        None
     } else {
-        let class = if selected.is_some() {
-            "scoreboard has-game"
-        } else {
-            "scoreboard"
-        };
-        html.push_str(&format!(r#"<section class="{class}">"#));
+        let mut content = String::new();
         if let Some(game) = selected {
             let scoreboard_game = scoreboard
                 .games
                 .iter()
                 .find(|scoreboard_game| scoreboard_game.game_id == game.game_id);
-            html.push_str(&detail_nav(
+            content.push_str(&detail_nav(
                 "/mlb/scoreboard",
                 &day.to_string(),
                 &scoreboard.games,
                 &game.game_id,
                 League::Mlb,
             ));
-            html.push_str(&mlb_game_details(game, scoreboard_game));
+            content.push_str(&mlb_game_details(game, scoreboard_game));
         } else {
-            html.push_str(&game_list(
+            content.push_str(&game_list(
                 "/mlb/scoreboard",
                 &day.to_string(),
                 &scoreboard.games,
                 League::Mlb,
             ));
         }
-        html.push_str("</section>");
-    }
-    html.push_str("</main>");
+        Some(content)
+    };
     let refresh_at = mlb_refresh_at(scoreboard, selected);
-    layout_with_refresh(
-        if selected.is_some() {
-            "MLB Game"
-        } else {
-            "MLB Scoreboard"
-        },
-        &html,
+    let title = if selected.is_some() {
+        "MLB Game"
+    } else {
+        "MLB Scoreboard"
+    };
+    scoreboard_shell(
+        date_nav(day, "/mlb/scoreboard", today_day),
+        selected.is_some(),
+        content,
+        title,
         refresh_at.as_deref(),
     )
 }
@@ -296,45 +289,40 @@ pub fn nfl_scoreboard_page(
     scoreboard: &Scoreboard,
     selected: Option<&NflBoxScore>,
 ) -> String {
-    let mut html = String::from(r#"<main class="page">"#);
-    html.push_str(&week_nav(week, "/nfl/scoreboard"));
-    if scoreboard.games.is_empty() {
-        html.push_str(r#"<section class="center"><h1>No Games Scheduled</h1></section>"#);
+    let content = if scoreboard.games.is_empty() {
+        None
     } else {
-        let class = if selected.is_some() {
-            "scoreboard has-game"
-        } else {
-            "scoreboard"
-        };
-        html.push_str(&format!(r#"<section class="{class}">"#));
+        let mut content = String::new();
         if let Some(game) = selected {
-            html.push_str(&detail_nav(
+            content.push_str(&detail_nav(
                 "/nfl/scoreboard",
                 &week.to_string(),
                 &scoreboard.games,
                 &game.game_id,
                 League::Nfl,
             ));
-            html.push_str(&nfl_game_details(game));
+            content.push_str(&nfl_game_details(game));
         } else {
-            html.push_str(&game_list(
+            content.push_str(&game_list(
                 "/nfl/scoreboard",
                 &week.to_string(),
                 &scoreboard.games,
                 League::Nfl,
             ));
         }
-        html.push_str("</section>");
-    }
-    html.push_str("</main>");
+        Some(content)
+    };
     let refresh_at = nfl_refresh_at(scoreboard, selected);
-    layout_with_refresh(
-        if selected.is_some() {
-            "NFL Game"
-        } else {
-            "NFL Scoreboard"
-        },
-        &html,
+    let title = if selected.is_some() {
+        "NFL Game"
+    } else {
+        "NFL Scoreboard"
+    };
+    scoreboard_shell(
+        week_nav(week, "/nfl/scoreboard"),
+        selected.is_some(),
+        content,
+        title,
         refresh_at.as_deref(),
     )
 }
@@ -345,47 +333,67 @@ pub fn nhl_scoreboard_page_with_today(
     selected: Option<&NhlBoxScore>,
     today_day: NaiveDate,
 ) -> String {
-    let mut html = String::from(r#"<main class="page">"#);
-    html.push_str(&date_nav(day, "/nhl/scoreboard", Some(today_day)));
-    if scoreboard.games.is_empty() {
-        html.push_str(r#"<section class="center"><h1>No Games Scheduled</h1></section>"#);
+    let content = if scoreboard.games.is_empty() {
+        None
     } else {
-        let class = if selected.is_some() {
-            "scoreboard has-game"
-        } else {
-            "scoreboard"
-        };
-        html.push_str(&format!(r#"<section class="{class}">"#));
+        let mut content = String::new();
         if let Some(game) = selected {
-            html.push_str(&detail_nav(
+            content.push_str(&detail_nav(
                 "/nhl/scoreboard",
                 &day.to_string(),
                 &scoreboard.games,
                 &game.game_id,
                 League::Nhl,
             ));
-            html.push_str(&nhl_game_details(game));
+            content.push_str(&nhl_game_details(game));
         } else {
-            html.push_str(&game_list(
+            content.push_str(&game_list(
                 "/nhl/scoreboard",
                 &day.to_string(),
                 &scoreboard.games,
                 League::Nhl,
             ));
         }
-        html.push_str("</section>");
-    }
-    html.push_str("</main>");
+        Some(content)
+    };
     let refresh_at = nhl_refresh_at(scoreboard, selected);
-    layout_with_refresh(
-        if selected.is_some() {
-            "NHL Game"
-        } else {
-            "NHL Scoreboard"
-        },
-        &html,
+    let title = if selected.is_some() {
+        "NHL Game"
+    } else {
+        "NHL Scoreboard"
+    };
+    scoreboard_shell(
+        date_nav(day, "/nhl/scoreboard", Some(today_day)),
+        selected.is_some(),
+        content,
+        title,
         refresh_at.as_deref(),
     )
+}
+
+fn scoreboard_shell(
+    nav_html: String,
+    has_selected_game: bool,
+    content: Option<String>,
+    title: &str,
+    refresh_at: Option<&str>,
+) -> String {
+    let mut html = String::from(r#"<main class="page">"#);
+    html.push_str(&nav_html);
+    if let Some(content) = content {
+        let class = if has_selected_game {
+            "scoreboard has-game"
+        } else {
+            "scoreboard"
+        };
+        html.push_str(&format!(r#"<section class="{class}">"#));
+        html.push_str(&content);
+        html.push_str("</section>");
+    } else {
+        html.push_str(r#"<section class="center"><h1>No Games Scheduled</h1></section>"#);
+    }
+    html.push_str("</main>");
+    layout_with_refresh(title, &html, refresh_at)
 }
 
 fn week_nav(week: i64, base_path: &str) -> String {
