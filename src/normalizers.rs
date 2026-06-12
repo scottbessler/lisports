@@ -15,23 +15,6 @@ use crate::{
     },
 };
 
-const PLAYER_BOX_SCORE_STATS: [(&str, &str); 11] = [
-    ("minutes", "MIN"),
-    ("points", "PTS"),
-    ("rebounds", "RB"),
-    ("assists", "AS"),
-    ("fieldGoalsMade-fieldGoalsAttempted", "FG"),
-    (
-        "threePointFieldGoalsMade-threePointFieldGoalsAttempted",
-        "3P",
-    ),
-    ("freeThrowsMade-freeThrowsAttempted", "FT"),
-    ("turnovers", "TO"),
-    ("steals", "ST"),
-    ("blocks", "BK"),
-    ("fouls", "PF"),
-];
-
 pub fn nba_today_scoreboard(data: NbaTodaysScoreboardDto) -> Result<Scoreboard, AppError> {
     let day = str_at(&data.scoreboard, &["gameDate"]).unwrap_or_default();
     let games = array_at(&data.scoreboard, &["games"])
@@ -205,8 +188,8 @@ pub fn espn_nhl_summary(data: EspnSummaryDto) -> Result<NhlBoxScore, AppError> {
     Ok(NhlBoxScore {
         game_id: str_at(&data.header, &["id"]).unwrap_or_default(),
         game_status: espn_status_to_game_status(status),
-        home_team: nhl_summary_team(&data.boxscore, home_comp),
-        away_team: nhl_summary_team(&data.boxscore, away_comp),
+        home_team: nhl_summary_team(&data.boxscore, home_comp, header_comp),
+        away_team: nhl_summary_team(&data.boxscore, away_comp, header_comp),
     })
 }
 
@@ -429,7 +412,7 @@ pub fn espn_nhl_standings(data: EspnStandingsDto) -> NhlStandingsTable {
 }
 
 pub fn espn_player_gamelog(player_id: &str, data: EspnPlayerGamelogDto) -> PlayerStatsPage {
-    let source_labels = data.labels.clone();
+    let source_labels = data.labels;
     let mut summary_rows = Vec::new();
     let mut game_rows = Vec::new();
     for season in data.season_types {
@@ -437,15 +420,12 @@ pub fn espn_player_gamelog(player_id: &str, data: EspnPlayerGamelogDto) -> Playe
         for summary in array_at(&season, &["summary", "stats"]) {
             let summary_name =
                 str_at(&summary, &["displayName"]).unwrap_or_else(|| "Summary".to_string());
-            if !summary_name.to_ascii_lowercase().contains("average") {
-                continue;
-            }
             let mut row = vec![format!("{} {}", season_name, summary_name)];
             let stats: Vec<String> = array_at(&summary, &["stats"])
                 .iter()
                 .map(value_to_string)
                 .collect();
-            row.extend(ordered_player_stats(&source_labels, &stats));
+            row.extend(ordered_native_stats(&source_labels, &stats));
             summary_rows.push(row);
         }
         for category in array_at(&season, &["categories"]) {
@@ -470,18 +450,18 @@ pub fn espn_player_gamelog(player_id: &str, data: EspnPlayerGamelogDto) -> Playe
                     .iter()
                     .map(value_to_string)
                     .collect();
-                row.extend(ordered_player_stats(&source_labels, &stats));
+                row.extend(ordered_native_stats(&source_labels, &stats));
                 game_rows.push(row);
             }
         }
     }
     let mut summary_headers = vec!["Split".to_string()];
-    summary_headers.extend(player_box_score_headers());
+    summary_headers.extend(source_labels.clone());
     let mut game_headers = ["Date", "Opp", "Result", "Score", "Group"]
         .iter()
         .map(|v| v.to_string())
         .collect::<Vec<_>>();
-    game_headers.extend(player_box_score_headers());
+    game_headers.extend(source_labels);
     let _ = player_id;
     PlayerStatsPage {
         tables: vec![
@@ -489,56 +469,24 @@ pub fn espn_player_gamelog(player_id: &str, data: EspnPlayerGamelogDto) -> Playe
                 name: "Summary".to_string(),
                 headers: summary_headers,
                 rows: summary_rows,
+                first_column_links: Vec::new(),
             },
             Table {
                 name: "Game Log".to_string(),
                 headers: game_headers,
                 rows: game_rows,
+                first_column_links: Vec::new(),
             },
         ],
     }
 }
 
-fn player_box_score_headers() -> Vec<String> {
-    PLAYER_BOX_SCORE_STATS
+fn ordered_native_stats(labels: &[String], stats: &[String]) -> Vec<String> {
+    labels
         .iter()
-        .map(|(_, header)| (*header).to_string())
+        .enumerate()
+        .map(|(index, _)| stats.get(index).cloned().unwrap_or_default())
         .collect()
-}
-
-fn ordered_player_stats(labels: &[String], stats: &[String]) -> Vec<String> {
-    PLAYER_BOX_SCORE_STATS
-        .iter()
-        .map(|(key, _)| {
-            labels
-                .iter()
-                .position(|label| player_stat_label_matches(key, label))
-                .and_then(|index| stats.get(index))
-                .cloned()
-                .unwrap_or_default()
-        })
-        .collect()
-}
-
-fn player_stat_label_matches(key: &str, label: &str) -> bool {
-    let normalized = label.to_ascii_lowercase();
-    normalized == key.to_ascii_lowercase()
-        || match key {
-            "minutes" => normalized == "min",
-            "points" => normalized == "pts",
-            "rebounds" => normalized == "reb",
-            "assists" => normalized == "ast",
-            "fieldGoalsMade-fieldGoalsAttempted" => normalized == "fg",
-            "threePointFieldGoalsMade-threePointFieldGoalsAttempted" => {
-                normalized == "3pt" || normalized == "3p"
-            }
-            "freeThrowsMade-freeThrowsAttempted" => normalized == "ft",
-            "turnovers" => normalized == "to",
-            "steals" => normalized == "stl" || normalized == "st",
-            "blocks" => normalized == "blk" || normalized == "bk",
-            "fouls" => normalized == "pf",
-            _ => false,
-        }
 }
 
 pub fn nba_player_stats(data: Value) -> PlayerStatsPage {
@@ -567,6 +515,7 @@ pub fn nba_player_stats(data: Value) -> PlayerStatsPage {
                             .collect()
                     })
                     .collect(),
+                first_column_links: Vec::new(),
             })
             .collect(),
     }
@@ -764,10 +713,12 @@ fn espn_nfl_competitor_to_team(c: &Value, _competition: &Value) -> Team {
     }
 }
 
-fn espn_nhl_competitor_to_team(c: &Value, _competition: &Value) -> Team {
+fn espn_nhl_competitor_to_team(c: &Value, competition: &Value) -> Team {
     let (wins, losses) = total_record_summary(c)
         .map(|s| parse_record(&s))
         .unwrap_or((0, 0));
+    let display_record = playoff_series_record(c, competition)
+        .unwrap_or_else(|| total_record_summary(c).unwrap_or_else(|| format!("{wins}-{losses}")));
     Team {
         team_id: str_at(c, &["team", "id"])
             .or_else(|| str_at(c, &["id"]))
@@ -778,7 +729,7 @@ fn espn_nhl_competitor_to_team(c: &Value, _competition: &Value) -> Team {
         team_tricode: str_at(c, &["team", "abbreviation"]).unwrap_or_default(),
         wins,
         losses,
-        display_record: total_record_summary(c).unwrap_or_else(|| format!("{wins}-{losses}")),
+        display_record,
         score: str_at(c, &["score"]).map(|s| i64_from_str(&s)).unwrap_or(0),
         hits: 0,
         errors: 0,
@@ -870,12 +821,12 @@ fn nfl_summary_team(boxscore: &Value, comp: &Value) -> NflBoxScoreTeam {
     NflBoxScoreTeam {
         team,
         team_stats: nfl_team_stats_table(&team_group),
-        player_stats: nfl_player_tables(&player_group),
+        player_stats: player_stat_tables(&player_group, "/nfl/player"),
     }
 }
 
-fn nhl_summary_team(boxscore: &Value, comp: &Value) -> NhlBoxScoreTeam {
-    let team = espn_nhl_competitor_to_team(comp, &Value::Null);
+fn nhl_summary_team(boxscore: &Value, comp: &Value, competition: &Value) -> NhlBoxScoreTeam {
+    let team = espn_nhl_competitor_to_team(comp, competition);
     let abbr = team.team_tricode.clone();
     let team_group = array_at(boxscore, &["teams"])
         .into_iter()
@@ -891,7 +842,7 @@ fn nhl_summary_team(boxscore: &Value, comp: &Value) -> NhlBoxScoreTeam {
     NhlBoxScoreTeam {
         team,
         team_stats: nfl_team_stats_table(&team_group),
-        player_stats: nfl_player_tables(&player_group),
+        player_stats: player_stat_tables(&player_group, "/nhl/player"),
     }
 }
 
@@ -910,10 +861,11 @@ fn nfl_team_stats_table(group: &Value) -> Table {
         name: "Team Stats".to_string(),
         headers: vec!["Stat".to_string(), "Value".to_string()],
         rows,
+        first_column_links: Vec::new(),
     }
 }
 
-fn nfl_player_tables(group: &Value) -> Vec<Table> {
+fn player_stat_tables(group: &Value, player_base_path: &str) -> Vec<Table> {
     array_at(group, &["statistics"])
         .iter()
         .map(|stat_group| {
@@ -923,9 +875,12 @@ fn nfl_player_tables(group: &Value) -> Vec<Table> {
                     .iter()
                     .map(value_to_string),
             );
-            let mut rows: Vec<Vec<String>> = array_at(stat_group, &["athletes"])
+            let athletes = array_at(stat_group, &["athletes"]);
+            let mut first_column_links = Vec::new();
+            let mut rows: Vec<Vec<String>> = athletes
                 .iter()
                 .map(|athlete| {
+                    first_column_links.push(player_link(player_base_path, athlete));
                     let mut row =
                         vec![str_at(athlete, &["athlete", "displayName"]).unwrap_or_default()];
                     row.extend(array_at(athlete, &["stats"]).iter().map(value_to_string));
@@ -937,6 +892,7 @@ fn nfl_player_tables(group: &Value) -> Vec<Table> {
                 let mut row = vec!["Total".to_string()];
                 row.extend(totals.iter().map(value_to_string));
                 rows.push(row);
+                first_column_links.push(String::new());
             }
             Table {
                 name: str_at(stat_group, &["text"])
@@ -944,6 +900,7 @@ fn nfl_player_tables(group: &Value) -> Vec<Table> {
                     .unwrap_or_else(|| "Stats".to_string()),
                 headers,
                 rows,
+                first_column_links,
             }
         })
         .collect()
@@ -956,6 +913,7 @@ fn mlb_stat_table(group: &Value, index: usize, name: &str) -> Table {
             name: name.to_string(),
             headers: vec!["Name".to_string()],
             rows: Vec::new(),
+            first_column_links: Vec::new(),
         };
     };
     let mut headers = vec!["Name".to_string()];
@@ -964,9 +922,12 @@ fn mlb_stat_table(group: &Value, index: usize, name: &str) -> Table {
             .iter()
             .map(value_to_string),
     );
-    let rows = array_at(stat_group, &["athletes"])
+    let athletes = array_at(stat_group, &["athletes"]);
+    let mut first_column_links = Vec::new();
+    let rows = athletes
         .iter()
         .map(|athlete| {
+            first_column_links.push(player_link("/mlb/player", athlete));
             let mut row = vec![str_at(athlete, &["athlete", "displayName"]).unwrap_or_default()];
             row.extend(array_at(athlete, &["stats"]).iter().map(value_to_string));
             row
@@ -976,7 +937,15 @@ fn mlb_stat_table(group: &Value, index: usize, name: &str) -> Table {
         name: name.to_string(),
         headers,
         rows,
+        first_column_links,
     }
+}
+
+fn player_link(base_path: &str, athlete: &Value) -> String {
+    str_at(athlete, &["athlete", "id"])
+        .filter(|id| !id.is_empty())
+        .map(|id| format!("{base_path}/{id}"))
+        .unwrap_or_default()
 }
 
 fn summary_players(team: &Value) -> Vec<Player> {
@@ -1617,20 +1586,80 @@ mod tests {
         assert_eq!(page.tables[0].name, "Summary");
         assert_eq!(
             page.tables[0].headers,
-            [
-                "Split", "MIN", "PTS", "RB", "AS", "FG", "3P", "FT", "TO", "ST", "BK", "PF"
-            ]
+            ["Split", "MIN", "FG", "PTS", "REB", "AST", "TO"]
         );
-        assert_eq!(page.tables[0].rows.len(), 1);
-        assert_eq!(page.tables[0].rows[0][1..6], ["30", "20", "5", "4", "8-16"]);
+        assert_eq!(page.tables[0].rows.len(), 2);
         assert_eq!(
-            page.tables[1].headers[5..10],
-            ["MIN", "PTS", "RB", "AS", "FG"]
+            page.tables[0].rows[0][1..7],
+            ["300", "80-160", "200", "50", "40", "20"]
+        );
+        assert_eq!(
+            page.tables[0].rows[1][1..7],
+            ["30", "8-16", "20", "5", "4", "2"]
+        );
+        assert_eq!(
+            page.tables[1].headers[5..11],
+            ["MIN", "FG", "PTS", "REB", "AST", "TO"]
         );
         assert_eq!(page.tables[1].rows[0][1], "@ BOS");
         assert_eq!(
-            page.tables[1].rows[0][5..10],
-            ["31", "22", "6", "5", "9-17"]
+            page.tables[1].rows[0][5..11],
+            ["31", "9-17", "22", "6", "5", "3"]
+        );
+    }
+
+    #[test]
+    fn player_gamelog_preserves_mlb_native_labels_and_totals() {
+        let data: EspnPlayerGamelogDto = serde_json::from_value(serde_json::json!({
+            "labels": ["AB", "R", "H", "HR", "RBI", "AVG"],
+            "events": {"401815712": {"gameDate": "2026-06-01T00:00:00Z", "atVs": "vs", "opponent": {"abbreviation": "NYM"}, "gameResult": "W", "score": "5-2"}},
+            "seasonTypes": [{"displayName": "Regular Season", "summary": {"stats": [
+                {"displayName": "Totals", "stats": ["243", "48", "74", "13", "40", ".305"], "type": "total"}
+            ]}, "categories": [{"displayName": "june", "events": [{"eventId": "401815712", "stats": ["2", "2", "2", "1", "1", ".305"]}]}]}]
+        }))
+        .unwrap();
+
+        let page = espn_player_gamelog("39832", data);
+
+        assert_eq!(
+            page.tables[0].headers,
+            ["Split", "AB", "R", "H", "HR", "RBI", "AVG"]
+        );
+        assert_eq!(page.tables[0].rows[0][0], "Regular Season Totals");
+        assert_eq!(
+            page.tables[0].rows[0][1..7],
+            ["243", "48", "74", "13", "40", ".305"]
+        );
+        assert_eq!(
+            page.tables[1].rows[0][5..11],
+            ["2", "2", "2", "1", "1", ".305"]
+        );
+    }
+
+    #[test]
+    fn player_gamelog_preserves_nhl_native_labels_and_totals() {
+        let data: EspnPlayerGamelogDto = serde_json::from_value(serde_json::json!({
+            "labels": ["G", "A", "PTS", "+/-", "PIM", "S", "TOI/G"],
+            "events": {"401869765": {"gameDate": "2026-04-20T00:00:00Z", "atVs": "@", "opponent": {"abbreviation": "BUF"}, "gameResult": "L", "score": "3-2"}},
+            "seasonTypes": [{"displayName": "Postseason", "summary": {"stats": [
+                {"displayName": "Totals", "stats": ["3", "4", "7", "-7", "8", "22", "20:57"], "type": "total"}
+            ]}, "categories": [{"displayName": "Postseason", "events": [{"eventId": "401869765", "stats": ["1", "0", "1", "-3", "0", "5", "18:35"]}]}]}]
+        }))
+        .unwrap();
+
+        let page = espn_player_gamelog("3114778", data);
+
+        assert_eq!(
+            page.tables[0].headers,
+            ["Split", "G", "A", "PTS", "+/-", "PIM", "S", "TOI/G"]
+        );
+        assert_eq!(
+            page.tables[0].rows[0][1..8],
+            ["3", "4", "7", "-7", "8", "22", "20:57"]
+        );
+        assert_eq!(
+            page.tables[1].rows[0][5..12],
+            ["1", "0", "1", "-3", "0", "5", "18:35"]
         );
     }
 
@@ -1924,6 +1953,7 @@ mod tests {
                 "id": "401900001",
                 "date": "2026-04-26T23:00:00Z",
                 "competitions": [{
+                    "series": {"type": "playoff", "competitors": [{"id": "1", "wins": 3}, {"id": "13", "wins": 2}]},
                     "status": {"period": 3, "displayClock": "0:00", "type": {"name": "STATUS_FINAL", "completed": true, "shortDetail": "Final"}},
                     "competitors": [
                         {"homeAway": "away", "id": "1", "score": "3", "team": {"id": "1", "location": "Boston", "name": "Bruins", "abbreviation": "BOS"}, "record": [{"type": "total", "summary": "45-27-10"}], "linescores": [{"displayValue": "1"}, {"displayValue": "1"}, {"displayValue": "1"}]},
@@ -1936,7 +1966,8 @@ mod tests {
         let scoreboard = espn_nhl_scoreboard("2026-04-26", data).unwrap();
         assert_eq!(scoreboard.games.len(), 1);
         assert_eq!(scoreboard.games[0].away_team.team_tricode, "BOS");
-        assert_eq!(scoreboard.games[0].away_team.display_record, "45-27-10");
+        assert_eq!(scoreboard.games[0].away_team.display_record, "3-2");
+        assert_eq!(scoreboard.games[0].home_team.display_record, "2-3");
         assert_eq!(scoreboard.games[0].away_team.periods[2].score, 1);
         assert_eq!(scoreboard.games[0].game_status, 3);
     }
@@ -1947,6 +1978,7 @@ mod tests {
             "header": {
                 "id": "401900001",
                 "competitions": [{
+                    "series": {"type": "playoff", "competitors": [{"id": "1", "wins": 3}, {"id": "13", "wins": 2}]},
                     "status": {"type": {"name": "STATUS_FINAL"}},
                     "competitors": [
                         {"homeAway": "away", "id": "1", "score": "3", "team": {"id": "1", "location": "Boston", "name": "Bruins", "abbreviation": "BOS"}, "record": [{"type": "total", "summary": "45-27-10"}], "linescores": [{"displayValue": "1"}, {"displayValue": "1"}, {"displayValue": "1"}]},
@@ -1969,6 +2001,8 @@ mod tests {
         .unwrap();
         let game = espn_nhl_summary(data).unwrap();
         assert_eq!(game.away_team.team.team_tricode, "BOS");
+        assert_eq!(game.away_team.team.display_record, "3-2");
+        assert_eq!(game.home_team.team.display_record, "2-3");
         assert_eq!(game.away_team.team_stats.rows[0][0], "Shots");
         assert_eq!(game.away_team.player_stats[0].name, "Boston Skaters");
         assert_eq!(game.away_team.player_stats[0].rows[0][0], "David Pastrnak");

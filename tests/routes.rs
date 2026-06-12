@@ -431,6 +431,7 @@ async fn wnba_game_view_renders_selected_box_score() {
     assert!(!body.contains("All games"));
     assert!(body.contains("table class=\"sortable box-score-table\""));
     assert!(body.contains("Breanna Stewart"));
+    assert!(body.contains(r#"<a href="/wnba/player/2984190">Breanna Stewart*</a>"#));
     assert!(!body.contains("/nba/player/2984190"));
     assert!(body.contains("teamlogos/wnba/500/ny.png"));
 }
@@ -484,7 +485,7 @@ async fn mlb_game_view_renders_selected_box_score() {
     assert!(body.contains(r#"<td>3</td><td>2</td><td>-</td>"#));
     assert!(body.contains("Batting"));
     assert!(body.contains("Pitching"));
-    assert!(body.contains("Rafael Devers"));
+    assert!(body.contains(r#"<a href="/mlb/player/646240">Rafael Devers</a>"#));
 }
 
 #[tokio::test]
@@ -539,7 +540,7 @@ async fn nfl_game_view_renders_selected_box_score() {
     assert!(body.contains(r#"<td class="num">200</td><td class="num good">376</td>"#));
     assert!(body.contains(r#"<td class="num good">0</td><td class="num">2</td>"#));
     assert!(body.contains("Philadelphia Passing"));
-    assert!(body.contains("Jalen Hurts"));
+    assert!(body.contains(r#"<a href="/nfl/player/4040715">Jalen Hurts</a>"#));
 }
 
 #[tokio::test]
@@ -584,7 +585,7 @@ async fn nhl_game_view_renders_selected_box_score() {
     assert!(body.contains("NYR</th>"));
     assert!(body.contains(r#"<td class="num good">31</td><td class="num">29</td>"#));
     assert!(body.contains("Boston Skaters"));
-    assert!(body.contains("David Pastrnak"));
+    assert!(body.contains(r#"<a href="/nhl/player/3114778">David Pastrnak</a>"#));
 }
 
 #[tokio::test]
@@ -685,11 +686,13 @@ fn player_stats_page() -> PlayerStatsPage {
                 name: "Summary".to_string(),
                 headers: vec!["Split".to_string(), "PTS".to_string()],
                 rows: vec![vec!["Season Total".to_string(), "20.1".to_string()]],
+                first_column_links: Vec::new(),
             },
             Table {
                 name: "Game Log".to_string(),
                 headers: vec!["Date".to_string(), "PTS".to_string()],
                 rows: vec![vec!["2026-04-26".to_string(), "31".to_string()]],
+                first_column_links: Vec::new(),
             },
         ],
     }
@@ -1018,6 +1021,7 @@ fn mlb_box_score() -> MlbBoxScore {
                     "4".to_string(),
                     "2".to_string(),
                 ]],
+                first_column_links: vec!["/mlb/player/646240".to_string()],
             },
             pitching: Table {
                 name: "Pitching".to_string(),
@@ -1027,6 +1031,7 @@ fn mlb_box_score() -> MlbBoxScore {
                     "6.2".to_string(),
                     "4".to_string(),
                 ]],
+                first_column_links: vec!["/mlb/player/4894460".to_string()],
             },
         },
         home_team: MlbBoxScoreTeam {
@@ -1039,6 +1044,7 @@ fn mlb_box_score() -> MlbBoxScore {
                     "4".to_string(),
                     "2".to_string(),
                 ]],
+                first_column_links: vec!["/mlb/player/4917402".to_string()],
             },
             pitching: Table {
                 name: "Pitching".to_string(),
@@ -1048,6 +1054,7 @@ fn mlb_box_score() -> MlbBoxScore {
                     "5".to_string(),
                     "3".to_string(),
                 ]],
+                first_column_links: vec!["/mlb/player/4241443".to_string()],
             },
         },
     }
@@ -1148,6 +1155,7 @@ fn nfl_box_score() -> NflBoxScore {
                     vec!["Total Yards".to_string(), "200".to_string()],
                     vec!["Turnovers".to_string(), "0".to_string()],
                 ],
+                first_column_links: Vec::new(),
             },
             player_stats: vec![Table {
                 name: "Philadelphia Passing".to_string(),
@@ -1157,6 +1165,7 @@ fn nfl_box_score() -> NflBoxScore {
                     "15/24".to_string(),
                     "130".to_string(),
                 ]],
+                first_column_links: vec!["/nfl/player/4040715".to_string()],
             }],
         },
         home_team: NflBoxScoreTeam {
@@ -1168,6 +1177,7 @@ fn nfl_box_score() -> NflBoxScore {
                     vec!["Total Yards".to_string(), "376".to_string()],
                     vec!["Turnovers".to_string(), "2".to_string()],
                 ],
+                first_column_links: Vec::new(),
             },
             player_stats: vec![Table {
                 name: "Tampa Bay Passing".to_string(),
@@ -1177,6 +1187,7 @@ fn nfl_box_score() -> NflBoxScore {
                     "22/40".to_string(),
                     "272".to_string(),
                 ]],
+                first_column_links: vec!["/nfl/player/3052587".to_string()],
             }],
         },
     }
@@ -1213,6 +1224,7 @@ fn nhl_box_score() -> NhlBoxScore {
                     vec!["Shots".to_string(), "31".to_string()],
                     vec!["Hits".to_string(), "24".to_string()],
                 ],
+                first_column_links: Vec::new(),
             },
             player_stats: vec![Table {
                 name: "Boston Skaters".to_string(),
@@ -1222,6 +1234,7 @@ fn nhl_box_score() -> NhlBoxScore {
                     "1".to_string(),
                     "1".to_string(),
                 ]],
+                first_column_links: vec!["/nhl/player/3114778".to_string()],
             }],
         },
         home_team: NhlBoxScoreTeam {
@@ -1233,6 +1246,7 @@ fn nhl_box_score() -> NhlBoxScore {
                     vec!["Shots".to_string(), "29".to_string()],
                     vec!["Hits".to_string(), "20".to_string()],
                 ],
+                first_column_links: Vec::new(),
             },
             player_stats: vec![Table {
                 name: "New York Skaters".to_string(),
@@ -1242,6 +1256,7 @@ fn nhl_box_score() -> NhlBoxScore {
                     "0".to_string(),
                     "1".to_string(),
                 ]],
+                first_column_links: vec!["/nhl/player/3114777".to_string()],
             }],
         },
     }

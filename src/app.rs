@@ -148,7 +148,9 @@ pub async fn run() -> Result<(), AppError> {
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .map_err(AppError::cache)?;
-    tracing::info!("listening on http://{addr}");
+    let bound_addr = listener.local_addr().map_err(AppError::cache)?;
+    println!("listening on port {}", bound_addr.port());
+    tracing::info!("listening on http://{bound_addr}");
     axum::serve(listener, app).await.map_err(AppError::cache)?;
     Ok(())
 }

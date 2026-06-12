@@ -1104,6 +1104,10 @@ fn team_box(team: &BoxScoreTeam, other: &BoxScoreTeam, league: League) -> String
                 r#"<a href="/nba/player/{}">{}</a>"#,
                 player.person_id, player_name
             ),
+            League::Wnba => format!(
+                r#"<a href="/wnba/player/{}">{}</a>"#,
+                player.person_id, player_name
+            ),
             _ => player_name,
         };
         rows.push(vec![
@@ -1537,11 +1541,44 @@ pub fn player_page_for_league(league_label: &str, stats: &PlayerStatsPage) -> St
 
 fn render_table(table: &Table) -> String {
     let headers: Vec<&str> = table.headers.iter().map(String::as_str).collect();
-    sortable_table(&headers, &table.rows)
+    sortable_table_with_first_column_links(&headers, &table.rows, &table.first_column_links)
 }
 
 pub fn sortable_table(headers: &[&str], rows: &[Vec<String>]) -> String {
     sortable_table_with_options(headers, rows, TableOptions::default())
+}
+
+fn sortable_table_with_first_column_links(
+    headers: &[&str],
+    rows: &[Vec<String>],
+    first_column_links: &[String],
+) -> String {
+    if first_column_links.is_empty() {
+        return sortable_table(headers, rows);
+    }
+    let cells: Vec<Vec<TableCell>> = rows
+        .iter()
+        .enumerate()
+        .map(|(row_index, row)| {
+            row.iter()
+                .enumerate()
+                .map(|(cell_index, cell)| {
+                    if cell_index == 0
+                        && let Some(link) = first_column_links.get(row_index)
+                        && !link.is_empty()
+                    {
+                        return table_cell(format!(
+                            r#"<a href="{}">{}</a>"#,
+                            escape_attr(link),
+                            escape(cell)
+                        ));
+                    }
+                    table_cell(cell.clone())
+                })
+                .collect()
+        })
+        .collect();
+    sortable_table_cells(headers, &cells, TableOptions::default())
 }
 
 #[derive(Default)]

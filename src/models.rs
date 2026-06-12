@@ -302,4 +302,6 @@ pub struct Table {
     pub name: String,
     pub headers: Vec<String>,
     pub rows: Vec<Vec<String>>,
+    #[serde(default)]
+    pub first_column_links: Vec<String>,
 }
