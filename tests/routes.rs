@@ -211,6 +211,7 @@ async fn today_scoreboard_urls_render_without_redirecting() {
     let (mlb_status, mlb_body) = request("/mlb/scoreboard/today").await;
     let (nfl_status, nfl_body) = request("/nfl/scoreboard/today").await;
     let (wnba_status, wnba_body) = request("/wnba/scoreboard/today").await;
+    let (nhl_status, nhl_body) = request("/nhl/scoreboard/today").await;
 
     assert_eq!(nba_status, StatusCode::OK);
     assert!(nba_body.contains("NBA Scoreboard"));
@@ -233,6 +234,9 @@ async fn today_scoreboard_urls_render_without_redirecting() {
     assert_eq!(nfl_status, StatusCode::OK);
     assert!(nfl_body.contains("NFL Scoreboard"));
     assert!(nfl_body.contains("Super Bowl"));
+    assert!(
+        nfl_body.contains(r#"<a class="button active" href="/nfl/scoreboard/23">Super Bowl</a>"#)
+    );
 
     assert_eq!(wnba_status, StatusCode::OK);
     assert!(wnba_body.contains("WNBA Scoreboard"));
@@ -242,6 +246,15 @@ async fn today_scoreboard_urls_render_without_redirecting() {
     assert!(!date_nav(&wnba_body).contains("/wnba/scoreboard/today"));
     assert!(wnba_body.contains("class=\"game-card period-game-card\""));
     assert!(wnba_body.contains(r#"/wnba/scoreboard/2026-04-26/game/401900100"#));
+
+    assert_eq!(nhl_status, StatusCode::OK);
+    assert!(nhl_body.contains("NHL Scoreboard"));
+    assert!(nhl_body.contains(
+        r#"<a class="button active date-current" href="/nhl/scoreboard/2026-04-26">Sun 4/26 *</a>"#
+    ));
+    assert!(!date_nav(&nhl_body).contains("/nhl/scoreboard/today"));
+    assert!(nhl_body.contains("class=\"game-card period-game-card\""));
+    assert!(nhl_body.contains(r#"/nhl/scoreboard/2026-04-26/game/401900001"#));
 }
 
 #[tokio::test]

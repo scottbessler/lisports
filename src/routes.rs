@@ -178,9 +178,12 @@ pub async fn nhl_standings(State(state): State<AppState>) -> Result<Html<String>
     Ok(Html(render::nhl_standings_page(&standings)))
 }
 
-async fn nba_today_scoreboard(state: &AppState) -> Result<(NaiveDate, Scoreboard), AppError> {
+async fn date_today_scoreboard(
+    state: &AppState,
+    league: RouteLeague,
+) -> Result<(NaiveDate, Scoreboard), AppError> {
     let feed_day = Local::now().date_naive();
-    let scoreboard = state.data.days_games(&feed_day.to_string()).await?;
+    let scoreboard = days_games(state, league, &feed_day.to_string()).await?;
     let scoreboard_day = parse_day(&scoreboard.game_date).unwrap_or(feed_day);
     if has_live_or_completed_games(&scoreboard) {
         return Ok((scoreboard_day, scoreboard));
@@ -190,67 +193,13 @@ async fn nba_today_scoreboard(state: &AppState) -> Result<(NaiveDate, Scoreboard
         let Some(day) = feed_day.checked_sub_days(Days::new(offset)) else {
             break;
         };
-        let scoreboard = state.data.days_games(&day.to_string()).await?;
+        let scoreboard = days_games(state, league, &day.to_string()).await?;
         let scoreboard_day = parse_day(&scoreboard.game_date).unwrap_or(day);
         if has_live_or_completed_games(&scoreboard) {
             return Ok((scoreboard_day, scoreboard));
         }
     }
     Ok((scoreboard_day, scoreboard))
-}
-
-async fn wnba_today_scoreboard(state: &AppState) -> Result<(NaiveDate, Scoreboard), AppError> {
-    let scoreboard = state.data.wnba_todays_scoreboard().await?;
-    let feed_day = parse_day(&scoreboard.game_date)?;
-    if has_live_or_completed_games(&scoreboard) {
-        return Ok((feed_day, scoreboard));
-    }
-    for offset in 1..=TODAY_LOOKBACK_DAYS {
-        let Some(day) = feed_day.checked_sub_days(Days::new(offset)) else {
-            break;
-        };
-        let scoreboard = state.data.wnba_days_games(&day.to_string()).await?;
-        if has_live_or_completed_games(&scoreboard) {
-            return Ok((day, scoreboard));
-        }
-    }
-    Ok((feed_day, scoreboard))
-}
-
-async fn mlb_today_scoreboard(state: &AppState) -> Result<(NaiveDate, Scoreboard), AppError> {
-    let scoreboard = state.data.mlb_todays_scoreboard().await?;
-    let feed_day = parse_day(&scoreboard.game_date)?;
-    if has_live_or_completed_games(&scoreboard) {
-        return Ok((feed_day, scoreboard));
-    }
-    for offset in 1..=TODAY_LOOKBACK_DAYS {
-        let Some(day) = feed_day.checked_sub_days(Days::new(offset)) else {
-            break;
-        };
-        let scoreboard = state.data.mlb_days_games(&day.to_string()).await?;
-        if has_live_or_completed_games(&scoreboard) {
-            return Ok((day, scoreboard));
-        }
-    }
-    Ok((feed_day, scoreboard))
-}
-
-async fn nhl_today_scoreboard(state: &AppState) -> Result<(NaiveDate, Scoreboard), AppError> {
-    let scoreboard = state.data.nhl_todays_scoreboard().await?;
-    let feed_day = parse_day(&scoreboard.game_date)?;
-    if has_live_or_completed_games(&scoreboard) {
-        return Ok((feed_day, scoreboard));
-    }
-    for offset in 1..=TODAY_LOOKBACK_DAYS {
-        let Some(day) = feed_day.checked_sub_days(Days::new(offset)) else {
-            break;
-        };
-        let scoreboard = state.data.nhl_days_games(&day.to_string()).await?;
-        if has_live_or_completed_games(&scoreboard) {
-            return Ok((day, scoreboard));
-        }
-    }
-    Ok((feed_day, scoreboard))
 }
 
 fn has_live_or_completed_games(scoreboard: &Scoreboard) -> bool {
@@ -391,9 +340,8 @@ async fn today_scoreboard(
     league: RouteLeague,
 ) -> Result<(NaiveDate, Scoreboard), AppError> {
     match league {
-        RouteLeague::Nba => nba_today_scoreboard(state).await,
-        RouteLeague::Wnba => wnba_today_scoreboard(state).await,
-        RouteLeague::Mlb => mlb_today_scoreboard(state).await,
-        RouteLeague::Nhl => nhl_today_scoreboard(state).await,
+        RouteLeague::Nba | RouteLeague::Wnba | RouteLeague::Mlb | RouteLeague::Nhl => {
+            date_today_scoreboard(state, league).await
+        }
     }
 }
