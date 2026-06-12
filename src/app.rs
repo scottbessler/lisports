@@ -103,6 +103,10 @@ pub fn router(data: Arc<dyn SportsData>) -> Router {
         )
         .route("/nfl/standings", axum::routing::get(routes::nfl_standings))
         .route(
+            "/nfl/player/{player_id}",
+            axum::routing::get(routes::nfl_player),
+        )
+        .route(
             "/nhl/scoreboard",
             axum::routing::get(routes::nhl_scoreboard),
         )

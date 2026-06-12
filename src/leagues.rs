@@ -90,7 +90,7 @@ pub const LEAGUES: &[League] = &[
         scoreboard: true,
         game: true,
         standings: true,
-        player: PlayerFeature::Unsupported,
+        player: PlayerFeature::Supported,
     },
     League {
         id: LeagueId::Nhl,
@@ -144,7 +144,7 @@ mod tests {
         assert_eq!(by_slug("nba").unwrap().player, PlayerFeature::Supported);
         assert_eq!(by_slug("wnba").unwrap().player, PlayerFeature::Supported);
         assert_eq!(by_slug("mlb").unwrap().player, PlayerFeature::Supported);
-        assert_eq!(by_slug("nfl").unwrap().player, PlayerFeature::Unsupported);
+        assert_eq!(by_slug("nfl").unwrap().player, PlayerFeature::Supported);
         assert_eq!(by_slug("nhl").unwrap().player, PlayerFeature::Unsupported);
     }
 }

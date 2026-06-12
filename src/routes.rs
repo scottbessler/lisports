@@ -169,6 +169,15 @@ pub async fn nfl_standings(State(state): State<AppState>) -> Result<Html<String>
     Ok(Html(render::nfl_standings_page(&standings)))
 }
 
+pub async fn nfl_player(
+    State(state): State<AppState>,
+    Path(player_id): Path<String>,
+) -> Result<Html<String>, AppError> {
+    let player_id = numeric_id(&player_id, "player_id")?;
+    let stats = state.data.nfl_player_stats(&player_id).await?;
+    Ok(Html(render::player_page_for_league("NFL", &stats)))
+}
+
 pub async fn nhl_scoreboard() -> Redirect {
     dayless_scoreboard(RouteLeague::Nhl)
 }
