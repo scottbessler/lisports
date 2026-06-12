@@ -23,50 +23,25 @@ pub async fn healthcheck() -> &'static str {
 }
 
 pub async fn nba_scoreboard() -> Redirect {
-    Redirect::temporary("/nba/scoreboard/today")
+    dayless_scoreboard(RouteLeague::Nba)
 }
 
 pub async fn nba_scoreboard_today(State(state): State<AppState>) -> Result<Response, AppError> {
-    let (today_day, scoreboard) = nba_today_scoreboard(&state).await?;
-    Ok(Html(render::scoreboard_page_with_today(
-        today_day,
-        &scoreboard,
-        None,
-        today_day,
-    ))
-    .into_response())
+    date_scoreboard_today(&state, RouteLeague::Nba).await
 }
 
 pub async fn nba_scoreboard_day(
     State(state): State<AppState>,
     Path(day): Path<String>,
 ) -> Result<Html<String>, AppError> {
-    let parsed_day = parse_day(&day)?;
-    let scoreboard = state.data.days_games(&day).await?;
-    let today_day = nba_today_scoreboard(&state).await?.0;
-    Ok(Html(render::scoreboard_page_with_today(
-        parsed_day,
-        &scoreboard,
-        None,
-        today_day,
-    )))
+    date_scoreboard_day(&state, RouteLeague::Nba, &day).await
 }
 
 pub async fn nba_game(
     State(state): State<AppState>,
     Path((day, game_id)): Path<(String, String)>,
 ) -> Result<Html<String>, AppError> {
-    let parsed_day = parse_day(&day)?;
-    let game_id = numeric_id(&game_id, "game_id")?;
-    let scoreboard = state.data.days_games(&day).await?;
-    let game = state.data.game(&game_id).await?;
-    let today_day = nba_today_scoreboard(&state).await?.0;
-    Ok(Html(render::scoreboard_page_with_today(
-        parsed_day,
-        &scoreboard,
-        game.as_ref(),
-        today_day,
-    )))
+    date_game(&state, RouteLeague::Nba, &day, &game_id).await
 }
 
 pub async fn nba_standings(State(state): State<AppState>) -> Result<Html<String>, AppError> {
@@ -84,50 +59,25 @@ pub async fn nba_player(
 }
 
 pub async fn wnba_scoreboard() -> Redirect {
-    Redirect::temporary("/wnba/scoreboard/today")
+    dayless_scoreboard(RouteLeague::Wnba)
 }
 
 pub async fn wnba_scoreboard_today(State(state): State<AppState>) -> Result<Response, AppError> {
-    let (today_day, scoreboard) = wnba_today_scoreboard(&state).await?;
-    Ok(Html(render::wnba_scoreboard_page_with_today(
-        today_day,
-        &scoreboard,
-        None,
-        today_day,
-    ))
-    .into_response())
+    date_scoreboard_today(&state, RouteLeague::Wnba).await
 }
 
 pub async fn wnba_scoreboard_day(
     State(state): State<AppState>,
     Path(day): Path<String>,
 ) -> Result<Html<String>, AppError> {
-    let parsed_day = parse_day(&day)?;
-    let scoreboard = state.data.wnba_days_games(&day).await?;
-    let today_day = wnba_today_scoreboard(&state).await?.0;
-    Ok(Html(render::wnba_scoreboard_page_with_today(
-        parsed_day,
-        &scoreboard,
-        None,
-        today_day,
-    )))
+    date_scoreboard_day(&state, RouteLeague::Wnba, &day).await
 }
 
 pub async fn wnba_game(
     State(state): State<AppState>,
     Path((day, game_id)): Path<(String, String)>,
 ) -> Result<Html<String>, AppError> {
-    let parsed_day = parse_day(&day)?;
-    let game_id = numeric_id(&game_id, "game_id")?;
-    let scoreboard = state.data.wnba_days_games(&day).await?;
-    let game = state.data.wnba_game(&game_id).await?;
-    let today_day = wnba_today_scoreboard(&state).await?.0;
-    Ok(Html(render::wnba_scoreboard_page_with_today(
-        parsed_day,
-        &scoreboard,
-        game.as_ref(),
-        today_day,
-    )))
+    date_game(&state, RouteLeague::Wnba, &day, &game_id).await
 }
 
 pub async fn wnba_standings(State(state): State<AppState>) -> Result<Html<String>, AppError> {
@@ -136,50 +86,25 @@ pub async fn wnba_standings(State(state): State<AppState>) -> Result<Html<String
 }
 
 pub async fn mlb_scoreboard() -> Redirect {
-    Redirect::temporary("/mlb/scoreboard/today")
+    dayless_scoreboard(RouteLeague::Mlb)
 }
 
 pub async fn mlb_scoreboard_today(State(state): State<AppState>) -> Result<Response, AppError> {
-    let (today_day, scoreboard) = mlb_today_scoreboard(&state).await?;
-    Ok(Html(render::mlb_scoreboard_page_with_today(
-        today_day,
-        &scoreboard,
-        None,
-        today_day,
-    ))
-    .into_response())
+    date_scoreboard_today(&state, RouteLeague::Mlb).await
 }
 
 pub async fn mlb_scoreboard_day(
     State(state): State<AppState>,
     Path(day): Path<String>,
 ) -> Result<Html<String>, AppError> {
-    let parsed_day = parse_day(&day)?;
-    let scoreboard = state.data.mlb_days_games(&day).await?;
-    let today_day = mlb_today_scoreboard(&state).await?.0;
-    Ok(Html(render::mlb_scoreboard_page_with_today(
-        parsed_day,
-        &scoreboard,
-        None,
-        today_day,
-    )))
+    date_scoreboard_day(&state, RouteLeague::Mlb, &day).await
 }
 
 pub async fn mlb_game(
     State(state): State<AppState>,
     Path((day, game_id)): Path<(String, String)>,
 ) -> Result<Html<String>, AppError> {
-    let parsed_day = parse_day(&day)?;
-    let game_id = numeric_id(&game_id, "game_id")?;
-    let scoreboard = state.data.mlb_days_games(&day).await?;
-    let game = state.data.mlb_game(&game_id).await?;
-    let today_day = mlb_today_scoreboard(&state).await?.0;
-    Ok(Html(render::mlb_scoreboard_page_with_today(
-        parsed_day,
-        &scoreboard,
-        game.as_ref(),
-        today_day,
-    )))
+    date_game(&state, RouteLeague::Mlb, &day, &game_id).await
 }
 
 pub async fn mlb_standings(State(state): State<AppState>) -> Result<Html<String>, AppError> {
@@ -227,50 +152,25 @@ pub async fn nfl_standings(State(state): State<AppState>) -> Result<Html<String>
 }
 
 pub async fn nhl_scoreboard() -> Redirect {
-    Redirect::temporary("/nhl/scoreboard/today")
+    dayless_scoreboard(RouteLeague::Nhl)
 }
 
 pub async fn nhl_scoreboard_today(State(state): State<AppState>) -> Result<Response, AppError> {
-    let (today_day, scoreboard) = nhl_today_scoreboard(&state).await?;
-    Ok(Html(render::nhl_scoreboard_page_with_today(
-        today_day,
-        &scoreboard,
-        None,
-        today_day,
-    ))
-    .into_response())
+    date_scoreboard_today(&state, RouteLeague::Nhl).await
 }
 
 pub async fn nhl_scoreboard_day(
     State(state): State<AppState>,
     Path(day): Path<String>,
 ) -> Result<Html<String>, AppError> {
-    let parsed_day = parse_day(&day)?;
-    let scoreboard = state.data.nhl_days_games(&day).await?;
-    let today_day = nhl_today_scoreboard(&state).await?.0;
-    Ok(Html(render::nhl_scoreboard_page_with_today(
-        parsed_day,
-        &scoreboard,
-        None,
-        today_day,
-    )))
+    date_scoreboard_day(&state, RouteLeague::Nhl, &day).await
 }
 
 pub async fn nhl_game(
     State(state): State<AppState>,
     Path((day, game_id)): Path<(String, String)>,
 ) -> Result<Html<String>, AppError> {
-    let parsed_day = parse_day(&day)?;
-    let game_id = numeric_id(&game_id, "game_id")?;
-    let scoreboard = state.data.nhl_days_games(&day).await?;
-    let game = state.data.nhl_game(&game_id).await?;
-    let today_day = nhl_today_scoreboard(&state).await?.0;
-    Ok(Html(render::nhl_scoreboard_page_with_today(
-        parsed_day,
-        &scoreboard,
-        game.as_ref(),
-        today_day,
-    )))
+    date_game(&state, RouteLeague::Nhl, &day, &game_id).await
 }
 
 pub async fn nhl_standings(State(state): State<AppState>) -> Result<Html<String>, AppError> {
@@ -355,4 +255,145 @@ async fn nhl_today_scoreboard(state: &AppState) -> Result<(NaiveDate, Scoreboard
 
 fn has_live_or_completed_games(scoreboard: &Scoreboard) -> bool {
     scoreboard.games.iter().any(|game| game.game_status >= 2)
+}
+
+#[derive(Clone, Copy)]
+enum RouteLeague {
+    Nba,
+    Wnba,
+    Mlb,
+    Nhl,
+}
+
+impl RouteLeague {
+    fn scoreboard_path(self) -> &'static str {
+        match self {
+            Self::Nba => "/nba/scoreboard",
+            Self::Wnba => "/wnba/scoreboard",
+            Self::Mlb => "/mlb/scoreboard",
+            Self::Nhl => "/nhl/scoreboard",
+        }
+    }
+}
+
+fn dayless_scoreboard(league: RouteLeague) -> Redirect {
+    Redirect::temporary(&format!("{}/today", league.scoreboard_path()))
+}
+
+async fn date_scoreboard_today(
+    state: &AppState,
+    league: RouteLeague,
+) -> Result<Response, AppError> {
+    let (today_day, scoreboard) = today_scoreboard(state, league).await?;
+    let html = match league {
+        RouteLeague::Nba => {
+            render::scoreboard_page_with_today(today_day, &scoreboard, None, today_day)
+        }
+        RouteLeague::Wnba => {
+            render::wnba_scoreboard_page_with_today(today_day, &scoreboard, None, today_day)
+        }
+        RouteLeague::Mlb => {
+            render::mlb_scoreboard_page_with_today(today_day, &scoreboard, None, today_day)
+        }
+        RouteLeague::Nhl => {
+            render::nhl_scoreboard_page_with_today(today_day, &scoreboard, None, today_day)
+        }
+    };
+    Ok(Html(html).into_response())
+}
+
+async fn date_scoreboard_day(
+    state: &AppState,
+    league: RouteLeague,
+    day: &str,
+) -> Result<Html<String>, AppError> {
+    let parsed_day = parse_day(day)?;
+    let scoreboard = days_games(state, league, day).await?;
+    let today_day = today_scoreboard(state, league).await?.0;
+    let html = match league {
+        RouteLeague::Nba => {
+            render::scoreboard_page_with_today(parsed_day, &scoreboard, None, today_day)
+        }
+        RouteLeague::Wnba => {
+            render::wnba_scoreboard_page_with_today(parsed_day, &scoreboard, None, today_day)
+        }
+        RouteLeague::Mlb => {
+            render::mlb_scoreboard_page_with_today(parsed_day, &scoreboard, None, today_day)
+        }
+        RouteLeague::Nhl => {
+            render::nhl_scoreboard_page_with_today(parsed_day, &scoreboard, None, today_day)
+        }
+    };
+    Ok(Html(html))
+}
+
+async fn date_game(
+    state: &AppState,
+    league: RouteLeague,
+    day: &str,
+    game_id: &str,
+) -> Result<Html<String>, AppError> {
+    let parsed_day = parse_day(day)?;
+    let game_id = numeric_id(game_id, "game_id")?;
+    let scoreboard = days_games(state, league, day).await?;
+    let today_day = today_scoreboard(state, league).await?.0;
+    let html = match league {
+        RouteLeague::Nba => {
+            let game = state.data.game(&game_id).await?;
+            render::scoreboard_page_with_today(parsed_day, &scoreboard, game.as_ref(), today_day)
+        }
+        RouteLeague::Wnba => {
+            let game = state.data.wnba_game(&game_id).await?;
+            render::wnba_scoreboard_page_with_today(
+                parsed_day,
+                &scoreboard,
+                game.as_ref(),
+                today_day,
+            )
+        }
+        RouteLeague::Mlb => {
+            let game = state.data.mlb_game(&game_id).await?;
+            render::mlb_scoreboard_page_with_today(
+                parsed_day,
+                &scoreboard,
+                game.as_ref(),
+                today_day,
+            )
+        }
+        RouteLeague::Nhl => {
+            let game = state.data.nhl_game(&game_id).await?;
+            render::nhl_scoreboard_page_with_today(
+                parsed_day,
+                &scoreboard,
+                game.as_ref(),
+                today_day,
+            )
+        }
+    };
+    Ok(Html(html))
+}
+
+async fn days_games(
+    state: &AppState,
+    league: RouteLeague,
+    day: &str,
+) -> Result<Scoreboard, AppError> {
+    match league {
+        RouteLeague::Nba => state.data.days_games(day).await,
+        RouteLeague::Wnba => state.data.wnba_days_games(day).await,
+        RouteLeague::Mlb => state.data.mlb_days_games(day).await,
+        RouteLeague::Nhl => state.data.nhl_days_games(day).await,
+    }
+}
+
+async fn today_scoreboard(
+    state: &AppState,
+    league: RouteLeague,
+) -> Result<(NaiveDate, Scoreboard), AppError> {
+    match league {
+        RouteLeague::Nba => nba_today_scoreboard(state).await,
+        RouteLeague::Wnba => wnba_today_scoreboard(state).await,
+        RouteLeague::Mlb => mlb_today_scoreboard(state).await,
+        RouteLeague::Nhl => nhl_today_scoreboard(state).await,
+    }
 }
