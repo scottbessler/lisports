@@ -11,7 +11,9 @@ use crate::{
         MlbStandingsTable, MlbStandingsTeam, NflBoxScore, NflBoxScoreTeam, NflStandingsDivision,
         NflStandingsTable, NflStandingsTeam, NhlBoxScore, NhlBoxScoreTeam, NhlStandingsDivision,
         NhlStandingsTable, NhlStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard,
-        StandingsTable, StandingsTeam, Statistics, Table, Team, TeamStatistics,
+        SoccerBoxScore, SoccerBoxScoreTeam, SoccerStandingsGroup, SoccerStandingsTable,
+        SoccerStandingsTeam, StandingsTable, StandingsTeam, Statistics, Table, Team,
+        TeamStatistics,
     },
 };
 
@@ -45,6 +47,10 @@ pub fn espn_nfl_scoreboard(day: &str, data: EspnScoreboardDto) -> Result<Scorebo
 
 pub fn espn_nhl_scoreboard(day: &str, data: EspnScoreboardDto) -> Result<Scoreboard, AppError> {
     espn_scoreboard_with(day, data, espn_nhl_competitor_to_team)
+}
+
+pub fn espn_soccer_scoreboard(day: &str, data: EspnScoreboardDto) -> Result<Scoreboard, AppError> {
+    espn_scoreboard_with(day, data, espn_soccer_competitor_to_team)
 }
 
 fn espn_scoreboard_with(
@@ -190,6 +196,29 @@ pub fn espn_nhl_summary(data: EspnSummaryDto) -> Result<NhlBoxScore, AppError> {
         game_status: espn_status_to_game_status(status),
         home_team: nhl_summary_team(&data.boxscore, home_comp, header_comp),
         away_team: nhl_summary_team(&data.boxscore, away_comp, header_comp),
+    })
+}
+
+pub fn espn_soccer_summary(data: EspnSummaryDto) -> Result<SoccerBoxScore, AppError> {
+    let header_comp = data
+        .header
+        .pointer("/competitions/0")
+        .ok_or_else(|| AppError::parse("missing header competition"))?;
+    let status = header_comp.get("status").unwrap_or(&Value::Null);
+    let competitors = array_at(header_comp, &["competitors"]);
+    let home_comp = competitors
+        .iter()
+        .find(|c| str_at(c, &["homeAway"]).as_deref() == Some("home"))
+        .ok_or_else(|| AppError::parse("missing home"))?;
+    let away_comp = competitors
+        .iter()
+        .find(|c| str_at(c, &["homeAway"]).as_deref() == Some("away"))
+        .ok_or_else(|| AppError::parse("missing away"))?;
+    Ok(SoccerBoxScore {
+        game_id: str_at(&data.header, &["id"]).unwrap_or_default(),
+        game_status: espn_status_to_game_status(status),
+        home_team: soccer_summary_team(&data.boxscore, home_comp),
+        away_team: soccer_summary_team(&data.boxscore, away_comp),
     })
 }
 
@@ -409,6 +438,31 @@ pub fn espn_nhl_standings(data: EspnStandingsDto) -> NhlStandingsTable {
         }
     }
     NhlStandingsTable { divisions }
+}
+
+pub fn espn_soccer_standings(data: EspnStandingsDto) -> SoccerStandingsTable {
+    SoccerStandingsTable {
+        groups: data
+            .children
+            .into_iter()
+            .filter_map(|group| {
+                let teams: Vec<SoccerStandingsTeam> = array_at(&group, &["standings", "entries"])
+                    .iter()
+                    .map(soccer_standings_team)
+                    .collect();
+                if teams.is_empty() {
+                    None
+                } else {
+                    Some(SoccerStandingsGroup {
+                        group: str_at(&group, &["name"])
+                            .or_else(|| str_at(&group, &["abbreviation"]))
+                            .unwrap_or_else(|| "Group".to_string()),
+                        teams,
+                    })
+                }
+            })
+            .collect(),
+    }
 }
 
 pub fn espn_player_gamelog(player_id: &str, data: EspnPlayerGamelogDto) -> PlayerStatsPage {
@@ -747,6 +801,33 @@ fn espn_nhl_competitor_to_team(c: &Value, competition: &Value) -> Team {
     }
 }
 
+fn espn_soccer_competitor_to_team(c: &Value, _competition: &Value) -> Team {
+    let display_record = total_record_summary(c).unwrap_or_default();
+    let (wins, losses) = if display_record.is_empty() {
+        (0, 0)
+    } else {
+        parse_record(&display_record)
+    };
+    Team {
+        team_id: str_at(c, &["team", "id"])
+            .or_else(|| str_at(c, &["id"]))
+            .map(|s| i64_from_str(&s))
+            .unwrap_or(0),
+        team_name: str_at(c, &["team", "name"])
+            .or_else(|| str_at(c, &["team", "displayName"]))
+            .unwrap_or_default(),
+        team_city: str_at(c, &["team", "location"]).unwrap_or_default(),
+        team_tricode: str_at(c, &["team", "abbreviation"]).unwrap_or_default(),
+        wins,
+        losses,
+        display_record,
+        score: str_at(c, &["score"]).map(|s| i64_from_str(&s)).unwrap_or(0),
+        hits: 0,
+        errors: 0,
+        periods: Vec::new(),
+    }
+}
+
 fn summary_team(
     boxscore: &Value,
     comp: &Value,
@@ -844,6 +925,48 @@ fn nhl_summary_team(boxscore: &Value, comp: &Value, competition: &Value) -> NhlB
         team,
         team_stats: nfl_team_stats_table(&team_group),
         player_stats: player_stat_tables(&player_group, "/nhl/player"),
+    }
+}
+
+fn soccer_summary_team(boxscore: &Value, comp: &Value) -> SoccerBoxScoreTeam {
+    let team = espn_soccer_competitor_to_team(comp, &Value::Null);
+    let team_id = team.team_id.to_string();
+    let abbr = team.team_tricode.clone();
+    let name = team.team_name.clone();
+    let team_group = array_at(boxscore, &["teams"])
+        .into_iter()
+        .find(|team_box| {
+            str_at(team_box, &["team", "id"]).as_deref() == Some(team_id.as_str())
+                || str_at(team_box, &["team", "abbreviation"]).as_deref() == Some(abbr.as_str())
+                || str_at(team_box, &["team", "displayName"]).as_deref() == Some(name.as_str())
+        })
+        .unwrap_or(Value::Null);
+    SoccerBoxScoreTeam {
+        team,
+        team_stats: soccer_team_stats_table(&team_group),
+    }
+}
+
+fn soccer_team_stats_table(group: &Value) -> Table {
+    let rows = array_at(group, &["statistics"])
+        .iter()
+        .map(|stat| {
+            vec![
+                str_at(stat, &["label"])
+                    .or_else(|| str_at(stat, &["displayName"]))
+                    .or_else(|| str_at(stat, &["name"]))
+                    .unwrap_or_default(),
+                str_at(stat, &["displayValue"])
+                    .or_else(|| stat.get("value").map(value_to_string))
+                    .unwrap_or_default(),
+            ]
+        })
+        .collect();
+    Table {
+        name: "Team Stats".to_string(),
+        headers: vec!["Stat".to_string(), "Value".to_string()],
+        rows,
+        first_column_links: Vec::new(),
     }
 }
 
@@ -1343,6 +1466,31 @@ fn collect_nhl_standings(
         {
             group.teams.push(row);
         }
+    }
+}
+
+fn soccer_standings_team(entry: &Value) -> SoccerStandingsTeam {
+    let stats = array_at(entry, &["stats"]);
+    SoccerStandingsTeam {
+        team_id: str_at(entry, &["team", "id"])
+            .map(|s| i64_from_str(&s))
+            .unwrap_or(0),
+        team_name: str_at(entry, &["team", "displayName"])
+            .or_else(|| str_at(entry, &["team", "name"]))
+            .unwrap_or_default(),
+        team_tricode: str_at(entry, &["team", "abbreviation"]).unwrap_or_default(),
+        rank: stat_num(&stats, "rank"),
+        games_played: stat_num(&stats, "gamesPlayed"),
+        wins: stat_num(&stats, "wins"),
+        draws: stat_num(&stats, "ties"),
+        losses: stat_num(&stats, "losses"),
+        goals_for: stat_num(&stats, "pointsFor"),
+        goals_against: stat_num(&stats, "pointsAgainst"),
+        goal_diff: stat_display(&stats, "pointDifferential").unwrap_or_default(),
+        points: stat_num(&stats, "points"),
+        record: stat_display(&stats, "overall")
+            .or_else(|| stat_display(&stats, "total"))
+            .unwrap_or_default(),
     }
 }
 
@@ -2042,6 +2190,61 @@ mod tests {
 
         assert!(game.away_team.team_stats.rows.is_empty());
         assert!(game.home_team.player_stats.is_empty());
+    }
+
+    #[test]
+    fn espn_soccer_scoreboard_conversion_produces_match_cards() {
+        let data: EspnScoreboardDto = serde_json::from_value(serde_json::json!({
+            "events": [{
+                "id": "633790",
+                "date": "2022-11-20T16:00Z",
+                "competitions": [{
+                    "status": {"period": 2, "displayClock": "90'+6'", "type": {"name": "STATUS_FULL_TIME", "completed": true, "shortDetail": "FT"}},
+                    "competitors": [
+                        {"homeAway": "home", "id": "4398", "score": "0", "team": {"id": "4398", "location": "Qatar", "name": "Qatar", "abbreviation": "QAT"}, "records": [{"type": "total", "summary": "0-0-1"}]},
+                        {"homeAway": "away", "id": "209", "score": "2", "team": {"id": "209", "location": "Ecuador", "name": "Ecuador", "abbreviation": "ECU"}, "records": [{"type": "total", "summary": "1-0-0"}]}
+                    ]
+                }]
+            }]
+        }))
+        .unwrap();
+
+        let scoreboard = espn_soccer_scoreboard("2022-11-20", data).unwrap();
+
+        assert_eq!(scoreboard.games[0].away_team.team_tricode, "ECU");
+        assert_eq!(scoreboard.games[0].away_team.display_record, "1-0-0");
+        assert!(scoreboard.games[0].away_team.periods.is_empty());
+        assert_eq!(scoreboard.games[0].game_status_text, "FT");
+    }
+
+    #[test]
+    fn espn_soccer_summary_conversion_produces_team_stats() {
+        let data: EspnSummaryDto = serde_json::from_value(serde_json::json!({
+            "header": {
+                "id": "633790",
+                "competitions": [{
+                    "status": {"type": {"name": "STATUS_FULL_TIME", "completed": true, "shortDetail": "FT"}},
+                    "competitors": [
+                        {"homeAway": "home", "id": "4398", "score": "0", "team": {"id": "4398", "location": "Qatar", "name": "Qatar", "abbreviation": "QAT"}, "record": [{"type": "total", "summary": "0-0-1"}]},
+                        {"homeAway": "away", "id": "209", "score": "2", "team": {"id": "209", "location": "Ecuador", "name": "Ecuador", "abbreviation": "ECU"}, "record": [{"type": "total", "summary": "1-0-0"}]}
+                    ]
+                }]
+            },
+            "boxscore": {
+                "teams": [
+                    {"team": {"id": "4398", "displayName": "Qatar"}, "statistics": [{"label": "Possession", "displayValue": "47.1"}]},
+                    {"team": {"id": "209", "displayName": "Ecuador"}, "statistics": [{"label": "Possession", "displayValue": "52.9"}]}
+                ]
+            },
+            "gameInfo": null
+        }))
+        .unwrap();
+
+        let game = espn_soccer_summary(data).unwrap();
+
+        assert_eq!(game.away_team.team.team_tricode, "ECU");
+        assert_eq!(game.away_team.team_stats.rows[0], ["Possession", "52.9"]);
+        assert_eq!(game.home_team.team_stats.rows[0], ["Possession", "47.1"]);
     }
 
     #[test]

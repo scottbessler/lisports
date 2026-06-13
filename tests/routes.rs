@@ -15,7 +15,9 @@ use lisports::{
         MlbStandingsTable, MlbStandingsTeam, NflBoxScore, NflBoxScoreTeam, NflStandingsDivision,
         NflStandingsTable, NflStandingsTeam, NhlBoxScore, NhlBoxScoreTeam, NhlStandingsDivision,
         NhlStandingsTable, NhlStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard,
-        StandingsTable, StandingsTeam, Statistics, Table, Team, TeamStatistics,
+        SoccerBoxScore, SoccerBoxScoreTeam, SoccerStandingsGroup, SoccerStandingsTable,
+        SoccerStandingsTeam, StandingsTable, StandingsTeam, Statistics, Table, Team,
+        TeamStatistics,
     },
 };
 use tower::ServiceExt;
@@ -188,6 +190,27 @@ impl SportsData for FakeSportsData {
     async fn nhl_player_stats(&self, _player_id: &str) -> Result<PlayerStatsPage, AppError> {
         Ok(player_stats_page())
     }
+
+    async fn worldcup_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
+        Ok(worldcup_scoreboard())
+    }
+
+    async fn worldcup_days_games(&self, _day: &str) -> Result<Scoreboard, AppError> {
+        Ok(worldcup_scoreboard())
+    }
+
+    async fn worldcup_game(&self, _game_id: &str) -> Result<Option<SoccerBoxScore>, AppError> {
+        Ok(Some(worldcup_box_score()))
+    }
+
+    async fn worldcup_standings(&self) -> Result<SoccerStandingsTable, AppError> {
+        Ok(SoccerStandingsTable {
+            groups: vec![SoccerStandingsGroup {
+                group: "Group A".to_string(),
+                teams: vec![soccer_standing_team(1, "Ecuador", "ECU")],
+            }],
+        })
+    }
 }
 
 #[tokio::test]
@@ -215,6 +238,7 @@ async fn today_scoreboard_urls_render_without_redirecting() {
     let (nfl_status, nfl_body) = request("/nfl/scoreboard/today").await;
     let (wnba_status, wnba_body) = request("/wnba/scoreboard/today").await;
     let (nhl_status, nhl_body) = request("/nhl/scoreboard/today").await;
+    let (worldcup_status, worldcup_body) = request("/worldcup/scoreboard/today").await;
 
     assert_eq!(nba_status, StatusCode::OK);
     assert!(nba_body.contains("NBA Scoreboard"));
@@ -258,6 +282,15 @@ async fn today_scoreboard_urls_render_without_redirecting() {
     assert!(!date_nav(&nhl_body).contains("/nhl/scoreboard/today"));
     assert!(nhl_body.contains("class=\"game-card period-game-card\""));
     assert!(nhl_body.contains(r#"/nhl/scoreboard/2026-04-26/game/401900001"#));
+
+    assert_eq!(worldcup_status, StatusCode::OK);
+    assert!(worldcup_body.contains("World Cup Scoreboard"));
+    assert!(worldcup_body.contains(
+        r#"<a class="button active date-current" href="/worldcup/scoreboard/2026-04-26">Sun 4/26 *</a>"#
+    ));
+    assert!(!date_nav(&worldcup_body).contains("/worldcup/scoreboard/today"));
+    assert!(worldcup_body.contains("class=\"game-card soccer-game-card\""));
+    assert!(worldcup_body.contains(r#"/worldcup/scoreboard/2026-04-26/game/633790"#));
 }
 
 #[tokio::test]
@@ -300,6 +333,8 @@ async fn dayless_scoreboard_urls_redirect_to_today() {
     let (nfl_status, nfl_location) = request_redirect_location("/nfl/scoreboard").await;
     let (nhl_status, nhl_location) = request_redirect_location("/nhl/scoreboard").await;
     let (wnba_status, wnba_location) = request_redirect_location("/wnba/scoreboard").await;
+    let (worldcup_status, worldcup_location) =
+        request_redirect_location("/worldcup/scoreboard").await;
 
     assert_eq!(nba_status, StatusCode::TEMPORARY_REDIRECT);
     assert_eq!(nba_location, "/nba/scoreboard/today");
@@ -311,6 +346,8 @@ async fn dayless_scoreboard_urls_redirect_to_today() {
     assert_eq!(nhl_location, "/nhl/scoreboard/today");
     assert_eq!(wnba_status, StatusCode::TEMPORARY_REDIRECT);
     assert_eq!(wnba_location, "/wnba/scoreboard/today");
+    assert_eq!(worldcup_status, StatusCode::TEMPORARY_REDIRECT);
+    assert_eq!(worldcup_location, "/worldcup/scoreboard/today");
 }
 
 #[tokio::test]
@@ -610,6 +647,39 @@ async fn nhl_player_route_renders_stats() {
 }
 
 #[tokio::test]
+async fn worldcup_scoreboard_renders_nav_and_game_cards() {
+    let (status, body) = request("/worldcup/scoreboard/2026-04-26").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("World Cup Scoreboard"));
+    assert!(body.contains("World Cup Standings"));
+    assert!(body.contains("class=\"game-card soccer-game-card\""));
+    assert!(body.contains("<th>Score</th>"));
+    assert!(body.contains("teamlogos/countries/500/ecu.png"));
+    assert!(body.contains("ECU"));
+}
+
+#[tokio::test]
+async fn worldcup_game_view_renders_selected_match_stats() {
+    let (status, body) = request("/worldcup/scoreboard/2026-04-26/game/633790").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("World Cup Match"));
+    assert!(body.contains("scoreboard has-game"));
+    assert!(body.contains("Team Stats"));
+    assert!(body.contains("Possession"));
+    assert!(body.contains("Ecuador"));
+}
+
+#[tokio::test]
+async fn worldcup_standings_render_sortable_tables() {
+    let (status, body) = request("/worldcup/standings").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("World Cup Standings"));
+    assert!(body.contains("Group A"));
+    assert!(body.contains("Ecuador"));
+    assert!(body.contains("table class=\"sortable\""));
+}
+
+#[tokio::test]
 async fn invalid_route_params_return_bad_request() {
     let (bad_day, _) = request("/nba/scoreboard/not-a-day").await;
     let (bad_game, _) = request("/nba/scoreboard/2026-04-26/game/abc").await;
@@ -627,6 +697,8 @@ async fn invalid_route_params_return_bad_request() {
     let (bad_wnba_day, _) = request("/wnba/scoreboard/not-a-day").await;
     let (bad_wnba_game, _) = request("/wnba/scoreboard/2026-04-26/game/abc").await;
     let (bad_wnba_player, _) = request("/wnba/player/abc").await;
+    let (bad_worldcup_day, _) = request("/worldcup/scoreboard/not-a-day").await;
+    let (bad_worldcup_game, _) = request("/worldcup/scoreboard/2026-04-26/game/abc").await;
     assert_eq!(bad_day, StatusCode::BAD_REQUEST);
     assert_eq!(bad_game, StatusCode::BAD_REQUEST);
     assert_eq!(bad_player, StatusCode::BAD_REQUEST);
@@ -643,6 +715,8 @@ async fn invalid_route_params_return_bad_request() {
     assert_eq!(bad_wnba_day, StatusCode::BAD_REQUEST);
     assert_eq!(bad_wnba_game, StatusCode::BAD_REQUEST);
     assert_eq!(bad_wnba_player, StatusCode::BAD_REQUEST);
+    assert_eq!(bad_worldcup_day, StatusCode::BAD_REQUEST);
+    assert_eq!(bad_worldcup_game, StatusCode::BAD_REQUEST);
 }
 
 async fn request(uri: &str) -> (StatusCode, String) {
@@ -705,6 +779,7 @@ fn matrix_game_id(slug: &str) -> &'static str {
         "mlb" => "401815095",
         "nfl" => "401772845",
         "nhl" => "401900001",
+        "worldcup" => "633790",
         _ => "1",
     }
 }
@@ -1262,6 +1337,55 @@ fn nhl_box_score() -> NhlBoxScore {
     }
 }
 
+fn worldcup_scoreboard() -> Scoreboard {
+    Scoreboard {
+        game_date: "2026-04-26".to_string(),
+        games: vec![Game {
+            game_id: "633790".to_string(),
+            game_status: 3,
+            game_status_text: "FT".to_string(),
+            period: 2,
+            game_clock: String::new(),
+            game_time_utc: "2026-04-26T16:00:00Z".to_string(),
+            away_team: ecuador_team(),
+            home_team: qatar_team(),
+            away_leaders: Leaders::default(),
+            home_leaders: Leaders::default(),
+        }],
+    }
+}
+
+fn worldcup_box_score() -> SoccerBoxScore {
+    SoccerBoxScore {
+        game_id: "633790".to_string(),
+        game_status: 3,
+        away_team: SoccerBoxScoreTeam {
+            team: ecuador_team(),
+            team_stats: Table {
+                name: "Team Stats".to_string(),
+                headers: vec!["Stat".to_string(), "Value".to_string()],
+                rows: vec![
+                    vec!["Possession".to_string(), "52.9".to_string()],
+                    vec!["SHOTS".to_string(), "6".to_string()],
+                ],
+                first_column_links: Vec::new(),
+            },
+        },
+        home_team: SoccerBoxScoreTeam {
+            team: qatar_team(),
+            team_stats: Table {
+                name: "Team Stats".to_string(),
+                headers: vec!["Stat".to_string(), "Value".to_string()],
+                rows: vec![
+                    vec!["Possession".to_string(), "47.1".to_string()],
+                    vec!["SHOTS".to_string(), "5".to_string()],
+                ],
+                first_column_links: Vec::new(),
+            },
+        },
+    }
+}
+
 fn eagles_team() -> Team {
     Team {
         team_id: 21,
@@ -1323,6 +1447,38 @@ fn rangers_team() -> Team {
         hits: 0,
         errors: 0,
         periods: periods([0, 1, 1]),
+    }
+}
+
+fn ecuador_team() -> Team {
+    Team {
+        team_id: 209,
+        team_name: "Ecuador".to_string(),
+        team_city: "Ecuador".to_string(),
+        team_tricode: "ECU".to_string(),
+        wins: 1,
+        losses: 0,
+        display_record: "1-0-0".to_string(),
+        score: 2,
+        hits: 0,
+        errors: 0,
+        periods: Vec::new(),
+    }
+}
+
+fn qatar_team() -> Team {
+    Team {
+        team_id: 4398,
+        team_name: "Qatar".to_string(),
+        team_city: "Qatar".to_string(),
+        team_tricode: "QAT".to_string(),
+        wins: 0,
+        losses: 1,
+        display_record: "0-1-0".to_string(),
+        score: 0,
+        hits: 0,
+        errors: 0,
+        periods: Vec::new(),
     }
 }
 
@@ -1388,6 +1544,24 @@ fn mlb_standing_team(
         runs_allowed: 99,
         run_diff: "+47".to_string(),
         streak: "L1".to_string(),
+    }
+}
+
+fn soccer_standing_team(rank: i64, name: &str, tricode: &str) -> SoccerStandingsTeam {
+    SoccerStandingsTeam {
+        team_id: rank,
+        team_name: name.to_string(),
+        team_tricode: tricode.to_string(),
+        rank,
+        games_played: 1,
+        wins: 1,
+        draws: 0,
+        losses: 0,
+        goals_for: 2,
+        goals_against: 0,
+        goal_diff: "+2".to_string(),
+        points: 3,
+        record: "1-0-0".to_string(),
     }
 }
 

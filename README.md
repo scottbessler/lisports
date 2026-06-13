@@ -35,6 +35,11 @@ LiSports is a Rust web server that renders static HTML for a small sports dashbo
 - `/nhl/scoreboard/:day/game/:game_id` renders the date scoreboard plus NHL stat tables
 - `/nhl/standings` renders NHL standings
 - `/nhl/player/:player_id` renders NHL player stats
+- `/worldcup/scoreboard` redirects to `/worldcup/scoreboard/today`
+- `/worldcup/scoreboard/today` renders today's World Cup scoreboard
+- `/worldcup/scoreboard/:day` renders the World Cup matches for a date in `YYYY-MM-DD` format
+- `/worldcup/scoreboard/:day/game/:game_id` renders the date scoreboard plus World Cup match stats
+- `/worldcup/standings` renders World Cup standings
 - `/healthcheck` returns `OK`
 
 ## Feature Matrix
@@ -46,6 +51,7 @@ LiSports is a Rust web server that renders static HTML for a small sports dashbo
 | MLB | yes | yes | yes | yes | date | ESPN site APIs |
 | NFL | yes | yes | yes | yes | week `1..23` | ESPN site APIs |
 | NHL | yes | yes | yes | yes | date | ESPN site APIs |
+| World Cup | yes | yes | yes | no | date | ESPN site APIs (`soccer/fifa.world`) |
 
 ## Development
 

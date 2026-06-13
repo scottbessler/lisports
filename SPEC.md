@@ -1,5 +1,5 @@
 §G
-LiSports = Axum HTML sports dashboard for NBA, WNBA, MLB, NFL, NHL scoreboards, games, standings, plus player stats.
+LiSports = Axum HTML sports dashboard for NBA, WNBA, MLB, NFL, NHL, World Cup scoreboards, games, standings, plus player stats where supported.
 
 §C
 C1 Rust 2024, axum 0.8, tokio, reqwest rustls, serde_json, chrono.
@@ -10,7 +10,7 @@ C5 Upstream data is ESPN site APIs for all leagues; NBA today + fallback player 
 C6 Cache only stable-ish JSON: completed games, daily standings snapshots, player pages; live today memory cache is 30s.
 C7 Invalid route params return 400; upstream/cache/parse failures render error response.
 C8 Routes and nav use league prefixes; no API JSON surface.
-C9 Player pages exist for NBA, WNBA, MLB, NFL, NHL via league prefixes.
+C9 Player pages exist for NBA, WNBA, MLB, NFL, NHL via league prefixes; World Cup player pages unsupported.
 C10 No `FORMAT.md` found at repo root; this spec uses required § shape directly.
 
 §I
@@ -22,6 +22,7 @@ I.http.wnba `/wnba/scoreboard`, `/wnba/scoreboard/today`, `/wnba/scoreboard/{YYY
 I.http.mlb `/mlb/scoreboard`, `/mlb/scoreboard/today`, `/mlb/scoreboard/{YYYY-MM-DD}`, `/mlb/scoreboard/{YYYY-MM-DD}/game/{game_id}`, `/mlb/standings`, `/mlb/player/{player_id}`.
 I.http.nfl `/nfl/scoreboard`, `/nfl/scoreboard/today`, `/nfl/scoreboard/{1..23}`, `/nfl/scoreboard/{1..23}/game/{game_id}`, `/nfl/standings`, `/nfl/player/{player_id}`.
 I.http.nhl `/nhl/scoreboard`, `/nhl/scoreboard/today`, `/nhl/scoreboard/{YYYY-MM-DD}`, `/nhl/scoreboard/{YYYY-MM-DD}/game/{game_id}`, `/nhl/standings`, `/nhl/player/{player_id}`.
+I.http.worldcup `/worldcup/scoreboard`, `/worldcup/scoreboard/today`, `/worldcup/scoreboard/{YYYY-MM-DD}`, `/worldcup/scoreboard/{YYYY-MM-DD}/game/{game_id}`, `/worldcup/standings`.
 I.cfg `PORT`, `DATA_PATH`, `RUST_LOG?`, `WATCH_PATHS`, `POLL_INTERVAL`.
 I.up.nba.today `https://nba-prod-us-east-1-mediaops-stats.s3.amazonaws.com/NBA/liveData/scoreboard/todaysScoreboard_00.json`.
 I.up.espn.scoreboard `https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/scoreboard`.
@@ -35,7 +36,7 @@ I.cli `cargo run`, `cargo fmt --check`, `cargo check`, `./dev.sh`.
 V1 Router exposes every route in §I.http and dayless scoreboard routes temp-redirect to `/league/scoreboard/today`.
 V2 `today` scoreboard URLs render 200 directly; date/week nav links use concrete date/week URLs, not `/today`.
 V3 Date leagues accept only `YYYY-MM-DD`; NFL accepts only weeks `1..23`; ids are numeric; invalid params produce 400.
-V4 NBA/WNBA/NHL date scoreboards show prev/current/next date window with calendar-today `*`; NFL shows bounded 7-week window and playoff labels 19 Wild Card, 20 Divisional, 21 Conf Champ, 22 Pro Bowl, 23 Super Bowl.
+V4 NBA/WNBA/NHL/World Cup date scoreboards show prev/current/next date window with calendar-today `*`; NFL shows bounded 7-week window and playoff labels 19 Wild Card, 20 Divisional, 21 Conf Champ, 22 Pro Bowl, 23 Super Bowl.
 V5 Scoreboard cards link to selected game view; selected game view hides game list, shows detail nav, and marks page `scoreboard has-game`.
 V6 Live scoreboard or selected live game (`game_status == 2`) sets `<body data-refresh-at=...>` about `LIVE_DATA_CACHE_SECONDS`; completed pages omit it.
 V7 Empty scoreboard renders `No Games Scheduled`; completed scoreboard with games may be file-cached.
@@ -43,7 +44,8 @@ V8 Basketball NBA/WNBA box score renders sortable player + team-stat tables; pla
 V9 MLB scoreboard uses R/H/E card columns and no inning columns on list cards; MLB game renders line score plus batting and pitching tables.
 V10 NFL game renders team stats and player stat tables; NFL scoreboard periods collapse to total-only card.
 V11 NHL game renders team stats and player stat tables; NHL scoreboard renders 3 regulation periods plus total, no 4th-period header.
-V12 Standings render sortable tables: NBA/WNBA East+West, MLB AL/NL divisions, NFL AFC/NFC divisions, NHL conference+division groups.
+V12 Standings render sortable tables: NBA/WNBA East+West, MLB AL/NL divisions, NFL AFC/NFC divisions, NHL conference+division groups, World Cup groups.
+V23 World Cup scoreboard renders soccer score-only cards; match view renders team-stat comparison; no fake period columns.
 V13 Normalizers convert ESPN status to domain status: completed -> 3, in-progress/halftime -> 2, otherwise 1.
 V14 Team records preserve sport display rules: basketball/NHL playoff series may replace season record; NHL may include OT losses; MLB/NFL use ESPN total summaries.
 V15 Cache keys allow only ASCII alnum plus `:`, `-`, `_`; invalid/stale cache JSON is treated as miss and removed.
@@ -73,6 +75,7 @@ T13|x|add route/render parity matrix test over all league registry entries|V1,V2
 T14|x|add normalizer tests for WNBA standings/team identity and NHL/NFL/MLB missing optional upstream fields|V12,V14,V16
 T15|x|document feature matrix in README: scoreboard, game, standings, player, date/week bucket, upstream source|C8,C9,V19,V20
 T16|x|decide whether root `/` should remain NBA-first or redirect via configured default league|I.http.home,V19
+T17|x|add World Cup soccer scoreboard/game/standings surfaces; player unsupported in registry|I.http.worldcup,V1,V3,V4,V12,V19,V20,V23
 
 §B
 id|date|cause|fix
