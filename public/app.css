@@ -8,6 +8,8 @@
 	--accent: #15181d;
 	--good: #0c7a43;
 	--bad: #b42318;
+	--playoff: #0c7a43;
+	--playin: #c77700;
 }
 * {
 	box-sizing: border-box;
@@ -406,6 +408,41 @@ table.sortable thead th.num {
 .standings .panel {
 	flex: 1 1 520px;
 	min-width: 0;
+}
+.standings-legend {
+	flex: 1 1 100%;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px 16px;
+	margin: 0;
+	font-size: 12px;
+	color: var(--muted);
+}
+.legend-item {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+.legend-swatch {
+	display: inline-block;
+	width: 16px;
+	height: 0;
+	border-top: 3px solid var(--line);
+}
+.legend-swatch.playoff {
+	border-top-color: var(--playoff);
+}
+.legend-swatch.playin {
+	border-top: 0;
+	height: 0;
+	border-bottom: 2px dashed var(--playin);
+}
+.cut-playoff-6 tbody tr:nth-child(6) td,
+.cut-playoff-8 tbody tr:nth-child(8) td {
+	border-bottom: 3px solid var(--playoff);
+}
+.cut-playin-10 tbody tr:nth-child(10) td {
+	border-bottom: 2px dashed var(--playin);
 }
 .player {
 	display: flex;
