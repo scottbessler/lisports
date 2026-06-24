@@ -233,7 +233,9 @@ fn espn_basketball_standings_with(data: EspnStandingsDto, use_nba_mapping: bool)
     for group in data.children {
         let name = str_at(&group, &["name"]).unwrap_or_default();
         let abbr = str_at(&group, &["abbreviation"]).unwrap_or_default();
-        let is_west = name.to_lowercase().contains("west") || abbr.eq_ignore_ascii_case("w");
+        let is_west = name.to_lowercase().contains("west")
+            || abbr.to_lowercase().contains("west")
+            || abbr.eq_ignore_ascii_case("w");
         let conference = if is_west { "West" } else { "East" };
         for entry in array_at(&group, &["standings", "entries"]) {
             let abbr = str_at(&entry, &["team", "abbreviation"]).unwrap_or_default();
@@ -1995,6 +1997,36 @@ mod tests {
         assert_eq!(standings.east[0].team_tricode, "NY");
         assert_eq!(standings.west.len(), 1);
         assert_eq!(standings.west[0].team_tricode, "MIN");
+    }
+
+    #[test]
+    fn espn_basketball_standings_classifies_west_from_abbreviation_only() {
+        let data: EspnStandingsDto = serde_json::from_value(serde_json::json!({
+            "children": [
+                {
+                    "abbreviation": "East",
+                    "standings": {"entries": [{
+                        "team": {"id": "1", "name": "Celtics", "abbreviation": "BOS"},
+                        "stats": [{"name": "wins", "value": 56, "displayValue": "56"}]
+                    }]}
+                },
+                {
+                    "abbreviation": "West",
+                    "standings": {"entries": [{
+                        "team": {"id": "2", "name": "Nuggets", "abbreviation": "DEN"},
+                        "stats": [{"name": "wins", "value": 54, "displayValue": "54"}]
+                    }]}
+                }
+            ]
+        }))
+        .unwrap();
+
+        let standings = espn_standings(data);
+
+        assert_eq!(standings.east.len(), 1);
+        assert_eq!(standings.east[0].team_tricode, "BOS");
+        assert_eq!(standings.west.len(), 1);
+        assert_eq!(standings.west[0].team_tricode, "DEN");
     }
 
     #[test]
