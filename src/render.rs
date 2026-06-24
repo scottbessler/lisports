@@ -1478,7 +1478,7 @@ pub fn standings_page(standings: &StandingsTable) -> String {
         "NBA Standings",
         "",
         format!(
-            r#"<section>{}</section><section>{}</section>"#,
+            "{}{}",
             standings_table("East", &standings.east, League::Nba),
             standings_table("West", &standings.west, League::Nba),
         ),
@@ -1490,7 +1490,7 @@ pub fn wnba_standings_page(standings: &StandingsTable) -> String {
         "WNBA Standings",
         "",
         format!(
-            r#"<section>{}</section><section>{}</section>"#,
+            "{}{}",
             standings_table("East", &standings.east, League::Wnba),
             standings_table("West", &standings.west, League::Wnba),
         ),
