@@ -2,7 +2,7 @@
 	"name": "LiSports",
 	"short_name": "LiSports",
 	"description": "A small sports dashboard for scores, standings, and player stats.",
-	"start_url": "/nba/scoreboard/today",
+	"start_url": "/worldcup/scoreboard/today",
 	"scope": "/",
 	"display": "standalone",
 	"background_color": "#e7ebee",

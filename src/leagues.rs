@@ -123,7 +123,7 @@ pub const LEAGUES: &[League] = &[
     },
 ];
 
-pub const DEFAULT_LEAGUE_SLUG: &str = "nba";
+pub const DEFAULT_LEAGUE_SLUG: &str = "worldcup";
 
 pub fn all() -> &'static [League] {
     LEAGUES
@@ -175,8 +175,8 @@ mod tests {
     }
 
     #[test]
-    fn default_league_is_nba_first() {
-        assert_eq!(default_league().slug, "nba");
-        assert_eq!(default_league().route_base, "/nba");
+    fn default_league_is_world_cup_first() {
+        assert_eq!(default_league().slug, "worldcup");
+        assert_eq!(default_league().route_base, "/worldcup");
     }
 }

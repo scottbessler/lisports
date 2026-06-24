@@ -354,7 +354,7 @@ async fn dayless_scoreboard_urls_redirect_to_today() {
 async fn root_redirects_to_default_league_scoreboard() {
     let (status, location) = request_redirect_location("/").await;
     assert_eq!(status, StatusCode::TEMPORARY_REDIRECT);
-    assert_eq!(location, "/nba/scoreboard");
+    assert_eq!(location, "/worldcup/scoreboard");
 }
 
 #[tokio::test]
@@ -413,7 +413,7 @@ async fn manifest_is_served_from_public_assets() {
     let (status, body) = request("/public/manifest.webmanifest").await;
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains(r#""name": "LiSports""#));
-    assert!(body.contains(r#""start_url": "/nba/scoreboard/today""#));
+    assert!(body.contains(r#""start_url": "/worldcup/scoreboard/today""#));
     assert!(body.contains(r#""display": "standalone""#));
 }
 

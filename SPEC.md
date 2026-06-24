@@ -14,7 +14,7 @@ C9 Player pages exist for NBA, WNBA, MLB, NFL, NHL via league prefixes; World Cu
 C10 No `FORMAT.md` found at repo root; this spec uses required § shape directly.
 
 §I
-I.http.home `/` -> temp redirect `/nba/scoreboard`.
+I.http.home `/` -> temp redirect `/worldcup/scoreboard`.
 I.http.health `/healthcheck` -> `OK`.
 I.http.assets `/public/*` serves static app shell files.
 I.http.nba `/nba/scoreboard`, `/nba/scoreboard/today`, `/nba/scoreboard/{YYYY-MM-DD}`, `/nba/scoreboard/{YYYY-MM-DD}/game/{game_id}`, `/nba/standings`, `/nba/player/{player_id}`.
@@ -50,7 +50,7 @@ V13 Normalizers convert ESPN status to domain status: completed -> 3, in-progres
 V14 Team records preserve sport display rules: basketball/NHL playoff series may replace season record; NHL may include OT losses; MLB/NFL use ESPN total summaries.
 V15 Cache keys allow only ASCII alnum plus `:`, `-`, `_`; invalid/stale cache JSON is treated as miss and removed.
 V16 Normalizers tolerate missing optional upstream fields with defaults but fail parse when required competition/home/away/header data is absent.
-V17 Public layout includes nav, favicon, manifest, CSS, table-sort script; manifest name is `LiSports` and starts at `/nba/scoreboard/today`.
+V17 Public layout includes nav, favicon, manifest, CSS, table-sort script; manifest name is `LiSports` and starts at `/worldcup/scoreboard/today`.
 V18 Shared abstractions must preserve sport-specific rules for schedule bucket, periods, standings grouping, records, stat tables, logos, and player-link policy.
 V19 League parity target: each league should declare supported surfaces (`scoreboard`, `game`, `standings`, `player?`) from one registry so missing features are explicit.
 V20 Player pages target: all player-capable leagues expose player pages or a documented unsupported state; box-score names link only when destination exists.
@@ -74,7 +74,7 @@ T12|x|add tests for cache write policy on empty completed scoreboards per league
 T13|x|add route/render parity matrix test over all league registry entries|V1,V2,V3,V18,V19
 T14|x|add normalizer tests for WNBA standings/team identity and NHL/NFL/MLB missing optional upstream fields|V12,V14,V16
 T15|x|document feature matrix in README: scoreboard, game, standings, player, date/week bucket, upstream source|C8,C9,V19,V20
-T16|x|decide whether root `/` should remain NBA-first or redirect via configured default league|I.http.home,V19
+T16|x|set root `/` to redirect via configured default league; current default World Cup|I.http.home,V17,V19
 T17|x|add World Cup soccer scoreboard/game/standings surfaces; player unsupported in registry|I.http.worldcup,V1,V3,V4,V12,V19,V20,V23
 
 §B
