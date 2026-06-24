@@ -746,6 +746,8 @@ pub struct EspnSummaryDto {
     #[serde(rename = "gameInfo")]
     pub game_info: Option<Value>,
     pub header: Value,
+    #[serde(default, rename = "keyEvents")]
+    pub key_events: Vec<Value>,
 }
 
 #[derive(Debug, Deserialize)]

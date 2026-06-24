@@ -11,9 +11,9 @@ use crate::{
         MlbStandingsTable, MlbStandingsTeam, NflBoxScore, NflBoxScoreTeam, NflStandingsDivision,
         NflStandingsTable, NflStandingsTeam, NhlBoxScore, NhlBoxScoreTeam, NhlStandingsDivision,
         NhlStandingsTable, NhlStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard,
-        SoccerBoxScore, SoccerBoxScoreTeam, SoccerStandingsGroup, SoccerStandingsTable,
-        SoccerStandingsTeam, StandingsTable, StandingsTeam, Statistics, Table, Team,
-        TeamStatistics,
+        SoccerBoxScore, SoccerBoxScoreTeam, SoccerEvent, SoccerStandingsGroup,
+        SoccerStandingsTable, SoccerStandingsTeam, StandingsTable, StandingsTeam, Statistics,
+        Table, Team, TeamStatistics,
     },
 };
 
@@ -219,6 +219,7 @@ pub fn espn_soccer_summary(data: EspnSummaryDto) -> Result<SoccerBoxScore, AppEr
         game_status: espn_status_to_game_status(status),
         home_team: soccer_summary_team(&data.boxscore, home_comp),
         away_team: soccer_summary_team(&data.boxscore, away_comp),
+        events: soccer_events(&data.key_events, &competitors),
     })
 }
 
@@ -968,6 +969,74 @@ fn soccer_team_stats_table(group: &Value) -> Table {
         rows,
         first_column_links: Vec::new(),
     }
+}
+
+fn soccer_events(events: &[Value], competitors: &[Value]) -> Vec<SoccerEvent> {
+    events
+        .iter()
+        .filter_map(|event| soccer_event(event, competitors))
+        .collect()
+}
+
+fn soccer_event(event: &Value, competitors: &[Value]) -> Option<SoccerEvent> {
+    let scoring_play = bool_at(event, &["scoringPlay"]);
+    let yellow_card = bool_at(event, &["yellowCard"])
+        || str_at(event, &["type", "type"]).as_deref() == Some("yellow-card");
+    let red_card = bool_at(event, &["redCard"])
+        || str_at(event, &["type", "type"]).as_deref() == Some("red-card");
+    if !scoring_play && !yellow_card && !red_card {
+        return None;
+    }
+
+    let participants = array_at(event, &["participants"]);
+    let player = participants
+        .first()
+        .and_then(|participant| str_at(participant, &["athlete", "displayName"]))
+        .or_else(|| str_at(event, &["athletesInvolved", "0", "displayName"]))
+        .unwrap_or_default();
+    let assist = participants
+        .get(1)
+        .and_then(|participant| str_at(participant, &["athlete", "displayName"]))
+        .unwrap_or_default();
+    let kind = if scoring_play {
+        "Goal"
+    } else if red_card {
+        "Red Card"
+    } else {
+        "Yellow Card"
+    };
+    Some(SoccerEvent {
+        minute: str_at(event, &["clock", "displayValue"]).unwrap_or_default(),
+        team_tricode: soccer_event_team_tricode(event, competitors),
+        kind: kind.to_string(),
+        player,
+        assist,
+        note: soccer_event_note(event),
+    })
+}
+
+fn soccer_event_team_tricode(event: &Value, competitors: &[Value]) -> String {
+    let team_id = str_at(event, &["team", "id"]).unwrap_or_default();
+    competitors
+        .iter()
+        .find(|competitor| {
+            str_at(competitor, &["team", "id"]).as_deref() == Some(team_id.as_str())
+                || str_at(competitor, &["id"]).as_deref() == Some(team_id.as_str())
+        })
+        .and_then(|competitor| str_at(competitor, &["team", "abbreviation"]))
+        .or_else(|| str_at(event, &["team", "abbreviation"]))
+        .unwrap_or_default()
+}
+
+fn soccer_event_note(event: &Value) -> String {
+    let mut notes = Vec::new();
+    if bool_at(event, &["penaltyKick"]) {
+        notes.push("Penalty");
+    }
+    if bool_at(event, &["ownGoal"]) {
+        notes.push("Own goal");
+    }
+    notes.join(", ")
 }
 
 fn nfl_team_stats_table(group: &Value) -> Table {
@@ -2236,6 +2305,11 @@ mod tests {
                     {"team": {"id": "209", "displayName": "Ecuador"}, "statistics": [{"label": "Possession", "displayValue": "52.9"}]}
                 ]
             },
+            "keyEvents": [
+                {"type": {"type": "penalty---scored"}, "clock": {"displayValue": "16'"}, "scoringPlay": true, "penaltyKick": true, "team": {"id": "209"}, "participants": [{"athlete": {"displayName": "Enner Valencia"}}]},
+                {"type": {"type": "goal---header"}, "clock": {"displayValue": "31'"}, "scoringPlay": true, "team": {"id": "209"}, "participants": [{"athlete": {"displayName": "Enner Valencia"}}, {"athlete": {"displayName": "Ángelo Preciado"}}]},
+                {"type": {"type": "yellow-card"}, "clock": {"displayValue": "29'"}, "scoringPlay": false, "team": {"id": "209"}, "participants": [{"athlete": {"displayName": "Moisés Caicedo"}}]}
+            ],
             "gameInfo": null
         }))
         .unwrap();
@@ -2245,6 +2319,10 @@ mod tests {
         assert_eq!(game.away_team.team.team_tricode, "ECU");
         assert_eq!(game.away_team.team_stats.rows[0], ["Possession", "52.9"]);
         assert_eq!(game.home_team.team_stats.rows[0], ["Possession", "47.1"]);
+        assert_eq!(game.events[0].player, "Enner Valencia");
+        assert_eq!(game.events[0].note, "Penalty");
+        assert_eq!(game.events[1].assist, "Ángelo Preciado");
+        assert_eq!(game.events[2].kind, "Yellow Card");
     }
 
     #[test]

@@ -303,12 +303,26 @@ pub struct SoccerBoxScore {
     pub game_status: i64,
     pub away_team: SoccerBoxScoreTeam,
     pub home_team: SoccerBoxScoreTeam,
+    #[serde(default)]
+    pub events: Vec<SoccerEvent>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct SoccerBoxScoreTeam {
     pub team: Team,
     pub team_stats: Table,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SoccerEvent {
+    pub minute: String,
+    pub team_tricode: String,
+    pub kind: String,
+    pub player: String,
+    #[serde(default)]
+    pub assist: String,
+    #[serde(default)]
+    pub note: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

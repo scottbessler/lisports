@@ -45,7 +45,7 @@ V9 MLB scoreboard uses R/H/E card columns and no inning columns on list cards; M
 V10 NFL game renders team stats and player stat tables; NFL scoreboard periods collapse to total-only card.
 V11 NHL game renders team stats and player stat tables; NHL scoreboard renders 3 regulation periods plus total, no 4th-period header.
 V12 Standings render sortable tables: NBA/WNBA East+West, MLB AL/NL divisions, NFL AFC/NFC divisions, NHL conference+division groups, World Cup groups.
-V23 World Cup scoreboard renders soccer score-only cards; match view renders team-stat comparison; no fake period columns.
+V23 World Cup scoreboard renders soccer score-only cards; match view renders team-stat comparison plus goals/assists/cards; no fake period columns; mobile stat labels + values remain visible.
 V13 Normalizers convert ESPN status to domain status: completed -> 3, in-progress/halftime -> 2, otherwise 1.
 V14 Team records preserve sport display rules: basketball/NHL playoff series may replace season record; NHL may include OT losses; MLB/NFL use ESPN total summaries.
 V15 Cache keys allow only ASCII alnum plus `:`, `-`, `_`; invalid/stale cache JSON is treated as miss and removed.
@@ -84,3 +84,4 @@ B2|2026-06-12|ESPN gamelog normalizer remapped all sports through NBA stat label
 B3|2026-06-12|MLB/NFL/NHL box-score stat tables discarded athlete ids|V22
 B4|2026-06-12|NHL summary `series[]` ignored; only `series{}` parsed|V14
 B5|2026-06-12|NHL playoff `record` string + stale cache showed season records|V14,V15
+B6|2026-06-24|World Cup match view omitted key events + mobile stats forced wide table|V23

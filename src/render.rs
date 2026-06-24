@@ -6,8 +6,9 @@ use crate::{
         BoxScore, BoxScoreTeam, Game, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsTable,
         MlbStandingsTeam, NflBoxScore, NflBoxScoreTeam, NflStandingsTable, NflStandingsTeam,
         NhlBoxScore, NhlBoxScoreTeam, NhlStandingsTable, NhlStandingsTeam, Player, PlayerStatsPage,
-        Scoreboard, SoccerBoxScore, SoccerBoxScoreTeam, SoccerStandingsTable, SoccerStandingsTeam,
-        StandingsTable, StandingsTeam, Statistics, Table, Team, TeamStatistics,
+        Scoreboard, SoccerBoxScore, SoccerBoxScoreTeam, SoccerEvent, SoccerStandingsTable,
+        SoccerStandingsTeam, StandingsTable, StandingsTeam, Statistics, Table, Team,
+        TeamStatistics,
     },
     stats,
 };
@@ -865,11 +866,68 @@ fn nhl_game_details(game: &NhlBoxScore) -> String {
 
 fn soccer_game_details(game: &SoccerBoxScore) -> String {
     let mut html = String::from(r#"<section class="details">"#);
+    html.push_str(&soccer_events_panel(game));
     html.push_str(&soccer_team_stats_comparison(game));
     html.push_str(&soccer_team_game_details(game, &game.away_team, false));
     html.push_str(&soccer_team_game_details(game, &game.home_team, true));
     html.push_str("</section>");
     html
+}
+
+fn soccer_events_panel(game: &SoccerBoxScore) -> String {
+    let goals: Vec<&SoccerEvent> = game
+        .events
+        .iter()
+        .filter(|event| event.kind == "Goal")
+        .collect();
+    let cards: Vec<&SoccerEvent> = game
+        .events
+        .iter()
+        .filter(|event| event.kind.contains("Card"))
+        .collect();
+    if goals.is_empty() && cards.is_empty() {
+        return String::new();
+    }
+
+    let mut html = String::from(r#"<article class="team-details soccer-events">"#);
+    if !goals.is_empty() {
+        html.push_str("<h1>Goals</h1>");
+        html.push_str(&soccer_event_table(&goals, true));
+    }
+    if !cards.is_empty() {
+        html.push_str("<h1>Cards</h1>");
+        html.push_str(&soccer_event_table(&cards, false));
+    }
+    html.push_str("</article>");
+    html
+}
+
+fn soccer_event_table(events: &[&SoccerEvent], show_assist: bool) -> String {
+    let mut headers = vec!["Min", "Team", "Player"];
+    if show_assist {
+        headers.push("Assist");
+    } else {
+        headers.push("Card");
+    }
+    headers.push("Note");
+    let rows: Vec<Vec<String>> = events
+        .iter()
+        .map(|event| {
+            let mut row = vec![
+                event.minute.clone(),
+                event.team_tricode.clone(),
+                event.player.clone(),
+            ];
+            if show_assist {
+                row.push(event.assist.clone());
+            } else {
+                row.push(event.kind.clone());
+            }
+            row.push(event.note.clone());
+            row
+        })
+        .collect();
+    sortable_table(&headers, &rows)
 }
 
 fn soccer_team_game_details(
@@ -892,11 +950,12 @@ fn soccer_team_game_details(
 }
 
 fn soccer_team_stats_comparison(game: &SoccerBoxScore) -> String {
-    team_stats_comparison(
+    team_stats_comparison_with_class(
         &game.away_team.team.team_tricode,
         &game.home_team.team.team_tricode,
         &game.away_team.team_stats,
         &game.home_team.team_stats,
+        " soccer-match-stats",
     )
 }
 
@@ -970,6 +1029,16 @@ fn team_stats_comparison(
     away_stats: &Table,
     home_stats: &Table,
 ) -> String {
+    team_stats_comparison_with_class(away_label, home_label, away_stats, home_stats, "")
+}
+
+fn team_stats_comparison_with_class(
+    away_label: &str,
+    home_label: &str,
+    away_stats: &Table,
+    home_stats: &Table,
+    article_class_suffix: &str,
+) -> String {
     let mut rows = Vec::new();
     for row in &away_stats.rows {
         let Some(stat) = row.first() else {
@@ -1015,7 +1084,7 @@ fn team_stats_comparison(
         ]);
     }
     format!(
-        r#"<article class="team-details"><h1>Team Stats</h1>{}</article>"#,
+        r#"<article class="team-details{article_class_suffix}"><h1>Team Stats</h1>{}</article>"#,
         sortable_table_cells(
             &["Stat", away_label, home_label],
             &table_rows,

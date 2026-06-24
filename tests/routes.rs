@@ -664,6 +664,11 @@ async fn worldcup_game_view_renders_selected_match_stats() {
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("World Cup Match"));
     assert!(body.contains("scoreboard has-game"));
+    assert!(body.contains("Goals"));
+    assert!(body.contains("Cards"));
+    assert!(body.contains("Enner Valencia"));
+    assert!(body.contains("Ángelo Preciado"));
+    assert!(body.contains("Yellow Card"));
     assert!(body.contains("Team Stats"));
     assert!(body.contains("Possession"));
     assert!(body.contains("Ecuador"));
@@ -1383,6 +1388,32 @@ fn worldcup_box_score() -> SoccerBoxScore {
                 first_column_links: Vec::new(),
             },
         },
+        events: vec![
+            lisports::models::SoccerEvent {
+                minute: "16'".to_string(),
+                team_tricode: "ECU".to_string(),
+                kind: "Goal".to_string(),
+                player: "Enner Valencia".to_string(),
+                assist: String::new(),
+                note: "Penalty".to_string(),
+            },
+            lisports::models::SoccerEvent {
+                minute: "31'".to_string(),
+                team_tricode: "ECU".to_string(),
+                kind: "Goal".to_string(),
+                player: "Enner Valencia".to_string(),
+                assist: "Ángelo Preciado".to_string(),
+                note: String::new(),
+            },
+            lisports::models::SoccerEvent {
+                minute: "29'".to_string(),
+                team_tricode: "ECU".to_string(),
+                kind: "Yellow Card".to_string(),
+                player: "Moisés Caicedo".to_string(),
+                assist: String::new(),
+                note: String::new(),
+            },
+        ],
     }
 }
 

@@ -358,6 +358,34 @@ table.sortable thead th.num {
 .table-wrap td {
 	white-space: nowrap;
 }
+.soccer-match-stats .table-wrap,
+.soccer-events .table-wrap {
+	overflow-x: visible;
+}
+.soccer-match-stats .table-wrap table,
+.soccer-events .table-wrap table {
+	min-width: 0;
+	table-layout: fixed;
+}
+.soccer-match-stats th:first-child,
+.soccer-match-stats td:first-child {
+	width: 46%;
+	white-space: normal;
+}
+.soccer-match-stats th:not(:first-child),
+.soccer-match-stats td:not(:first-child) {
+	width: 27%;
+}
+.soccer-events th,
+.soccer-events td {
+	white-space: normal;
+}
+.soccer-events th:first-child,
+.soccer-events td:first-child,
+.soccer-events th:nth-child(2),
+.soccer-events td:nth-child(2) {
+	width: 52px;
+}
 .good {
 	color: var(--good);
 	font-weight: 700;
@@ -507,5 +535,16 @@ table.sortable thead th.num {
 	}
 	.detail-actions {
 		grid-template-columns: 1fr;
+	}
+	.soccer-match-stats .table-wrap table,
+	.soccer-events .table-wrap table {
+		font-size: 12px;
+	}
+	.soccer-match-stats th,
+	.soccer-match-stats td,
+	.soccer-events th,
+	.soccer-events td {
+		padding-right: 4px;
+		padding-left: 4px;
 	}
 }
