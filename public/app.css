@@ -402,6 +402,7 @@ table.sortable thead th.num {
 }
 .standings .panel {
 	flex: 1 1 520px;
+	min-width: 0;
 }
 .player {
 	display: flex;
