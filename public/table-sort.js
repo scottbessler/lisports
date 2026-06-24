@@ -57,6 +57,8 @@
 		});
 		header.dataset.sortDir = direction;
 		header.setAttribute('aria-sort', direction === 'asc' ? 'ascending' : 'descending');
+		table.dataset.activeSortIndex = String(index);
+		table.dataset.activeSortDir = direction;
 
 		const rows = Array.from(body.rows);
 		rows.sort((a, b) => {

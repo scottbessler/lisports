@@ -437,11 +437,20 @@ table.sortable thead th.num {
 	height: 0;
 	border-bottom: 2px dashed var(--playin);
 }
-.cut-playoff-6 tbody tr:nth-child(6) td,
-.cut-playoff-8 tbody tr:nth-child(8) td {
+.cut-playoff-6[data-active-sort-index='0'][data-active-sort-dir='asc']
+	tbody
+	tr:nth-child(6)
+	td,
+.cut-playoff-8[data-active-sort-index='0'][data-active-sort-dir='asc']
+	tbody
+	tr:nth-child(8)
+	td {
 	border-bottom: 3px solid var(--playoff);
 }
-.cut-playin-10 tbody tr:nth-child(10) td {
+.cut-playin-10[data-active-sort-index='0'][data-active-sort-dir='asc']
+	tbody
+	tr:nth-child(10)
+	td {
 	border-bottom: 2px dashed var(--playin);
 }
 .player {
