@@ -1222,12 +1222,19 @@ fn mlb_line_score(game: &MlbBoxScore, scoreboard_game: Option<&Game>) -> String 
     let mut html = String::from(
         r#"<article class="team-details line-score"><h1>Line Score</h1><div class="table-wrap"><table class="game-card"><thead><tr><th></th>"#,
     );
-    for period in &away_team.periods {
-        html.push_str(&format!("<th>{}</th>", period.period));
+    let inning_count = away_team
+        .periods
+        .iter()
+        .chain(home_team.periods.iter())
+        .map(|period| period.period)
+        .max()
+        .unwrap_or(0);
+    for period in 1..=inning_count {
+        html.push_str(&format!("<th>{period}</th>"));
     }
     html.push_str("<th>R</th><th>H</th><th>E</th></tr></thead><tbody>");
-    html.push_str(&mlb_line_score_row(away_team));
-    html.push_str(&mlb_line_score_row(home_team));
+    html.push_str(&mlb_line_score_row(away_team, inning_count));
+    html.push_str(&mlb_line_score_row(home_team, inning_count));
     html.push_str("</tbody></table></div></article>");
     html
 }
@@ -1241,7 +1248,7 @@ fn has_usable_line_score(team: &Team) -> bool {
             .all(|(index, period)| period.period == index as i64 + 1)
 }
 
-fn mlb_line_score_row(team: &Team) -> String {
+fn mlb_line_score_row(team: &Team, inning_count: i64) -> String {
     let mut html = String::from("<tr><th>");
     html.push_str(&team_logo(team, "mini-logo", League::Mlb));
     html.push_str(&format!(
@@ -1250,15 +1257,20 @@ fn mlb_line_score_row(team: &Team) -> String {
         escape(&team.team_tricode)
     ));
     html.push_str("</th>");
-    for period in &team.periods {
-        html.push_str(&format!(
-            "<td>{}</td>",
-            if period.score == 0 {
-                "-".to_string()
-            } else {
-                period.score.to_string()
-            }
-        ));
+    for period in 1..=inning_count {
+        let cell = team
+            .periods
+            .iter()
+            .find(|score| score.period == period)
+            .map(|score| {
+                if score.score == 0 {
+                    "-".to_string()
+                } else {
+                    score.score.to_string()
+                }
+            })
+            .unwrap_or_default();
+        html.push_str(&format!("<td>{cell}</td>"));
     }
     html.push_str(&format!(
         r#"<td class="score-total">{}</td><td>{}</td><td>{}</td></tr>"#,
@@ -2260,6 +2272,7 @@ pub fn escape_attr(input: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::models::Period;
 
     #[test]
     fn escaping_handles_html() {
@@ -2290,6 +2303,61 @@ mod tests {
         assert!(table.contains(
             r#"<td class="text">Jaylen Brown</td><td class="num">31</td><td class="text">2026-04-26</td>"#
         ));
+    }
+
+    #[test]
+    fn mlb_line_score_row_pads_missing_innings_to_align_totals() {
+        let home_team = Team {
+            team_id: 1,
+            team_name: "Marlins".to_string(),
+            team_city: "Miami".to_string(),
+            team_tricode: "MIA".to_string(),
+            wins: 0,
+            losses: 0,
+            display_record: String::new(),
+            score: 4,
+            hits: 6,
+            errors: 0,
+            periods: vec![
+                Period {
+                    period: 1,
+                    score: 0,
+                },
+                Period {
+                    period: 2,
+                    score: 0,
+                },
+                Period {
+                    period: 3,
+                    score: 0,
+                },
+                Period {
+                    period: 4,
+                    score: 1,
+                },
+                Period {
+                    period: 5,
+                    score: 1,
+                },
+                Period {
+                    period: 6,
+                    score: 0,
+                },
+                Period {
+                    period: 7,
+                    score: 0,
+                },
+                Period {
+                    period: 8,
+                    score: 2,
+                },
+            ],
+        };
+
+        let row = mlb_line_score_row(&home_team, 9);
+
+        assert!(row.contains(r#"<td></td><td class="score-total">4</td><td>6</td><td>0</td>"#));
+        assert_eq!(row.matches("<td").count(), 12);
     }
 
     #[test]
