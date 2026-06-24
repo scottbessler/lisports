@@ -1486,27 +1486,83 @@ fn merge_team_summary(mut stats: Statistics, fallback: &TeamStatistics) -> Stati
 }
 
 pub fn standings_page(standings: &StandingsTable) -> String {
+    let legend = playoff_legend(&[
+        ("playoff", "Clinched playoff seed (top 6)"),
+        ("playin", "Play-In tournament (seeds 7\u{2013}10)"),
+    ]);
     standings_shell(
         "NBA Standings",
         "",
         format!(
-            "{}{}",
-            standings_table("East", &standings.east, League::Nba),
-            standings_table("West", &standings.west, League::Nba),
+            "{legend}{}{}",
+            standings_table(
+                "East",
+                &standings.east,
+                League::Nba,
+                false,
+                Some("cut-playoff-6 cut-playin-10"),
+            ),
+            standings_table(
+                "West",
+                &standings.west,
+                League::Nba,
+                false,
+                Some("cut-playoff-6 cut-playin-10"),
+            ),
         ),
     )
 }
 
 pub fn wnba_standings_page(standings: &StandingsTable) -> String {
+    let teams = league_wide_standings(standings);
+    let legend = playoff_legend(&[("playoff", "Playoff cutoff (top 8)")]);
     standings_shell(
         "WNBA Standings",
         "",
         format!(
-            "{}{}",
-            standings_table("East", &standings.east, League::Wnba),
-            standings_table("West", &standings.west, League::Wnba),
+            "{legend}{}",
+            standings_table("League", &teams, League::Wnba, true, Some("cut-playoff-8")),
         ),
     )
+}
+
+/// Merge the conference tables into a single league-wide table sorted by
+/// record, recomputing games-back relative to the overall leader.
+fn league_wide_standings(standings: &StandingsTable) -> Vec<StandingsTeam> {
+    let mut teams: Vec<StandingsTeam> = standings
+        .east
+        .iter()
+        .chain(standings.west.iter())
+        .cloned()
+        .collect();
+    teams.sort_by(|a, b| {
+        b.win_pct
+            .partial_cmp(&a.win_pct)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(b.wins.cmp(&a.wins))
+            .then(a.losses.cmp(&b.losses))
+            .then(a.team_name.cmp(&b.team_name))
+    });
+    if let Some(leader) = teams.first().cloned() {
+        for team in &mut teams {
+            team.conference_games_back =
+                ((leader.wins - team.wins) + (team.losses - leader.losses)) as f64 / 2.0;
+        }
+    }
+    teams
+}
+
+fn playoff_legend(items: &[(&str, &str)]) -> String {
+    let entries: String = items
+        .iter()
+        .map(|(swatch, label)| {
+            format!(
+                r#"<span class="legend-item"><span class="legend-swatch {swatch}"></span>{}</span>"#,
+                escape(label)
+            )
+        })
+        .collect();
+    format!(r#"<p class="standings-legend">{entries}</p>"#)
 }
 
 pub fn mlb_standings_page(standings: &MlbStandingsTable) -> String {
@@ -1596,12 +1652,24 @@ fn standings_shell(title: &str, class_suffix: &str, content: String) -> String {
     )
 }
 
-fn standings_table(title: &str, rows: &[StandingsTeam], league: League) -> String {
+fn standings_table(
+    title: &str,
+    rows: &[StandingsTeam],
+    league: League,
+    rerank: bool,
+    cutoff_class: Option<&'static str>,
+) -> String {
     let table_rows: Vec<Vec<String>> = rows
         .iter()
-        .map(|row| {
+        .enumerate()
+        .map(|(index, row)| {
+            let rank = if rerank {
+                index as i64 + 1
+            } else {
+                row.playoff_rank
+            };
             vec![
-                row.playoff_rank.to_string(),
+                rank.to_string(),
                 format!(
                     "{}{}",
                     team_logo_id_for_league(
@@ -1644,6 +1712,7 @@ fn standings_table(title: &str, rows: &[StandingsTeam], league: League) -> Strin
             ],
             &table_rows,
             TableOptions {
+                class: cutoff_class,
                 default_sort_index: Some(0),
                 default_sort_dir: Some("asc"),
                 ..TableOptions::default()

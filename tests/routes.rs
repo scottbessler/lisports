@@ -472,7 +472,8 @@ async fn standings_render_sortable_tables() {
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("NBA Standings"));
     assert!(body.contains("Boston Celtics"));
-    assert!(body.contains("table class=\"sortable\""));
+    assert!(body.contains("table class=\"sortable cut-playoff-6 cut-playin-10\""));
+    assert!(body.contains("Clinched playoff seed (top 6)"));
 }
 
 #[tokio::test]
@@ -515,7 +516,8 @@ async fn wnba_standings_render_sortable_tables() {
     assert!(body.contains("WNBA Standings"));
     assert!(body.contains("New York Liberty"));
     assert!(body.contains("Las Vegas Aces"));
-    assert!(body.contains("table class=\"sortable\""));
+    assert!(body.contains("table class=\"sortable cut-playoff-8\""));
+    assert!(body.contains("Playoff cutoff (top 8)"));
 }
 
 #[tokio::test]
