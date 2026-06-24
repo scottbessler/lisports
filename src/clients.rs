@@ -55,6 +55,10 @@ pub trait SportsData: Send + Sync {
     async fn worldcup_days_games(&self, day: &str) -> Result<Scoreboard, AppError>;
     async fn worldcup_game(&self, game_id: &str) -> Result<Option<SoccerBoxScore>, AppError>;
     async fn worldcup_standings(&self) -> Result<SoccerStandingsTable, AppError>;
+    async fn nwsl_todays_scoreboard(&self) -> Result<Scoreboard, AppError>;
+    async fn nwsl_days_games(&self, day: &str) -> Result<Scoreboard, AppError>;
+    async fn nwsl_game(&self, game_id: &str) -> Result<Option<SoccerBoxScore>, AppError>;
+    async fn nwsl_standings(&self) -> Result<SoccerStandingsTable, AppError>;
 }
 
 #[derive(Clone)]
@@ -67,6 +71,7 @@ pub struct EspnSportsData {
     nfl_today_cache: Arc<RwLock<Option<TodayCache>>>,
     nhl_today_cache: Arc<RwLock<Option<TodayCache>>>,
     worldcup_today_cache: Arc<RwLock<Option<TodayCache>>>,
+    nwsl_today_cache: Arc<RwLock<Option<TodayCache>>>,
 }
 
 #[derive(Clone)]
@@ -91,6 +96,7 @@ impl EspnSportsData {
             nfl_today_cache: Arc::new(RwLock::new(None)),
             nhl_today_cache: Arc::new(RwLock::new(None)),
             worldcup_today_cache: Arc::new(RwLock::new(None)),
+            nwsl_today_cache: Arc::new(RwLock::new(None)),
         })
     }
 }
@@ -649,6 +655,73 @@ impl SportsData for EspnSportsData {
         self.cache.set_json(&cache_key, &standings).await?;
         Ok(standings)
     }
+
+    async fn nwsl_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
+        if let Some(cache) = self.nwsl_today_cache.read().await.as_ref()
+            && cache.fetched_at.elapsed() < Duration::from_secs(LIVE_DATA_CACHE_SECONDS)
+        {
+            return Ok(cache.scoreboard.clone());
+        }
+
+        let day = chrono::Utc::now().date_naive().to_string();
+        let scoreboard = self.nwsl_days_games(&day).await?;
+        *self.nwsl_today_cache.write().await = Some(TodayCache {
+            fetched_at: Instant::now(),
+            scoreboard: scoreboard.clone(),
+        });
+        Ok(scoreboard)
+    }
+
+    async fn nwsl_days_games(&self, day: &str) -> Result<Scoreboard, AppError> {
+        let cache_key = format!("nwsl-day:{day}");
+        if let Some(cached) = self.cache.get_json::<Scoreboard>(&cache_key).await? {
+            return Ok(cached);
+        }
+
+        let scoreboard = self
+            .espn_scoreboard(
+                league("nwsl"),
+                day,
+                EspnScoreboardQuery::Date(day.to_string()),
+                normalizers::espn_soccer_scoreboard,
+            )
+            .await?;
+        if should_cache_completed_scoreboard(&scoreboard) {
+            self.cache.set_json(&cache_key, &scoreboard).await?;
+        }
+        Ok(scoreboard)
+    }
+
+    async fn nwsl_game(&self, game_id: &str) -> Result<Option<SoccerBoxScore>, AppError> {
+        let cache_key = format!("nwsl-game:{game_id}");
+        if let Some(cached) = self.cache.get_json::<SoccerBoxScore>(&cache_key).await? {
+            return Ok(Some(cached));
+        }
+
+        let game = self
+            .espn_summary(league("nwsl"), game_id, normalizers::espn_soccer_summary)
+            .await?;
+        if game.game_status == 3 {
+            self.cache.set_json(&cache_key, &game).await?;
+        }
+        Ok(Some(game))
+    }
+
+    async fn nwsl_standings(&self) -> Result<SoccerStandingsTable, AppError> {
+        let cache_key = format!("nwsl-standings:{}", chrono::Utc::now().date_naive());
+        if let Some(cached) = self
+            .cache
+            .get_json::<SoccerStandingsTable>(&cache_key)
+            .await?
+        {
+            return Ok(cached);
+        }
+        let standings = self
+            .espn_standings(league("nwsl"), normalizers::espn_soccer_standings)
+            .await?;
+        self.cache.set_json(&cache_key, &standings).await?;
+        Ok(standings)
+    }
 }
 
 fn nfl_espn_week(week: i64) -> (i64, i64) {
@@ -793,6 +866,13 @@ mod tests {
                 EspnScoreboardQuery::Date("2026-06-11".to_string())
             ),
             "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611"
+        );
+        assert_eq!(
+            espn_scoreboard_url(
+                league("nwsl"),
+                EspnScoreboardQuery::Date("2026-06-24".to_string())
+            ),
+            "https://site.api.espn.com/apis/site/v2/sports/soccer/usa.nwsl/scoreboard?dates=20260624"
         );
     }
 

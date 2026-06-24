@@ -247,6 +247,33 @@ pub async fn worldcup_standings(State(state): State<AppState>) -> Result<Html<St
     Ok(Html(render::soccer_standings_page("World Cup", &standings)))
 }
 
+pub async fn nwsl_scoreboard() -> Redirect {
+    dayless_scoreboard(RouteLeague::Nwsl)
+}
+
+pub async fn nwsl_scoreboard_today(State(state): State<AppState>) -> Result<Response, AppError> {
+    date_scoreboard_today(&state, RouteLeague::Nwsl).await
+}
+
+pub async fn nwsl_scoreboard_day(
+    State(state): State<AppState>,
+    Path(day): Path<String>,
+) -> Result<Html<String>, AppError> {
+    date_scoreboard_day(&state, RouteLeague::Nwsl, &day).await
+}
+
+pub async fn nwsl_game(
+    State(state): State<AppState>,
+    Path((day, game_id)): Path<(String, String)>,
+) -> Result<Html<String>, AppError> {
+    date_game(&state, RouteLeague::Nwsl, &day, &game_id).await
+}
+
+pub async fn nwsl_standings(State(state): State<AppState>) -> Result<Html<String>, AppError> {
+    let standings = state.data.nwsl_standings().await?;
+    Ok(Html(render::nwsl_standings_page(&standings)))
+}
+
 async fn date_today_scoreboard(
     state: &AppState,
     league: RouteLeague,
@@ -282,6 +309,7 @@ enum RouteLeague {
     Mlb,
     Nhl,
     WorldCup,
+    Nwsl,
 }
 
 impl RouteLeague {
@@ -292,6 +320,7 @@ impl RouteLeague {
             Self::Mlb => "/mlb/scoreboard",
             Self::Nhl => "/nhl/scoreboard",
             Self::WorldCup => "/worldcup/scoreboard",
+            Self::Nwsl => "/nwsl/scoreboard",
         }
     }
 }
@@ -321,6 +350,9 @@ async fn date_scoreboard_today(
         RouteLeague::WorldCup => {
             render::soccer_scoreboard_page_with_today(today_day, &scoreboard, None, today_day)
         }
+        RouteLeague::Nwsl => {
+            render::nwsl_scoreboard_page_with_today(today_day, &scoreboard, None, today_day)
+        }
     };
     Ok(Html(html).into_response())
 }
@@ -348,6 +380,9 @@ async fn date_scoreboard_day(
         }
         RouteLeague::WorldCup => {
             render::soccer_scoreboard_page_with_today(parsed_day, &scoreboard, None, today_day)
+        }
+        RouteLeague::Nwsl => {
+            render::nwsl_scoreboard_page_with_today(parsed_day, &scoreboard, None, today_day)
         }
     };
     Ok(Html(html))
@@ -404,6 +439,15 @@ async fn date_game(
                 today_day,
             )
         }
+        RouteLeague::Nwsl => {
+            let game = state.data.nwsl_game(&game_id).await?;
+            render::nwsl_scoreboard_page_with_today(
+                parsed_day,
+                &scoreboard,
+                game.as_ref(),
+                today_day,
+            )
+        }
     };
     Ok(Html(html))
 }
@@ -419,6 +463,7 @@ async fn days_games(
         RouteLeague::Mlb => state.data.mlb_days_games(day).await,
         RouteLeague::Nhl => state.data.nhl_days_games(day).await,
         RouteLeague::WorldCup => state.data.worldcup_days_games(day).await,
+        RouteLeague::Nwsl => state.data.nwsl_days_games(day).await,
     }
 }
 
@@ -431,6 +476,7 @@ async fn today_scoreboard(
         | RouteLeague::Wnba
         | RouteLeague::Mlb
         | RouteLeague::Nhl
-        | RouteLeague::WorldCup => date_today_scoreboard(state, league).await,
+        | RouteLeague::WorldCup
+        | RouteLeague::Nwsl => date_today_scoreboard(state, league).await,
     }
 }

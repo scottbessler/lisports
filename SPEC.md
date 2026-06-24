@@ -50,7 +50,7 @@ V13 Normalizers convert ESPN status to domain status: completed -> 3, in-progres
 V14 Team records preserve sport display rules: basketball/NHL playoff series may replace season record; NHL may include OT losses; MLB/NFL use ESPN total summaries.
 V15 Cache keys allow only ASCII alnum plus `:`, `-`, `_`; invalid/stale cache JSON is treated as miss and removed.
 V16 Normalizers tolerate missing optional upstream fields with defaults but fail parse when required competition/home/away/header data is absent.
-V17 Public layout includes nav, favicon, manifest, CSS, table-sort script; manifest name is `LiSports` and starts at `/worldcup/scoreboard/today`.
+V17 Public layout includes nav, favicon, manifest, CSS, table-sort script; nav labels remain readable on mobile; manifest name is `LiSports` and starts at `/worldcup/scoreboard/today`.
 V18 Shared abstractions must preserve sport-specific rules for schedule bucket, periods, standings grouping, records, stat tables, logos, and player-link policy.
 V19 League parity target: each league should declare supported surfaces (`scoreboard`, `game`, `standings`, `player?`) from one registry so missing features are explicit.
 V20 Player pages target: all player-capable leagues expose player pages or a documented unsupported state; box-score names link only when destination exists.
@@ -85,3 +85,4 @@ B3|2026-06-12|MLB/NFL/NHL box-score stat tables discarded athlete ids|V22
 B4|2026-06-12|NHL summary `series[]` ignored; only `series{}` parsed|V14
 B5|2026-06-12|NHL playoff `record` string + stale cache showed season records|V14,V15
 B6|2026-06-24|World Cup match view omitted key events + mobile stats forced wide table|V23
+B7|2026-06-24|World Cup nav label wrapped in narrow mobile label column|V17

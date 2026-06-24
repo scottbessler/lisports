@@ -6,6 +6,7 @@ pub enum LeagueId {
     Nfl,
     Nhl,
     WorldCup,
+    Nwsl,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -121,6 +122,20 @@ pub const LEAGUES: &[League] = &[
         standings: true,
         player: PlayerFeature::Unsupported,
     },
+    League {
+        id: LeagueId::Nwsl,
+        slug: "nwsl",
+        nav_label: "NWSL",
+        route_base: "/nwsl",
+        sport_path: "soccer",
+        league_path: "usa.nwsl",
+        bucket: ScheduleBucket::Date,
+        logo_path: "https://a.espncdn.com/i/teamlogos/soccer/500/{tricode}.png",
+        scoreboard: true,
+        game: true,
+        standings: true,
+        player: PlayerFeature::Unsupported,
+    },
 ];
 
 pub const DEFAULT_LEAGUE_SLUG: &str = "worldcup";
@@ -143,13 +158,14 @@ mod tests {
 
     #[test]
     fn registry_declares_all_leagues() {
-        assert_eq!(LEAGUES.len(), 6);
+        assert_eq!(LEAGUES.len(), 7);
         assert!(by_slug("nba").is_some());
         assert!(by_slug("wnba").is_some());
         assert!(by_slug("mlb").is_some());
         assert!(by_slug("nfl").is_some());
         assert!(by_slug("nhl").is_some());
         assert!(by_slug("worldcup").is_some());
+        assert!(by_slug("nwsl").is_some());
     }
 
     #[test]
@@ -172,6 +188,7 @@ mod tests {
             by_slug("worldcup").unwrap().player,
             PlayerFeature::Unsupported
         );
+        assert_eq!(by_slug("nwsl").unwrap().player, PlayerFeature::Unsupported);
     }
 
     #[test]

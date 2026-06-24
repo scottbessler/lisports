@@ -147,6 +147,26 @@ pub fn router(data: Arc<dyn SportsData>) -> Router {
             "/worldcup/standings",
             axum::routing::get(routes::worldcup_standings),
         )
+        .route(
+            "/nwsl/scoreboard",
+            axum::routing::get(routes::nwsl_scoreboard),
+        )
+        .route(
+            "/nwsl/scoreboard/today",
+            axum::routing::get(routes::nwsl_scoreboard_today),
+        )
+        .route(
+            "/nwsl/scoreboard/{day}",
+            axum::routing::get(routes::nwsl_scoreboard_day),
+        )
+        .route(
+            "/nwsl/scoreboard/{day}/game/{game_id}",
+            axum::routing::get(routes::nwsl_game),
+        )
+        .route(
+            "/nwsl/standings",
+            axum::routing::get(routes::nwsl_standings),
+        )
         .nest_service("/public", ServeDir::new("public"))
         .layer(TraceLayer::new_for_http())
         .with_state(AppState { data })
