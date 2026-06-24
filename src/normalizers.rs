@@ -231,13 +231,10 @@ fn espn_basketball_standings_with(data: EspnStandingsDto, use_nba_mapping: bool)
     let mut east = Vec::new();
     let mut west = Vec::new();
     for group in data.children {
-        let conf = str_at(&group, &["abbreviation"])
-            .unwrap_or_else(|| str_at(&group, &["name"]).unwrap_or_default());
-        let conference = if conf.to_lowercase().contains("west") {
-            "West"
-        } else {
-            "East"
-        };
+        let name = str_at(&group, &["name"]).unwrap_or_default();
+        let abbr = str_at(&group, &["abbreviation"]).unwrap_or_default();
+        let is_west = name.to_lowercase().contains("west") || abbr.eq_ignore_ascii_case("w");
+        let conference = if is_west { "West" } else { "East" };
         for entry in array_at(&group, &["standings", "entries"]) {
             let abbr = str_at(&entry, &["team", "abbreviation"]).unwrap_or_default();
             let fallback_id = i64_from_str(&str_at(&entry, &["team", "id"]).unwrap_or_default());
@@ -1966,6 +1963,38 @@ mod tests {
         assert_eq!(standings.east[0].team_name, "Boston WNBA");
         assert_eq!(standings.east[0].team_tricode, "BOS");
         assert_eq!(standings.east[0].wins, 11);
+    }
+
+    #[test]
+    fn espn_wnba_standings_splits_short_conference_abbreviations() {
+        let data: EspnStandingsDto = serde_json::from_value(serde_json::json!({
+            "children": [
+                {
+                    "name": "Eastern Conference",
+                    "abbreviation": "E",
+                    "standings": {"entries": [{
+                        "team": {"id": "1", "name": "Liberty", "abbreviation": "NY"},
+                        "stats": [{"name": "wins", "value": 12, "displayValue": "12"}]
+                    }]}
+                },
+                {
+                    "name": "Western Conference",
+                    "abbreviation": "W",
+                    "standings": {"entries": [{
+                        "team": {"id": "2", "name": "Lynx", "abbreviation": "MIN"},
+                        "stats": [{"name": "wins", "value": 13, "displayValue": "13"}]
+                    }]}
+                }
+            ]
+        }))
+        .unwrap();
+
+        let standings = espn_wnba_standings(data);
+
+        assert_eq!(standings.east.len(), 1);
+        assert_eq!(standings.east[0].team_tricode, "NY");
+        assert_eq!(standings.west.len(), 1);
+        assert_eq!(standings.west[0].team_tricode, "MIN");
     }
 
     #[test]
