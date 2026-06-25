@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use serde_json::Value;
 
 use crate::{
@@ -7,15 +9,28 @@ use crate::{
     },
     error::AppError,
     models::{
-        BoxScore, BoxScoreTeam, Game, Leaders, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsDivision,
-        MlbStandingsTable, MlbStandingsTeam, NflBoxScore, NflBoxScoreTeam, NflStandingsDivision,
-        NflStandingsTable, NflStandingsTeam, NhlBoxScore, NhlBoxScoreTeam, NhlStandingsDivision,
-        NhlStandingsTable, NhlStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard,
-        SoccerBoxScore, SoccerBoxScoreTeam, SoccerEvent, SoccerStandingsGroup,
-        SoccerStandingsTable, SoccerStandingsTeam, StandingsTable, StandingsTeam, Statistics,
-        Table, Team, TeamStatistics,
+        BoxScore, BoxScoreTeam, BracketMatch, BracketRound, BracketSlot, BracketTable, Game,
+        Leaders, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsDivision, MlbStandingsTable,
+        MlbStandingsTeam, NflBoxScore, NflBoxScoreTeam, NflStandingsDivision, NflStandingsTable,
+        NflStandingsTeam, NhlBoxScore, NhlBoxScoreTeam, NhlStandingsDivision, NhlStandingsTable,
+        NhlStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard, SoccerBoxScore,
+        SoccerBoxScoreTeam, SoccerEvent, SoccerStandingsGroup, SoccerStandingsTable,
+        SoccerStandingsTeam, StandingsTable, StandingsTeam, Statistics, Table, Team,
+        TeamStatistics,
     },
 };
+
+/// Knockout rounds in bracket display order (left to right), paired with their
+/// human-readable labels. ESPN exposes the round via each event's `season.slug`.
+const BRACKET_ROUNDS: &[(&str, &str)] = &[
+    ("round-of-32", "Round of 32"),
+    ("round-of-16", "Round of 16"),
+    ("quarterfinals", "Quarterfinals"),
+    ("semifinals", "Semifinals"),
+    ("final", "Final"),
+];
+
+const THIRD_PLACE_ROUND: &str = "3rd-place-match";
 
 pub fn nba_today_scoreboard(data: NbaTodaysScoreboardDto) -> Result<Scoreboard, AppError> {
     let day = str_at(&data.scoreboard, &["gameDate"]).unwrap_or_default();
@@ -51,6 +66,217 @@ pub fn espn_nhl_scoreboard(day: &str, data: EspnScoreboardDto) -> Result<Scorebo
 
 pub fn espn_soccer_scoreboard(day: &str, data: EspnScoreboardDto) -> Result<Scoreboard, AppError> {
     espn_scoreboard_with(day, data, espn_soccer_competitor_to_team)
+}
+
+/// Builds a knockout bracket from an ESPN soccer scoreboard feed covering the
+/// knockout stage. `match_numbers` maps an event id to its FIFA match number,
+/// which is used to order the matches within each round. When match numbers are
+/// available the matches are reordered into a proper bracket tree (each round
+/// laid out so a match sits between the two earlier matches that feed it);
+/// otherwise the feed/match-number order is used as a best-effort fallback.
+pub fn espn_soccer_bracket(
+    data: EspnScoreboardDto,
+    match_numbers: &HashMap<String, i64>,
+) -> Result<BracketTable, AppError> {
+    let events: Vec<Value> = data.events;
+    let mut by_id: HashMap<String, usize> = HashMap::new();
+    let mut round_ids: HashMap<String, Vec<String>> = HashMap::new();
+    let mut third_place_id: Option<String> = None;
+
+    for (index, event) in events.iter().enumerate() {
+        let Some(id) = str_at(event, &["id"]) else {
+            continue;
+        };
+        let slug = str_at(event, &["season", "slug"]).unwrap_or_default();
+        by_id.insert(id.clone(), index);
+        if BRACKET_ROUNDS.iter().any(|(round, _)| *round == slug) {
+            round_ids.entry(slug).or_default().push(id);
+        } else if slug == THIRD_PLACE_ROUND {
+            third_place_id = Some(id);
+        }
+    }
+
+    // Within each round, order by FIFA match number (falling back to kickoff
+    // time then id) and record each match's 1-based slot for resolving feeders.
+    let mut slot_lookup: HashMap<(String, i64), String> = HashMap::new();
+    for (round, ids) in round_ids.iter_mut() {
+        ids.sort_by(|a, b| {
+            bracket_sort_key(match_numbers, &events, &by_id, a).cmp(&bracket_sort_key(
+                match_numbers,
+                &events,
+                &by_id,
+                b,
+            ))
+        });
+        for (slot, id) in ids.iter().enumerate() {
+            slot_lookup.insert((round.clone(), slot as i64 + 1), id.clone());
+        }
+    }
+
+    if let Some(tree_order) = bracket_tree_order(&events, &by_id, &round_ids, &slot_lookup) {
+        round_ids = tree_order;
+    }
+
+    let mut rounds = Vec::new();
+    for (round, label) in BRACKET_ROUNDS {
+        let Some(ids) = round_ids.get(*round) else {
+            continue;
+        };
+        if ids.is_empty() {
+            continue;
+        }
+        let matches = ids
+            .iter()
+            .filter_map(|id| by_id.get(id).map(|&i| bracket_match(&events[i])))
+            .collect::<Vec<_>>();
+        rounds.push(BracketRound {
+            name: (*label).to_string(),
+            matches,
+        });
+    }
+
+    let third_place =
+        third_place_id.and_then(|id| by_id.get(&id).map(|&i| bracket_match(&events[i])));
+
+    Ok(BracketTable {
+        rounds,
+        third_place,
+    })
+}
+
+fn bracket_sort_key(
+    match_numbers: &HashMap<String, i64>,
+    events: &[Value],
+    by_id: &HashMap<String, usize>,
+    id: &str,
+) -> (i64, String, String) {
+    let match_number = match_numbers.get(id).copied().unwrap_or(i64::MAX);
+    let date = by_id
+        .get(id)
+        .and_then(|&i| str_at(&events[i], &["date"]))
+        .unwrap_or_default();
+    (match_number, date, id.to_string())
+}
+
+/// Re-orders each knockout round into bracket-tree order by walking from the
+/// final down through the feeder references encoded in each match's placeholder
+/// team names (e.g. "Round of 32 3 Winner"). Returns `None` if the references do
+/// not form a complete, consistent tree, so the caller can keep the simpler
+/// match-number ordering.
+fn bracket_tree_order(
+    events: &[Value],
+    by_id: &HashMap<String, usize>,
+    round_ids: &HashMap<String, Vec<String>>,
+    slot_lookup: &HashMap<(String, i64), String>,
+) -> Option<HashMap<String, Vec<String>>> {
+    let chain = ["semifinals", "quarterfinals", "round-of-16", "round-of-32"];
+    let final_id = slot_lookup.get(&("final".to_string(), 1))?.clone();
+    let mut ordered: HashMap<String, Vec<String>> = HashMap::new();
+    ordered.insert("final".to_string(), vec![final_id.clone()]);
+    let mut current = vec![final_id];
+
+    for child_round in chain {
+        let mut next = Vec::new();
+        for parent_id in &current {
+            let event = &events[*by_id.get(parent_id)?];
+            for competitor in bracket_competitors(event)? {
+                let name = str_at(&competitor, &["team", "displayName"]).unwrap_or_default();
+                let (feeder_round, slot) = parse_bracket_feeder(&name)?;
+                if feeder_round != child_round {
+                    return None;
+                }
+                next.push(slot_lookup.get(&(child_round.to_string(), slot))?.clone());
+            }
+        }
+        let expected: HashSet<&String> = round_ids.get(child_round)?.iter().collect();
+        let actual: HashSet<&String> = next.iter().collect();
+        if next.len() != expected.len() || actual != expected {
+            return None;
+        }
+        ordered.insert(child_round.to_string(), next.clone());
+        current = next;
+    }
+
+    Some(ordered)
+}
+
+/// Parses a placeholder team name like "Round of 32 3 Winner" into the round it
+/// feeds from and the source match's 1-based slot within that round.
+fn parse_bracket_feeder(name: &str) -> Option<(&'static str, i64)> {
+    const FEEDERS: &[(&str, &str)] = &[
+        ("Round of 32 ", "round-of-32"),
+        ("Round of 16 ", "round-of-16"),
+        ("Quarterfinal ", "quarterfinals"),
+        ("Semifinal ", "semifinals"),
+    ];
+    for (prefix, round) in FEEDERS {
+        if let Some(rest) = name.strip_prefix(prefix)
+            && let Some(slot) = rest.strip_suffix(" Winner")
+            && let Ok(slot) = slot.trim().parse::<i64>()
+        {
+            return Some((round, slot));
+        }
+    }
+    None
+}
+
+fn bracket_competitors(event: &Value) -> Option<[Value; 2]> {
+    let comp = event.pointer("/competitions/0")?;
+    let competitors = array_at(comp, &["competitors"]);
+    let home = competitors
+        .iter()
+        .find(|c| str_at(c, &["homeAway"]).as_deref() == Some("home"))?
+        .clone();
+    let away = competitors
+        .iter()
+        .find(|c| str_at(c, &["homeAway"]).as_deref() == Some("away"))?
+        .clone();
+    Some([home, away])
+}
+
+fn bracket_match(event: &Value) -> BracketMatch {
+    let comp = event.pointer("/competitions/0").unwrap_or(&Value::Null);
+    let status = comp.get("status").unwrap_or(&Value::Null);
+    let competitors = array_at(comp, &["competitors"]);
+    let home = competitors
+        .iter()
+        .find(|c| str_at(c, &["homeAway"]).as_deref() == Some("home"))
+        .cloned()
+        .unwrap_or(Value::Null);
+    let away = competitors
+        .iter()
+        .find(|c| str_at(c, &["homeAway"]).as_deref() == Some("away"))
+        .cloned()
+        .unwrap_or(Value::Null);
+    BracketMatch {
+        game_id: str_at(event, &["id"]).unwrap_or_default(),
+        game_status: espn_status_to_game_status(status),
+        game_status_text: str_at(status, &["type", "shortDetail"])
+            .or_else(|| str_at(status, &["type", "description"]))
+            .unwrap_or_default(),
+        game_time_utc: str_at(event, &["date"]).unwrap_or_default(),
+        home: bracket_slot(&home),
+        away: bracket_slot(&away),
+    }
+}
+
+fn bracket_slot(competitor: &Value) -> BracketSlot {
+    BracketSlot {
+        team_id: str_at(competitor, &["team", "id"])
+            .map(|s| i64_from_str(&s))
+            .unwrap_or(0),
+        name: str_at(competitor, &["team", "displayName"])
+            .or_else(|| str_at(competitor, &["team", "name"]))
+            .unwrap_or_default(),
+        short_name: str_at(competitor, &["team", "shortDisplayName"])
+            .or_else(|| str_at(competitor, &["team", "abbreviation"]))
+            .unwrap_or_default(),
+        team_tricode: str_at(competitor, &["team", "abbreviation"]).unwrap_or_default(),
+        logo: str_at(competitor, &["team", "logo"]).unwrap_or_default(),
+        score: str_at(competitor, &["score"]).unwrap_or_default(),
+        winner: bool_at(competitor, &["winner"]),
+        placeholder: !bool_at(competitor, &["team", "isActive"]),
+    }
 }
 
 fn espn_scoreboard_with(
@@ -2345,6 +2571,89 @@ mod tests {
         assert_eq!(scoreboard.games[0].away_team.display_record, "1-0-0");
         assert!(scoreboard.games[0].away_team.periods.is_empty());
         assert_eq!(scoreboard.games[0].game_status_text, "FT");
+    }
+
+    #[test]
+    fn espn_soccer_bracket_orders_by_match_number_and_flags_placeholders() {
+        let data: EspnScoreboardDto = serde_json::from_value(serde_json::json!({
+            "events": [
+                {
+                    "id": "200",
+                    "date": "2026-06-29T16:00Z",
+                    "season": {"slug": "round-of-16"},
+                    "competitions": [{
+                        "status": {"type": {"completed": true, "state": "post", "shortDetail": "FT"}},
+                        "competitors": [
+                            {"homeAway": "home", "winner": true, "score": "3", "team": {"id": "83", "displayName": "Brazil", "shortDisplayName": "BRA", "abbreviation": "BRA", "isActive": true, "logo": "https://logos/bra.png"}},
+                            {"homeAway": "away", "winner": false, "score": "1", "team": {"id": "85", "displayName": "Chile", "shortDisplayName": "CHI", "abbreviation": "CHI", "isActive": true, "logo": "https://logos/chi.png"}}
+                        ]
+                    }]
+                },
+                {
+                    "id": "201",
+                    "date": "2026-06-28T16:00Z",
+                    "season": {"slug": "round-of-16"},
+                    "competitions": [{
+                        "status": {"type": {"completed": false, "state": "pre", "shortDetail": "6/28 - 12:00 PM"}},
+                        "competitors": [
+                            {"homeAway": "home", "score": "0", "team": {"displayName": "Group A Winner", "isActive": false, "logo": ""}},
+                            {"homeAway": "away", "score": "0", "team": {"displayName": "Group B Runner-Up", "isActive": false, "logo": ""}}
+                        ]
+                    }]
+                },
+                {
+                    "id": "300",
+                    "date": "2026-07-18T16:00Z",
+                    "season": {"slug": "3rd-place-match"},
+                    "competitions": [{
+                        "status": {"type": {"completed": false, "state": "pre", "shortDetail": "7/18 - 12:00 PM"}},
+                        "competitors": [
+                            {"homeAway": "home", "score": "0", "team": {"displayName": "Semifinal 1 Loser", "isActive": false, "logo": ""}},
+                            {"homeAway": "away", "score": "0", "team": {"displayName": "Semifinal 2 Loser", "isActive": false, "logo": ""}}
+                        ]
+                    }]
+                }
+            ]
+        }))
+        .unwrap();
+
+        let match_numbers = HashMap::from([("200".to_string(), 90), ("201".to_string(), 89)]);
+        let bracket = espn_soccer_bracket(data, &match_numbers).unwrap();
+
+        assert_eq!(bracket.rounds.len(), 1);
+        let round = &bracket.rounds[0];
+        assert_eq!(round.name, "Round of 16");
+        // Lower match number sorts first even though it is later in the feed.
+        assert_eq!(round.matches[0].game_id, "201");
+        assert_eq!(round.matches[1].game_id, "200");
+
+        let placeholder_match = &round.matches[0];
+        assert!(placeholder_match.home.placeholder);
+        assert_eq!(placeholder_match.home.name, "Group A Winner");
+
+        let played_match = &round.matches[1];
+        assert!(!played_match.home.placeholder);
+        assert!(played_match.home.winner);
+        assert_eq!(played_match.home.score, "3");
+        assert_eq!(played_match.game_status, 3);
+
+        let third = bracket.third_place.expect("third place match");
+        assert_eq!(third.game_id, "300");
+        assert_eq!(third.away.name, "Semifinal 2 Loser");
+    }
+
+    #[test]
+    fn parse_bracket_feeder_reads_round_and_slot() {
+        assert_eq!(
+            parse_bracket_feeder("Round of 32 3 Winner"),
+            Some(("round-of-32", 3))
+        );
+        assert_eq!(
+            parse_bracket_feeder("Quarterfinal 2 Winner"),
+            Some(("quarterfinals", 2))
+        );
+        assert_eq!(parse_bracket_feeder("Semifinal 1 Loser"), None);
+        assert_eq!(parse_bracket_feeder("Brazil"), None);
     }
 
     #[test]

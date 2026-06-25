@@ -247,6 +247,11 @@ pub async fn worldcup_standings(State(state): State<AppState>) -> Result<Html<St
     Ok(Html(render::soccer_standings_page("World Cup", &standings)))
 }
 
+pub async fn worldcup_bracket(State(state): State<AppState>) -> Result<Html<String>, AppError> {
+    let bracket = state.data.worldcup_bracket().await?;
+    Ok(Html(render::bracket_page("World Cup", &bracket)))
+}
+
 pub async fn nwsl_scoreboard() -> Redirect {
     dayless_scoreboard(RouteLeague::Nwsl)
 }

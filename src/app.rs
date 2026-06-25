@@ -148,6 +148,10 @@ pub fn router(data: Arc<dyn SportsData>) -> Router {
             axum::routing::get(routes::worldcup_standings),
         )
         .route(
+            "/worldcup/bracket",
+            axum::routing::get(routes::worldcup_bracket),
+        )
+        .route(
             "/nwsl/scoreboard",
             axum::routing::get(routes::nwsl_scoreboard),
         )

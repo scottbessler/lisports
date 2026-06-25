@@ -3,12 +3,12 @@ use chrono::{Datelike, Days, NaiveDate, SecondsFormat, Utc};
 use crate::{
     clients::LIVE_DATA_CACHE_SECONDS,
     models::{
-        BoxScore, BoxScoreTeam, Game, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsTable,
-        MlbStandingsTeam, NflBoxScore, NflBoxScoreTeam, NflStandingsTable, NflStandingsTeam,
-        NhlBoxScore, NhlBoxScoreTeam, NhlStandingsTable, NhlStandingsTeam, Player, PlayerStatsPage,
-        Scoreboard, SoccerBoxScore, SoccerBoxScoreTeam, SoccerEvent, SoccerStandingsTable,
-        SoccerStandingsTeam, StandingsTable, StandingsTeam, Statistics, Table, Team,
-        TeamStatistics,
+        BoxScore, BoxScoreTeam, BracketMatch, BracketSlot, BracketTable, Game, MlbBoxScore,
+        MlbBoxScoreTeam, MlbStandingsTable, MlbStandingsTeam, NflBoxScore, NflBoxScoreTeam,
+        NflStandingsTable, NflStandingsTeam, NhlBoxScore, NhlBoxScoreTeam, NhlStandingsTable,
+        NhlStandingsTeam, Player, PlayerStatsPage, Scoreboard, SoccerBoxScore, SoccerBoxScoreTeam,
+        SoccerEvent, SoccerStandingsTable, SoccerStandingsTeam, StandingsTable, StandingsTeam,
+        Statistics, Table, Team, TeamStatistics,
     },
     stats,
 };
@@ -106,6 +106,7 @@ pub fn nav() -> &'static str {
       <span class="nav-label">World&nbsp;Cup</span>
       <a href="/worldcup/scoreboard" aria-label="World Cup Scoreboard">Scoreboard</a>
       <a href="/worldcup/standings" aria-label="World Cup Standings">Standings</a>
+      <a href="/worldcup/bracket" aria-label="World Cup Bracket">Bracket</a>
     </div>
     <div class="nav-section">
       <span class="nav-label">NWSL</span>
@@ -1613,6 +1614,97 @@ pub fn nhl_standings_page(standings: &NhlStandingsTable) -> String {
                 )
             })
             .collect::<String>(),
+    )
+}
+
+pub fn bracket_page(title_prefix: &str, bracket: &BracketTable) -> String {
+    let title = format!("{title_prefix} Bracket");
+    let body = if bracket.rounds.is_empty() {
+        r#"<main class="page bracket"><section class="center"><h1>No Bracket Available</h1></section></main>"#.to_string()
+    } else {
+        let rounds = bracket
+            .rounds
+            .iter()
+            .map(|round| {
+                let matches = round
+                    .matches
+                    .iter()
+                    .map(bracket_match_html)
+                    .collect::<String>();
+                format!(
+                    r#"<section class="bracket-round"><h2 class="bracket-round-title">{}</h2><div class="bracket-matches">{matches}</div></section>"#,
+                    escape(&round.name)
+                )
+            })
+            .collect::<String>();
+        let third_place = bracket
+            .third_place
+            .as_ref()
+            .map(|third| {
+                format!(
+                    r#"<section class="bracket-third"><h2 class="bracket-round-title">Third Place</h2><div class="bracket-matches">{}</div></section>"#,
+                    bracket_match_html(third)
+                )
+            })
+            .unwrap_or_default();
+        format!(
+            r#"<main class="page bracket"><h1>{}</h1><div class="bracket-scroll"><div class="bracket-rounds">{rounds}</div></div>{third_place}</main>"#,
+            escape(&title)
+        )
+    };
+    layout(&title, &body)
+}
+
+fn bracket_match_html(game: &BracketMatch) -> String {
+    let played = game.game_status >= 2;
+    let completed = if game.game_status == 3 {
+        " completed"
+    } else if game.game_status == 2 {
+        " live"
+    } else {
+        ""
+    };
+    let caption = game.game_status_text.trim();
+    let caption_html = if caption.is_empty() {
+        String::new()
+    } else {
+        format!(r#"<div class="bracket-caption">{}</div>"#, escape(caption))
+    };
+    format!(
+        r#"<article class="bracket-match{completed}">{}{}{caption_html}</article>"#,
+        bracket_slot_html(&game.home, played),
+        bracket_slot_html(&game.away, played),
+    )
+}
+
+fn bracket_slot_html(slot: &BracketSlot, played: bool) -> String {
+    let mut classes = String::from("bracket-slot");
+    if slot.winner {
+        classes.push_str(" winner");
+    }
+    if slot.placeholder {
+        classes.push_str(" placeholder");
+    }
+    let flag = if !slot.placeholder && !slot.logo.is_empty() {
+        format!(
+            r#"<img class="bracket-flag" src="{}" alt="{}">"#,
+            escape_attr(&slot.logo),
+            escape_attr(&slot.name)
+        )
+    } else {
+        r#"<span class="bracket-flag empty" aria-hidden="true"></span>"#.to_string()
+    };
+    let score = if played && !slot.score.is_empty() {
+        format!(
+            r#"<span class="bracket-score">{}</span>"#,
+            escape(&slot.score)
+        )
+    } else {
+        r#"<span class="bracket-score"></span>"#.to_string()
+    };
+    format!(
+        r#"<div class="{classes}">{flag}<span class="bracket-team">{}</span>{score}</div>"#,
+        escape(&slot.name)
     )
 }
 

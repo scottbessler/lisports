@@ -34,6 +34,7 @@ pub struct League {
     pub scoreboard: bool,
     pub game: bool,
     pub standings: bool,
+    pub bracket: bool,
     pub player: PlayerFeature,
 }
 
@@ -50,6 +51,7 @@ pub const LEAGUES: &[League] = &[
         scoreboard: true,
         game: true,
         standings: true,
+        bracket: false,
         player: PlayerFeature::Supported,
     },
     League {
@@ -64,6 +66,7 @@ pub const LEAGUES: &[League] = &[
         scoreboard: true,
         game: true,
         standings: true,
+        bracket: false,
         player: PlayerFeature::Supported,
     },
     League {
@@ -78,6 +81,7 @@ pub const LEAGUES: &[League] = &[
         scoreboard: true,
         game: true,
         standings: true,
+        bracket: false,
         player: PlayerFeature::Supported,
     },
     League {
@@ -92,6 +96,7 @@ pub const LEAGUES: &[League] = &[
         scoreboard: true,
         game: true,
         standings: true,
+        bracket: false,
         player: PlayerFeature::Supported,
     },
     League {
@@ -106,6 +111,7 @@ pub const LEAGUES: &[League] = &[
         scoreboard: true,
         game: true,
         standings: true,
+        bracket: false,
         player: PlayerFeature::Supported,
     },
     League {
@@ -120,6 +126,7 @@ pub const LEAGUES: &[League] = &[
         scoreboard: true,
         game: true,
         standings: true,
+        bracket: true,
         player: PlayerFeature::Unsupported,
     },
     League {
@@ -134,6 +141,7 @@ pub const LEAGUES: &[League] = &[
         scoreboard: true,
         game: true,
         standings: true,
+        bracket: false,
         player: PlayerFeature::Unsupported,
     },
 ];
@@ -189,6 +197,13 @@ mod tests {
             PlayerFeature::Unsupported
         );
         assert_eq!(by_slug("nwsl").unwrap().player, PlayerFeature::Unsupported);
+    }
+
+    #[test]
+    fn only_world_cup_declares_bracket() {
+        for league in LEAGUES {
+            assert_eq!(league.bracket, league.slug == "worldcup");
+        }
     }
 
     #[test]
