@@ -40,6 +40,7 @@ LiSports is a Rust web server that renders static HTML for a small sports dashbo
 - `/worldcup/scoreboard/:day` renders the World Cup matches for a date in `YYYY-MM-DD` format
 - `/worldcup/scoreboard/:day/game/:game_id` renders the date scoreboard plus World Cup match stats
 - `/worldcup/standings` renders World Cup standings
+- `/worldcup/bracket` renders the World Cup knockout bracket
 - `/nwsl/scoreboard` redirects to `/nwsl/scoreboard/today`
 - `/nwsl/scoreboard/today` renders today's NWSL scoreboard
 - `/nwsl/scoreboard/:day` renders the NWSL matches for a date in `YYYY-MM-DD` format
@@ -49,15 +50,15 @@ LiSports is a Rust web server that renders static HTML for a small sports dashbo
 
 ## Feature Matrix
 
-| League | Scoreboard | Game | Standings | Player | Bucket | Upstream |
-| --- | --- | --- | --- | --- | --- | --- |
-| NBA | yes | yes | yes | yes | date | NBA live scoreboard, ESPN site APIs, NBA fallback player endpoint |
-| WNBA | yes | yes | yes | yes | date | ESPN site APIs |
-| MLB | yes | yes | yes | yes | date | ESPN site APIs |
-| NFL | yes | yes | yes | yes | week `1..23` | ESPN site APIs |
-| NHL | yes | yes | yes | yes | date | ESPN site APIs |
-| World Cup | yes | yes | yes | no | date | ESPN site APIs (`soccer/fifa.world`) |
-| NWSL | yes | yes | yes | no | date | ESPN site APIs (`soccer/usa.nwsl`) |
+| League | Scoreboard | Game | Standings | Bracket | Player | Bucket | Upstream |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| NBA | yes | yes | yes | no | yes | date | NBA live scoreboard, ESPN site APIs, NBA fallback player endpoint |
+| WNBA | yes | yes | yes | no | yes | date | ESPN site APIs |
+| MLB | yes | yes | yes | no | yes | date | ESPN site APIs |
+| NFL | yes | yes | yes | no | yes | week `1..23` | ESPN site APIs |
+| NHL | yes | yes | yes | no | yes | date | ESPN site APIs |
+| World Cup | yes | yes | yes | yes | no | date | ESPN site APIs (`soccer/fifa.world`) |
+| NWSL | yes | yes | yes | no | no | date | ESPN site APIs (`soccer/usa.nwsl`) |
 
 ## Development
 
