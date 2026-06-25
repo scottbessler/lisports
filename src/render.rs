@@ -8,7 +8,7 @@ use crate::{
         NflStandingsTable, NflStandingsTeam, NhlBoxScore, NhlBoxScoreTeam, NhlStandingsTable,
         NhlStandingsTeam, Player, PlayerStatsPage, Scoreboard, SoccerBoxScore, SoccerBoxScoreTeam,
         SoccerEvent, SoccerStandingsTable, SoccerStandingsTeam, StandingsTable, StandingsTeam,
-        Statistics, Table, Team, TeamStatistics,
+        Statistics, Table, Team, TeamPage, TeamStatistics,
     },
     stats,
 };
@@ -1760,19 +1760,28 @@ fn standings_table(
             } else {
                 row.playoff_rank
             };
+            let logo = team_logo_id_for_league(
+                row.team_id,
+                &row.team_tricode,
+                &row.team_name,
+                "mini-logo",
+                league,
+            );
+            let team_name = escape(&row.team_name);
+            let team_cell = match league {
+                League::Nba => format!(
+                    r#"{logo}<a href="/nba/team/{}">{team_name}</a>"#,
+                    escape_attr(&row.team_tricode.to_ascii_lowercase())
+                ),
+                League::Wnba => format!(
+                    r#"{logo}<a href="/wnba/team/{}">{team_name}</a>"#,
+                    escape_attr(&row.team_tricode.to_ascii_lowercase())
+                ),
+                _ => format!("{logo}{team_name}"),
+            };
             vec![
                 rank.to_string(),
-                format!(
-                    "{}{}",
-                    team_logo_id_for_league(
-                        row.team_id,
-                        &row.team_tricode,
-                        &row.team_name,
-                        "mini-logo",
-                        league
-                    ),
-                    escape(&row.team_name)
-                ),
+                team_cell,
                 row.wins.to_string(),
                 row.losses.to_string(),
                 format_number(row.win_pct, 3),
@@ -2016,6 +2025,24 @@ pub fn player_page_for_league(league_label: &str, stats: &PlayerStatsPage) -> St
     }
     body.push_str("</main>");
     layout(&format!("{league_label} Player"), &body)
+}
+
+pub fn team_page(league: &crate::leagues::League, page: &TeamPage) -> String {
+    let mut heading = escape(&page.team_name);
+    if !page.record.is_empty() {
+        heading.push_str(&format!(
+            r#" <span class="team-record">{}</span>"#,
+            escape(&page.record)
+        ));
+    }
+    let body = format!(
+        r#"<main class="page team"><header class="team-header"><h1>{heading}</h1></header><article class="panel"><h1>{}</h1>{}</article><article class="panel"><h1>{}</h1>{}</article></main>"#,
+        escape(&page.games.name),
+        render_table(&page.games),
+        escape(&page.players.name),
+        render_table(&page.players),
+    );
+    layout(&format!("{} {}", league.nav_label, page.team_name), &body)
 }
 
 fn render_table(table: &Table) -> String {

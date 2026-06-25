@@ -17,7 +17,7 @@ use lisports::{
         NflStandingsTeam, NhlBoxScore, NhlBoxScoreTeam, NhlStandingsDivision, NhlStandingsTable,
         NhlStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard, SoccerBoxScore,
         SoccerBoxScoreTeam, SoccerStandingsGroup, SoccerStandingsTable, SoccerStandingsTeam,
-        StandingsTable, StandingsTeam, Statistics, Table, Team, TeamStatistics,
+        StandingsTable, StandingsTeam, Statistics, Table, Team, TeamPage, TeamStatistics,
     },
 };
 use tower::ServiceExt;
@@ -58,6 +58,10 @@ impl SportsData for FakeSportsData {
         Ok(player_stats_page())
     }
 
+    async fn team_page(&self, _team_id: &str) -> Result<TeamPage, AppError> {
+        Ok(team_page("/nba"))
+    }
+
     async fn wnba_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
         Ok(wnba_scoreboard())
     }
@@ -79,6 +83,10 @@ impl SportsData for FakeSportsData {
 
     async fn wnba_player_stats(&self, _player_id: &str) -> Result<PlayerStatsPage, AppError> {
         Ok(player_stats_page())
+    }
+
+    async fn wnba_team_page(&self, _team_id: &str) -> Result<TeamPage, AppError> {
+        Ok(team_page("/wnba"))
     }
 
     async fn mlb_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
@@ -444,6 +452,18 @@ async fn league_registry_matches_route_surface() {
                 assert_eq!(status, StatusCode::NOT_FOUND);
             }
         }
+
+        let (team_status, _) = request(&format!("{}/team/13", league.route_base)).await;
+        if league.team {
+            assert_eq!(team_status, StatusCode::OK, "{} team missing", league.slug);
+        } else {
+            assert_eq!(
+                team_status,
+                StatusCode::NOT_FOUND,
+                "{} team unexpected",
+                league.slug
+            );
+        }
     }
 }
 
@@ -487,6 +507,33 @@ async fn player_page_renders_summary_and_game_log() {
     assert!(body.contains("Summary"));
     assert!(body.contains("Game Log"));
     assert!(body.contains("table class=\"sortable\""));
+}
+
+#[tokio::test]
+async fn nba_team_page_links_games_and_players() {
+    let (status, body) = request("/nba/team/13").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("Test Team"));
+    assert!(body.contains("Last 10 Games"));
+    assert!(body.contains("Player Stats"));
+    assert!(body.contains(r#"<a href="/nba/scoreboard/2026-04-26/game/401869385">"#));
+    assert!(body.contains(r#"<a href="/nba/player/4567">"#));
+}
+
+#[tokio::test]
+async fn wnba_team_page_links_games_and_players() {
+    let (status, body) = request("/wnba/team/13").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains(r#"<a href="/wnba/scoreboard/2026-04-26/game/401869385">"#));
+    assert!(body.contains(r#"<a href="/wnba/player/4567">"#));
+}
+
+#[tokio::test]
+async fn standings_link_team_names_to_team_pages() {
+    let (_, body) = request("/nba/standings").await;
+    assert!(body.contains(r#"<a href="/nba/team/bc">Boston Celtics</a>"#));
+    let (_, body) = request("/wnba/standings").await;
+    assert!(body.contains(r#"<a href="/wnba/team/ny">New York Liberty</a>"#));
 }
 
 #[tokio::test]
@@ -877,6 +924,41 @@ fn player_stats_page() -> PlayerStatsPage {
                 first_column_links: Vec::new(),
             },
         ],
+    }
+}
+
+fn team_page(route_base: &str) -> TeamPage {
+    TeamPage {
+        team_id: 13,
+        team_name: "Test Team".to_string(),
+        team_tricode: "TST".to_string(),
+        record: "10-2".to_string(),
+        games: Table {
+            name: "Last 10 Games".to_string(),
+            headers: vec![
+                "Date".to_string(),
+                "Opp".to_string(),
+                "Result".to_string(),
+                "Score".to_string(),
+            ],
+            rows: vec![vec![
+                "2026-04-26".to_string(),
+                "vs LAL".to_string(),
+                "W".to_string(),
+                "112-104".to_string(),
+            ]],
+            first_column_links: vec![format!("{route_base}/scoreboard/2026-04-26/game/401869385")],
+        },
+        players: Table {
+            name: "Player Stats".to_string(),
+            headers: vec!["Player".to_string(), "Pos".to_string(), "PTS".to_string()],
+            rows: vec![vec![
+                "Test Player".to_string(),
+                "G".to_string(),
+                "20.1".to_string(),
+            ]],
+            first_column_links: vec![format!("{route_base}/player/4567")],
+        },
     }
 }
 

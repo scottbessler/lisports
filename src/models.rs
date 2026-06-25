@@ -153,6 +153,16 @@ pub struct PlayerStatsPage {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct TeamPage {
+    pub team_id: i64,
+    pub team_name: String,
+    pub team_tricode: String,
+    pub record: String,
+    pub games: Table,
+    pub players: Table,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct MlbBoxScore {
     pub game_id: String,
     pub game_status: i64,

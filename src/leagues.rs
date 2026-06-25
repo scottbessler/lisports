@@ -36,6 +36,7 @@ pub struct League {
     pub standings: bool,
     pub bracket: bool,
     pub player: PlayerFeature,
+    pub team: bool,
 }
 
 pub const LEAGUES: &[League] = &[
@@ -53,6 +54,7 @@ pub const LEAGUES: &[League] = &[
         standings: true,
         bracket: false,
         player: PlayerFeature::Supported,
+        team: true,
     },
     League {
         id: LeagueId::Wnba,
@@ -68,6 +70,7 @@ pub const LEAGUES: &[League] = &[
         standings: true,
         bracket: false,
         player: PlayerFeature::Supported,
+        team: true,
     },
     League {
         id: LeagueId::Mlb,
@@ -83,6 +86,7 @@ pub const LEAGUES: &[League] = &[
         standings: true,
         bracket: false,
         player: PlayerFeature::Supported,
+        team: false,
     },
     League {
         id: LeagueId::Nfl,
@@ -98,6 +102,7 @@ pub const LEAGUES: &[League] = &[
         standings: true,
         bracket: false,
         player: PlayerFeature::Supported,
+        team: false,
     },
     League {
         id: LeagueId::Nhl,
@@ -113,6 +118,7 @@ pub const LEAGUES: &[League] = &[
         standings: true,
         bracket: false,
         player: PlayerFeature::Supported,
+        team: false,
     },
     League {
         id: LeagueId::WorldCup,
@@ -128,6 +134,7 @@ pub const LEAGUES: &[League] = &[
         standings: true,
         bracket: true,
         player: PlayerFeature::Unsupported,
+        team: false,
     },
     League {
         id: LeagueId::Nwsl,
@@ -143,6 +150,7 @@ pub const LEAGUES: &[League] = &[
         standings: true,
         bracket: false,
         player: PlayerFeature::Unsupported,
+        team: false,
     },
 ];
 
@@ -197,6 +205,13 @@ mod tests {
             PlayerFeature::Unsupported
         );
         assert_eq!(by_slug("nwsl").unwrap().player, PlayerFeature::Unsupported);
+        assert!(by_slug("nba").unwrap().team);
+        assert!(by_slug("wnba").unwrap().team);
+        assert!(!by_slug("mlb").unwrap().team);
+        assert!(!by_slug("nfl").unwrap().team);
+        assert!(!by_slug("nhl").unwrap().team);
+        assert!(!by_slug("worldcup").unwrap().team);
+        assert!(!by_slug("nwsl").unwrap().team);
     }
 
     #[test]

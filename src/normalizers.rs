@@ -1,5 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
+use chrono::Datelike;
 use serde_json::Value;
 
 use crate::{
@@ -767,6 +768,206 @@ fn ordered_native_stats(labels: &[String], stats: &[String]) -> Vec<String> {
         .enumerate()
         .map(|(index, _)| stats.get(index).cloned().unwrap_or_default())
         .collect()
+}
+
+#[derive(Debug, Clone)]
+pub struct RosterAthlete {
+    pub id: String,
+    pub name: String,
+    pub position: String,
+}
+
+pub struct TeamScheduleResult {
+    pub team_id: i64,
+    pub team_name: String,
+    pub team_tricode: String,
+    pub record: String,
+    pub games: Table,
+}
+
+/// ESPN buckets its scoreboard by US Eastern date; approximate with UTC-5 so the
+/// box-score link lands on the day the game appears under.
+fn eastern_game_day(date_utc: &str) -> String {
+    for fmt in [
+        "%Y-%m-%dT%H:%MZ",
+        "%Y-%m-%dT%H:%M:%SZ",
+        "%Y-%m-%dT%H:%M:%S%.fZ",
+    ] {
+        if let Ok(naive) = chrono::NaiveDateTime::parse_from_str(date_utc, fmt) {
+            return (naive - chrono::Duration::hours(5)).date().to_string();
+        }
+    }
+    date_utc.chars().take(10).collect()
+}
+
+/// Season start year used by the ESPN core statistics API, derived from the
+/// earliest game on the team schedule (handles both calendar-year and
+/// fall-to-spring sports without per-league rules).
+pub fn team_schedule_season_year(events: &[Value]) -> i64 {
+    events
+        .iter()
+        .filter_map(|event| str_at(event, &["date"]))
+        .filter_map(|date| date.get(0..4).and_then(|year| year.parse::<i64>().ok()))
+        .min()
+        .unwrap_or_else(|| i64::from(chrono::Utc::now().date_naive().year()))
+}
+
+pub fn roster_athletes(athletes: &[Value]) -> Vec<RosterAthlete> {
+    athletes
+        .iter()
+        .filter_map(|athlete| {
+            let id = str_at(athlete, &["id"])?;
+            let name = str_at(athlete, &["displayName"])
+                .or_else(|| str_at(athlete, &["fullName"]))
+                .unwrap_or_default();
+            let position = str_at(athlete, &["position", "abbreviation"])
+                .or_else(|| str_at(athlete, &["position", "name"]))
+                .unwrap_or_default();
+            Some(RosterAthlete { id, name, position })
+        })
+        .collect()
+}
+
+pub fn espn_team_schedule(route_base: &str, team: &Value, events: &[Value]) -> TeamScheduleResult {
+    let team_id = i64_at(team, &["id"]);
+    let team_name = str_at(team, &["displayName"]).unwrap_or_default();
+    let team_tricode = str_at(team, &["abbreviation"]).unwrap_or_default();
+    let record = str_at(team, &["recordSummary"]).unwrap_or_default();
+
+    let mut completed: Vec<&Value> = events
+        .iter()
+        .filter(|event| {
+            array_at(event, &["competitions"])
+                .first()
+                .map(|competition| bool_at(competition, &["status", "type", "completed"]))
+                .unwrap_or(false)
+        })
+        .collect();
+    completed.sort_by(|a, b| {
+        str_at(b, &["date"])
+            .unwrap_or_default()
+            .cmp(&str_at(a, &["date"]).unwrap_or_default())
+    });
+    completed.truncate(10);
+
+    let mut rows = Vec::new();
+    let mut first_column_links = Vec::new();
+    for event in completed {
+        let event_id = str_at(event, &["id"]).unwrap_or_default();
+        let date_utc = str_at(event, &["date"]).unwrap_or_default();
+        let day = eastern_game_day(&date_utc);
+        let competition = array_at(event, &["competitions"])
+            .into_iter()
+            .next()
+            .unwrap_or(Value::Null);
+        let competitors = array_at(&competition, &["competitors"]);
+        let team_side = competitors
+            .iter()
+            .find(|competitor| i64_at(competitor, &["team", "id"]) == team_id);
+        let opponent_side = competitors
+            .iter()
+            .find(|competitor| i64_at(competitor, &["team", "id"]) != team_id);
+
+        let home_away = team_side
+            .map(|side| str_at(side, &["homeAway"]).unwrap_or_default())
+            .unwrap_or_default();
+        let prefix = if home_away == "away" { "@" } else { "vs" };
+        let opponent = opponent_side
+            .and_then(|side| str_at(side, &["team", "abbreviation"]))
+            .unwrap_or_default();
+        let won = team_side
+            .map(|side| bool_at(side, &["winner"]))
+            .unwrap_or(false);
+        let team_score = team_side
+            .and_then(|side| str_at(side, &["score", "displayValue"]))
+            .unwrap_or_default();
+        let opponent_score = opponent_side
+            .and_then(|side| str_at(side, &["score", "displayValue"]))
+            .unwrap_or_default();
+
+        rows.push(vec![
+            day.clone(),
+            format!("{prefix} {opponent}"),
+            if won {
+                "W".to_string()
+            } else {
+                "L".to_string()
+            },
+            format!("{team_score}-{opponent_score}"),
+        ]);
+        first_column_links.push(format!("{route_base}/scoreboard/{day}/game/{event_id}"));
+    }
+
+    TeamScheduleResult {
+        team_id,
+        team_name,
+        team_tricode,
+        record,
+        games: Table {
+            name: "Last 10 Games".to_string(),
+            headers: ["Date", "Opp", "Result", "Score"]
+                .iter()
+                .map(|header| header.to_string())
+                .collect(),
+            rows,
+            first_column_links,
+        },
+    }
+}
+
+fn core_stat(stats: &Value, name: &str) -> String {
+    for category in array_at(stats, &["splits", "categories"]) {
+        for stat in array_at(&category, &["stats"]) {
+            if str_at(&stat, &["name"]).as_deref() == Some(name) {
+                return str_at(&stat, &["displayValue"]).unwrap_or_default();
+            }
+        }
+    }
+    String::new()
+}
+
+pub fn espn_team_player_stats(
+    route_base: &str,
+    players: &[(RosterAthlete, Option<Value>)],
+) -> Table {
+    const STAT_KEYS: &[(&str, &str)] = &[
+        ("GP", "gamesPlayed"),
+        ("MIN", "avgMinutes"),
+        ("PTS", "avgPoints"),
+        ("REB", "avgRebounds"),
+        ("AST", "avgAssists"),
+        ("STL", "avgSteals"),
+        ("BLK", "avgBlocks"),
+        ("FG%", "fieldGoalPct"),
+        ("3P%", "threePointPct"),
+        ("FT%", "freeThrowPct"),
+        ("TO", "avgTurnovers"),
+    ];
+
+    let mut headers = vec!["Player".to_string(), "Pos".to_string()];
+    headers.extend(STAT_KEYS.iter().map(|(label, _)| label.to_string()));
+
+    let mut rows = Vec::new();
+    let mut first_column_links = Vec::new();
+    for (athlete, stats) in players {
+        let Some(stats) = stats else {
+            continue;
+        };
+        if core_stat(stats, "gamesPlayed").is_empty() {
+            continue;
+        }
+        let mut row = vec![athlete.name.clone(), athlete.position.clone()];
+        row.extend(STAT_KEYS.iter().map(|(_, key)| core_stat(stats, key)));
+        rows.push(row);
+        first_column_links.push(format!("{route_base}/player/{}", athlete.id));
+    }
+
+    Table {
+        name: "Player Stats".to_string(),
+        headers,
+        rows,
+        first_column_links,
+    }
 }
 
 pub fn nba_player_stats(data: Value) -> PlayerStatsPage {
