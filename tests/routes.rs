@@ -11,13 +11,13 @@ use lisports::{
     error::AppError,
     leagues::{self, PlayerFeature, ScheduleBucket},
     models::{
-        BoxScore, BoxScoreTeam, Game, Leaders, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsDivision,
-        MlbStandingsTable, MlbStandingsTeam, NflBoxScore, NflBoxScoreTeam, NflStandingsDivision,
-        NflStandingsTable, NflStandingsTeam, NhlBoxScore, NhlBoxScoreTeam, NhlStandingsDivision,
-        NhlStandingsTable, NhlStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard,
-        SoccerBoxScore, SoccerBoxScoreTeam, SoccerStandingsGroup, SoccerStandingsTable,
-        SoccerStandingsTeam, StandingsTable, StandingsTeam, Statistics, Table, Team,
-        TeamStatistics,
+        BoxScore, BoxScoreTeam, BracketMatch, BracketRound, BracketSlot, BracketTable, Game,
+        Leaders, MlbBoxScore, MlbBoxScoreTeam, MlbStandingsDivision, MlbStandingsTable,
+        MlbStandingsTeam, NflBoxScore, NflBoxScoreTeam, NflStandingsDivision, NflStandingsTable,
+        NflStandingsTeam, NhlBoxScore, NhlBoxScoreTeam, NhlStandingsDivision, NhlStandingsTable,
+        NhlStandingsTeam, Period, Player, PlayerStatsPage, Scoreboard, SoccerBoxScore,
+        SoccerBoxScoreTeam, SoccerStandingsGroup, SoccerStandingsTable, SoccerStandingsTeam,
+        StandingsTable, StandingsTeam, Statistics, Table, Team, TeamStatistics,
     },
 };
 use tower::ServiceExt;
@@ -210,6 +210,10 @@ impl SportsData for FakeSportsData {
                 teams: vec![soccer_standing_team(1, "Ecuador", "ECU")],
             }],
         })
+    }
+
+    async fn worldcup_bracket(&self) -> Result<BracketTable, AppError> {
+        Ok(worldcup_bracket_table())
     }
 
     async fn nwsl_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
@@ -719,6 +723,28 @@ async fn worldcup_standings_render_sortable_tables() {
     assert!(body.contains("Group A"));
     assert!(body.contains("Ecuador"));
     assert!(body.contains("table class=\"sortable\""));
+}
+
+#[tokio::test]
+async fn worldcup_bracket_renders_rounds_and_placeholders() {
+    let (status, body) = request("/worldcup/bracket").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("World Cup Bracket"));
+    assert!(body.contains("class=\"bracket-rounds\""));
+    assert!(body.contains("Round of 16"));
+    assert!(body.contains("Quarterfinals"));
+    assert!(body.contains("Third Place"));
+    assert!(body.contains("Ecuador"));
+    assert!(body.contains("bracket-slot winner"));
+    assert!(body.contains("bracket-slot placeholder"));
+    assert!(body.contains("Round of 16 1 Winner"));
+}
+
+#[tokio::test]
+async fn worldcup_nav_links_to_bracket() {
+    let (status, body) = request("/worldcup/standings").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("href=\"/worldcup/bracket\""));
 }
 
 #[tokio::test]
@@ -1435,6 +1461,63 @@ fn worldcup_scoreboard() -> Scoreboard {
             away_leaders: Leaders::default(),
             home_leaders: Leaders::default(),
         }],
+    }
+}
+
+fn worldcup_bracket_table() -> BracketTable {
+    let team = |name: &str, tricode: &str, score: &str, winner: bool| BracketSlot {
+        team_id: 1,
+        name: name.to_string(),
+        short_name: tricode.to_string(),
+        team_tricode: tricode.to_string(),
+        logo: format!("https://a.espncdn.com/i/teamlogos/countries/500/{tricode}.png"),
+        score: score.to_string(),
+        winner,
+        placeholder: false,
+    };
+    let placeholder = |name: &str| BracketSlot {
+        team_id: 0,
+        name: name.to_string(),
+        short_name: name.to_string(),
+        team_tricode: String::new(),
+        logo: String::new(),
+        score: String::new(),
+        winner: false,
+        placeholder: true,
+    };
+    BracketTable {
+        rounds: vec![
+            BracketRound {
+                name: "Round of 16".to_string(),
+                matches: vec![BracketMatch {
+                    game_id: "633790".to_string(),
+                    game_status: 3,
+                    game_status_text: "FT".to_string(),
+                    game_time_utc: "2026-06-28T16:00:00Z".to_string(),
+                    home: team("Ecuador", "ecu", "2", true),
+                    away: team("Qatar", "qat", "1", false),
+                }],
+            },
+            BracketRound {
+                name: "Quarterfinals".to_string(),
+                matches: vec![BracketMatch {
+                    game_id: "633799".to_string(),
+                    game_status: 1,
+                    game_status_text: "7/3 - 12:00 PM".to_string(),
+                    game_time_utc: "2026-07-03T16:00:00Z".to_string(),
+                    home: placeholder("Round of 16 1 Winner"),
+                    away: placeholder("Round of 16 2 Winner"),
+                }],
+            },
+        ],
+        third_place: Some(BracketMatch {
+            game_id: "633800".to_string(),
+            game_status: 1,
+            game_status_text: "7/18 - 12:00 PM".to_string(),
+            game_time_utc: "2026-07-18T16:00:00Z".to_string(),
+            home: placeholder("Semifinal 1 Loser"),
+            away: placeholder("Semifinal 2 Loser"),
+        }),
     }
 }
 

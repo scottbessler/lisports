@@ -361,3 +361,38 @@ pub struct Table {
     #[serde(default)]
     pub first_column_links: Vec<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct BracketTable {
+    pub rounds: Vec<BracketRound>,
+    #[serde(default)]
+    pub third_place: Option<BracketMatch>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct BracketRound {
+    pub name: String,
+    pub matches: Vec<BracketMatch>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct BracketMatch {
+    pub game_id: String,
+    pub game_status: i64,
+    pub game_status_text: String,
+    pub game_time_utc: String,
+    pub home: BracketSlot,
+    pub away: BracketSlot,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct BracketSlot {
+    pub team_id: i64,
+    pub name: String,
+    pub short_name: String,
+    pub team_tricode: String,
+    pub logo: String,
+    pub score: String,
+    pub winner: bool,
+    pub placeholder: bool,
+}

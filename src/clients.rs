@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -8,16 +9,16 @@ use chrono::{Datelike, NaiveDate};
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::Value;
-use tokio::sync::RwLock;
+use tokio::{sync::RwLock, task::JoinSet};
 
 use crate::{
     cache::Cache,
     error::AppError,
     leagues::{self, League},
     models::{
-        BoxScore, MlbBoxScore, MlbStandingsTable, NflBoxScore, NflStandingsTable, NhlBoxScore,
-        NhlStandingsTable, PlayerStatsPage, Scoreboard, SoccerBoxScore, SoccerStandingsTable,
-        StandingsTable,
+        BoxScore, BracketTable, MlbBoxScore, MlbStandingsTable, NflBoxScore, NflStandingsTable,
+        NhlBoxScore, NhlStandingsTable, PlayerStatsPage, Scoreboard, SoccerBoxScore,
+        SoccerStandingsTable, StandingsTable,
     },
     normalizers,
 };
@@ -55,6 +56,7 @@ pub trait SportsData: Send + Sync {
     async fn worldcup_days_games(&self, day: &str) -> Result<Scoreboard, AppError>;
     async fn worldcup_game(&self, game_id: &str) -> Result<Option<SoccerBoxScore>, AppError>;
     async fn worldcup_standings(&self) -> Result<SoccerStandingsTable, AppError>;
+    async fn worldcup_bracket(&self) -> Result<BracketTable, AppError>;
     async fn nwsl_todays_scoreboard(&self) -> Result<Scoreboard, AppError>;
     async fn nwsl_days_games(&self, day: &str) -> Result<Scoreboard, AppError>;
     async fn nwsl_game(&self, game_id: &str) -> Result<Option<SoccerBoxScore>, AppError>;
@@ -177,6 +179,117 @@ impl EspnSportsData {
         let data: EspnStandingsDto = self.http.get_json(&url, false, None).await?;
         Ok(normalize(data))
     }
+
+    /// Returns an ESPN `dates=YYYYMMDD-YYYYMMDD` range covering the knockout
+    /// stage, derived from the tournament calendar (falling back to the full
+    /// season range when the calendar is unavailable).
+    async fn worldcup_knockout_range(&self, league: &League) -> Result<String, AppError> {
+        let today = chrono::Utc::now().date_naive().to_string();
+        let url = espn_scoreboard_url(league, EspnScoreboardQuery::Date(today));
+        let meta: Value = self.http.get_json(&url, false, None).await?;
+        let (start, end) = knockout_date_bounds(&meta)
+            .or_else(|| season_date_bounds(&meta))
+            .ok_or_else(|| AppError::parse("missing world cup calendar"))?;
+        Ok(format!(
+            "{}-{}",
+            start.format("%Y%m%d"),
+            end.format("%Y%m%d")
+        ))
+    }
+
+    /// Fetches each event's FIFA match number from the ESPN core API. Requests
+    /// run concurrently and individual failures are skipped so the bracket can
+    /// still render (the normalizer falls back to kickoff order).
+    async fn worldcup_match_numbers(
+        &self,
+        league: &League,
+        event_ids: &[String],
+    ) -> HashMap<String, i64> {
+        let mut tasks = JoinSet::new();
+        for id in event_ids {
+            let http = self.http.clone();
+            let url = format!(
+                "http://sports.core.api.espn.com/v2/sports/{}/leagues/{}/events/{id}/competitions/{id}",
+                league.sport_path, league.league_path
+            );
+            let id = id.clone();
+            tasks.spawn(async move {
+                http.get_json::<Value>(&url, false, None)
+                    .await
+                    .ok()
+                    .and_then(|value| value.get("matchNumber").and_then(Value::as_i64))
+                    .map(|number| (id, number))
+            });
+        }
+        let mut numbers = HashMap::new();
+        while let Some(result) = tasks.join_next().await {
+            if let Ok(Some((id, number))) = result {
+                numbers.insert(id, number);
+            }
+        }
+        numbers
+    }
+}
+
+fn is_knockout_event(event: &Value) -> bool {
+    matches!(
+        event.pointer("/season/slug").and_then(Value::as_str),
+        Some(
+            "round-of-32"
+                | "round-of-16"
+                | "quarterfinals"
+                | "semifinals"
+                | "final"
+                | "3rd-place-match"
+        )
+    )
+}
+
+fn knockout_date_bounds(meta: &Value) -> Option<(NaiveDate, NaiveDate)> {
+    let entries = meta.pointer("/leagues/0/calendar/0/entries")?.as_array()?;
+    let mut start: Option<NaiveDate> = None;
+    let mut end: Option<NaiveDate> = None;
+    for entry in entries {
+        let label = entry
+            .get("label")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if label.eq_ignore_ascii_case("group") {
+            continue;
+        }
+        if let Some(date) = entry
+            .get("startDate")
+            .and_then(Value::as_str)
+            .and_then(date_prefix)
+        {
+            start = Some(start.map_or(date, |current| current.min(date)));
+        }
+        if let Some(date) = entry
+            .get("endDate")
+            .and_then(Value::as_str)
+            .and_then(date_prefix)
+        {
+            end = Some(end.map_or(date, |current| current.max(date)));
+        }
+    }
+    Some((start?, end?))
+}
+
+fn season_date_bounds(meta: &Value) -> Option<(NaiveDate, NaiveDate)> {
+    let season = meta.pointer("/leagues/0/season")?;
+    let start = season
+        .get("startDate")
+        .and_then(Value::as_str)
+        .and_then(date_prefix)?;
+    let end = season
+        .get("endDate")
+        .and_then(Value::as_str)
+        .and_then(date_prefix)?;
+    Some((start, end))
+}
+
+fn date_prefix(value: &str) -> Option<NaiveDate> {
+    NaiveDate::parse_from_str(value.get(..10)?, "%Y-%m-%d").ok()
 }
 
 #[async_trait]
@@ -654,6 +767,30 @@ impl SportsData for EspnSportsData {
             .await?;
         self.cache.set_json(&cache_key, &standings).await?;
         Ok(standings)
+    }
+
+    async fn worldcup_bracket(&self) -> Result<BracketTable, AppError> {
+        let cache_key = format!("worldcup-bracket:{}", chrono::Utc::now().date_naive());
+        if let Some(cached) = self.cache.get_json::<BracketTable>(&cache_key).await? {
+            return Ok(cached);
+        }
+        let league = league("worldcup");
+        let range = self.worldcup_knockout_range(league).await?;
+        let url = format!(
+            "https://site.api.espn.com/apis/site/v2/sports/{}/{}/scoreboard?dates={range}",
+            league.sport_path, league.league_path
+        );
+        let data: EspnScoreboardDto = self.http.get_json(&url, false, None).await?;
+        let knockout_ids: Vec<String> = data
+            .events
+            .iter()
+            .filter(|event| is_knockout_event(event))
+            .filter_map(|event| event.get("id").and_then(Value::as_str).map(str::to_string))
+            .collect();
+        let match_numbers = self.worldcup_match_numbers(league, &knockout_ids).await;
+        let bracket = normalizers::espn_soccer_bracket(data, &match_numbers)?;
+        self.cache.set_json(&cache_key, &bracket).await?;
+        Ok(bracket)
     }
 
     async fn nwsl_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
