@@ -363,6 +363,18 @@ table.sortable thead th.num {
 .table-wrap td {
 	white-space: nowrap;
 }
+.standings .table-wrap table {
+	min-width: 0;
+	width: auto;
+}
+.standings .table-wrap th,
+.standings .table-wrap td {
+	padding-left: 6px;
+	padding-right: 6px;
+}
+.standings .table-wrap table.sortable thead th.num {
+	padding-right: 10px;
+}
 .soccer-match-stats .table-wrap,
 .soccer-events .table-wrap {
 	overflow-x: visible;
