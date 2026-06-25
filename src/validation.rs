@@ -15,6 +15,18 @@ pub fn numeric_id(input: &str, name: &str) -> Result<String, AppError> {
     }
 }
 
+/// A team reference for ESPN team endpoints, which accept either a numeric team
+/// id or the team abbreviation (e.g. `bos`). Normalized to lowercase.
+pub fn team_ref(input: &str) -> Result<String, AppError> {
+    if !input.is_empty() && input.chars().all(|c| c.is_ascii_alphanumeric()) {
+        Ok(input.to_ascii_lowercase())
+    } else {
+        Err(AppError::BadRequest(
+            "team_id must be alphanumeric".to_string(),
+        ))
+    }
+}
+
 pub fn nfl_week(input: &str) -> Result<i64, AppError> {
     let week = input
         .parse::<i64>()
@@ -46,6 +58,14 @@ mod tests {
     fn ids_must_be_numeric() {
         assert!(numeric_id("401869385", "game_id").is_ok());
         assert!(numeric_id("abc", "game_id").is_err());
+    }
+
+    #[test]
+    fn team_refs_accept_ids_and_tricodes() {
+        assert_eq!(team_ref("BOS").unwrap(), "bos");
+        assert_eq!(team_ref("2").unwrap(), "2");
+        assert!(team_ref("").is_err());
+        assert!(team_ref("a b").is_err());
     }
 
     #[test]

@@ -18,7 +18,7 @@ use crate::{
     models::{
         BoxScore, BracketTable, MlbBoxScore, MlbStandingsTable, NflBoxScore, NflStandingsTable,
         NhlBoxScore, NhlStandingsTable, PlayerStatsPage, Scoreboard, SoccerBoxScore,
-        SoccerStandingsTable, StandingsTable,
+        SoccerStandingsTable, StandingsTable, TeamPage,
     },
     normalizers,
 };
@@ -32,26 +32,31 @@ pub trait SportsData: Send + Sync {
     async fn game(&self, game_id: &str) -> Result<Option<BoxScore>, AppError>;
     async fn standings(&self) -> Result<StandingsTable, AppError>;
     async fn player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError>;
+    async fn team_page(&self, team_id: &str) -> Result<TeamPage, AppError>;
     async fn wnba_todays_scoreboard(&self) -> Result<Scoreboard, AppError>;
     async fn wnba_days_games(&self, day: &str) -> Result<Scoreboard, AppError>;
     async fn wnba_game(&self, game_id: &str) -> Result<Option<BoxScore>, AppError>;
     async fn wnba_standings(&self) -> Result<StandingsTable, AppError>;
     async fn wnba_player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError>;
+    async fn wnba_team_page(&self, team_id: &str) -> Result<TeamPage, AppError>;
     async fn mlb_todays_scoreboard(&self) -> Result<Scoreboard, AppError>;
     async fn mlb_days_games(&self, day: &str) -> Result<Scoreboard, AppError>;
     async fn mlb_game(&self, game_id: &str) -> Result<Option<MlbBoxScore>, AppError>;
     async fn mlb_standings(&self) -> Result<MlbStandingsTable, AppError>;
     async fn mlb_player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError>;
+    async fn mlb_team_page(&self, team_id: &str) -> Result<TeamPage, AppError>;
     async fn nfl_current_scoreboard(&self) -> Result<Scoreboard, AppError>;
     async fn nfl_week_games(&self, week: i64) -> Result<Scoreboard, AppError>;
     async fn nfl_game(&self, game_id: &str) -> Result<Option<NflBoxScore>, AppError>;
     async fn nfl_standings(&self) -> Result<NflStandingsTable, AppError>;
     async fn nfl_player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError>;
+    async fn nfl_team_page(&self, team_id: &str) -> Result<TeamPage, AppError>;
     async fn nhl_todays_scoreboard(&self) -> Result<Scoreboard, AppError>;
     async fn nhl_days_games(&self, day: &str) -> Result<Scoreboard, AppError>;
     async fn nhl_game(&self, game_id: &str) -> Result<Option<NhlBoxScore>, AppError>;
     async fn nhl_standings(&self) -> Result<NhlStandingsTable, AppError>;
     async fn nhl_player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError>;
+    async fn nhl_team_page(&self, team_id: &str) -> Result<TeamPage, AppError>;
     async fn worldcup_todays_scoreboard(&self) -> Result<Scoreboard, AppError>;
     async fn worldcup_days_games(&self, day: &str) -> Result<Scoreboard, AppError>;
     async fn worldcup_game(&self, game_id: &str) -> Result<Option<SoccerBoxScore>, AppError>;
@@ -150,6 +155,27 @@ fn espn_standings_url(league: &League) -> String {
 fn espn_player_gamelog_url(league: &League, player_id: &str) -> String {
     format!(
         "https://site.web.api.espn.com/apis/common/v3/sports/{}/{}/athletes/{player_id}/gamelog",
+        league.sport_path, league.league_path
+    )
+}
+
+fn espn_team_schedule_url(league: &League, team_id: &str) -> String {
+    format!(
+        "https://site.api.espn.com/apis/site/v2/sports/{}/{}/teams/{team_id}/schedule",
+        league.sport_path, league.league_path
+    )
+}
+
+fn espn_team_roster_url(league: &League, team_id: &str) -> String {
+    format!(
+        "https://site.api.espn.com/apis/site/v2/sports/{}/{}/teams/{team_id}/roster",
+        league.sport_path, league.league_path
+    )
+}
+
+fn espn_athlete_statistics_url(league: &League, season: i64, athlete_id: &str) -> String {
+    format!(
+        "https://sports.core.api.espn.com/v2/sports/{}/leagues/{}/seasons/{season}/types/2/athletes/{athlete_id}/statistics?lang=en&region=us",
         league.sport_path, league.league_path
     )
 }
@@ -392,6 +418,16 @@ impl SportsData for EspnSportsData {
         Ok(page)
     }
 
+    async fn team_page(&self, team_id: &str) -> Result<TeamPage, AppError> {
+        let cache_key = format!("team:{team_id}:{}", chrono::Utc::now().date_naive());
+        if let Some(cached) = self.cache.get_json::<TeamPage>(&cache_key).await? {
+            return Ok(cached);
+        }
+        let page = self.team_page_for_league(league("nba"), team_id).await?;
+        self.cache.set_json(&cache_key, &page).await?;
+        Ok(page)
+    }
+
     async fn wnba_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
         if let Some(cache) = self.wnba_today_cache.read().await.as_ref()
             && cache.fetched_at.elapsed() < Duration::from_secs(LIVE_DATA_CACHE_SECONDS)
@@ -467,6 +503,16 @@ impl SportsData for EspnSportsData {
         Ok(page)
     }
 
+    async fn wnba_team_page(&self, team_id: &str) -> Result<TeamPage, AppError> {
+        let cache_key = format!("wnba-team:{team_id}:{}", chrono::Utc::now().date_naive());
+        if let Some(cached) = self.cache.get_json::<TeamPage>(&cache_key).await? {
+            return Ok(cached);
+        }
+        let page = self.team_page_for_league(league("wnba"), team_id).await?;
+        self.cache.set_json(&cache_key, &page).await?;
+        Ok(page)
+    }
+
     async fn mlb_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
         if let Some(cache) = self.mlb_today_cache.read().await.as_ref()
             && cache.fetched_at.elapsed() < Duration::from_secs(LIVE_DATA_CACHE_SECONDS)
@@ -538,6 +584,16 @@ impl SportsData for EspnSportsData {
         let page = self
             .player_stats_espn_for_league(league("mlb"), player_id)
             .await?;
+        self.cache.set_json(&cache_key, &page).await?;
+        Ok(page)
+    }
+
+    async fn mlb_team_page(&self, team_id: &str) -> Result<TeamPage, AppError> {
+        let cache_key = format!("mlb-team:{team_id}:{}", chrono::Utc::now().date_naive());
+        if let Some(cached) = self.cache.get_json::<TeamPage>(&cache_key).await? {
+            return Ok(cached);
+        }
+        let page = self.team_page_for_league(league("mlb"), team_id).await?;
         self.cache.set_json(&cache_key, &page).await?;
         Ok(page)
     }
@@ -631,6 +687,16 @@ impl SportsData for EspnSportsData {
         Ok(page)
     }
 
+    async fn nfl_team_page(&self, team_id: &str) -> Result<TeamPage, AppError> {
+        let cache_key = format!("nfl-team:{team_id}:{}", chrono::Utc::now().date_naive());
+        if let Some(cached) = self.cache.get_json::<TeamPage>(&cache_key).await? {
+            return Ok(cached);
+        }
+        let page = self.team_page_for_league(league("nfl"), team_id).await?;
+        self.cache.set_json(&cache_key, &page).await?;
+        Ok(page)
+    }
+
     async fn nhl_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
         if let Some(cache) = self.nhl_today_cache.read().await.as_ref()
             && cache.fetched_at.elapsed() < Duration::from_secs(LIVE_DATA_CACHE_SECONDS)
@@ -702,6 +768,16 @@ impl SportsData for EspnSportsData {
         let page = self
             .player_stats_espn_for_league(league("nhl"), player_id)
             .await?;
+        self.cache.set_json(&cache_key, &page).await?;
+        Ok(page)
+    }
+
+    async fn nhl_team_page(&self, team_id: &str) -> Result<TeamPage, AppError> {
+        let cache_key = format!("nhl-team:{team_id}:{}", chrono::Utc::now().date_naive());
+        if let Some(cached) = self.cache.get_json::<TeamPage>(&cache_key).await? {
+            return Ok(cached);
+        }
+        let page = self.team_page_for_league(league("nhl"), team_id).await?;
         self.cache.set_json(&cache_key, &page).await?;
         Ok(page)
     }
@@ -932,6 +1008,70 @@ impl EspnSportsData {
         let data: EspnPlayerGamelogDto = self.http.get_json(&url, false, None).await?;
         Ok(normalizers::espn_player_gamelog(player_id, data))
     }
+
+    async fn team_page_for_league(
+        &self,
+        league: &League,
+        team_id: &str,
+    ) -> Result<TeamPage, AppError> {
+        let schedule: EspnTeamScheduleDto = self
+            .http
+            .get_json(&espn_team_schedule_url(league, team_id), false, None)
+            .await?;
+        let season = normalizers::team_schedule_season_year(&schedule.events);
+        let schedule_result = normalizers::espn_team_schedule(
+            league.route_base,
+            league.bucket,
+            &schedule.team,
+            &schedule.events,
+        );
+        let next_games = normalizers::espn_upcoming_games(
+            league.route_base,
+            league.bucket,
+            &schedule.team,
+            &schedule.events,
+        );
+
+        let roster: EspnRosterDto = self
+            .http
+            .get_json(&espn_team_roster_url(league, team_id), false, None)
+            .await?;
+        let athletes = normalizers::roster_athletes(&roster.athletes);
+
+        let mut set = tokio::task::JoinSet::new();
+        for (index, athlete) in athletes.iter().enumerate() {
+            let http = self.http.clone();
+            let url = espn_athlete_statistics_url(league, season, &athlete.id);
+            set.spawn(async move {
+                let stats = http.get_json::<Value>(&url, false, None).await.ok();
+                (index, stats)
+            });
+        }
+        let mut stats_by_index: Vec<Option<Value>> = vec![None; athletes.len()];
+        while let Some(joined) = set.join_next().await {
+            if let Ok((index, stats)) = joined {
+                stats_by_index[index] = stats;
+            }
+        }
+
+        let players: Vec<(normalizers::RosterAthlete, Option<Value>)> =
+            athletes.into_iter().zip(stats_by_index).collect();
+        let players_table = normalizers::espn_team_player_stats(
+            league.route_base,
+            &players,
+            normalizers::team_stat_columns(league.id),
+        );
+
+        Ok(TeamPage {
+            team_id: schedule_result.team_id,
+            team_name: schedule_result.team_name,
+            team_tricode: schedule_result.team_tricode,
+            record: schedule_result.record,
+            games: schedule_result.games,
+            next_games,
+            players: players_table,
+        })
+    }
 }
 
 impl HttpClient {
@@ -1006,6 +1146,20 @@ pub struct EspnPlayerGamelogDto {
     pub events: Value,
     #[serde(rename = "seasonTypes")]
     pub season_types: Vec<Value>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EspnTeamScheduleDto {
+    #[serde(default)]
+    pub team: Value,
+    #[serde(default)]
+    pub events: Vec<Value>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct EspnRosterDto {
+    #[serde(default)]
+    pub athletes: Vec<Value>,
 }
 
 #[cfg(test)]
