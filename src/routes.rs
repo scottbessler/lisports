@@ -158,6 +158,18 @@ pub async fn mlb_player(
     Ok(Html(render::player_page_for_league("MLB", &stats)))
 }
 
+pub async fn mlb_team(
+    State(state): State<AppState>,
+    Path(team_id): Path<String>,
+) -> Result<Html<String>, AppError> {
+    let team_id = team_ref(&team_id)?;
+    let page = state.data.mlb_team_page(&team_id).await?;
+    Ok(Html(render::team_page(
+        leagues::by_slug("mlb").unwrap(),
+        &page,
+    )))
+}
+
 pub async fn nfl_scoreboard() -> Redirect {
     Redirect::temporary("/nfl/scoreboard/today")
 }
@@ -206,6 +218,18 @@ pub async fn nfl_player(
     Ok(Html(render::player_page_for_league("NFL", &stats)))
 }
 
+pub async fn nfl_team(
+    State(state): State<AppState>,
+    Path(team_id): Path<String>,
+) -> Result<Html<String>, AppError> {
+    let team_id = team_ref(&team_id)?;
+    let page = state.data.nfl_team_page(&team_id).await?;
+    Ok(Html(render::team_page(
+        leagues::by_slug("nfl").unwrap(),
+        &page,
+    )))
+}
+
 pub async fn nhl_scoreboard() -> Redirect {
     dayless_scoreboard(RouteLeague::Nhl)
 }
@@ -240,6 +264,18 @@ pub async fn nhl_player(
     let player_id = numeric_id(&player_id, "player_id")?;
     let stats = state.data.nhl_player_stats(&player_id).await?;
     Ok(Html(render::player_page_for_league("NHL", &stats)))
+}
+
+pub async fn nhl_team(
+    State(state): State<AppState>,
+    Path(team_id): Path<String>,
+) -> Result<Html<String>, AppError> {
+    let team_id = team_ref(&team_id)?;
+    let page = state.data.nhl_team_page(&team_id).await?;
+    Ok(Html(render::team_page(
+        leagues::by_slug("nhl").unwrap(),
+        &page,
+    )))
 }
 
 pub async fn worldcup_scoreboard() -> Redirect {

@@ -159,6 +159,7 @@ pub struct TeamPage {
     pub team_tricode: String,
     pub record: String,
     pub games: Table,
+    pub next_games: Table,
     pub players: Table,
 }
 

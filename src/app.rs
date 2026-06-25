@@ -90,6 +90,7 @@ pub fn router(data: Arc<dyn SportsData>) -> Router {
             "/mlb/player/{player_id}",
             axum::routing::get(routes::mlb_player),
         )
+        .route("/mlb/team/{team_id}", axum::routing::get(routes::mlb_team))
         .route(
             "/nfl/scoreboard",
             axum::routing::get(routes::nfl_scoreboard),
@@ -111,6 +112,7 @@ pub fn router(data: Arc<dyn SportsData>) -> Router {
             "/nfl/player/{player_id}",
             axum::routing::get(routes::nfl_player),
         )
+        .route("/nfl/team/{team_id}", axum::routing::get(routes::nfl_team))
         .route(
             "/nhl/scoreboard",
             axum::routing::get(routes::nhl_scoreboard),
@@ -132,6 +134,7 @@ pub fn router(data: Arc<dyn SportsData>) -> Router {
             "/nhl/player/{player_id}",
             axum::routing::get(routes::nhl_player),
         )
+        .route("/nhl/team/{team_id}", axum::routing::get(routes::nhl_team))
         .route(
             "/worldcup/scoreboard",
             axum::routing::get(routes::worldcup_scoreboard),

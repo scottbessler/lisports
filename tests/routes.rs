@@ -128,6 +128,10 @@ impl SportsData for FakeSportsData {
         Ok(player_stats_page())
     }
 
+    async fn mlb_team_page(&self, _team_id: &str) -> Result<TeamPage, AppError> {
+        Ok(team_page("/mlb"))
+    }
+
     async fn nfl_current_scoreboard(&self) -> Result<Scoreboard, AppError> {
         Ok(nfl_scoreboard(23))
     }
@@ -167,6 +171,10 @@ impl SportsData for FakeSportsData {
         Ok(player_stats_page())
     }
 
+    async fn nfl_team_page(&self, _team_id: &str) -> Result<TeamPage, AppError> {
+        Ok(team_page("/nfl"))
+    }
+
     async fn nhl_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
         Ok(nhl_scoreboard())
     }
@@ -197,6 +205,10 @@ impl SportsData for FakeSportsData {
 
     async fn nhl_player_stats(&self, _player_id: &str) -> Result<PlayerStatsPage, AppError> {
         Ok(player_stats_page())
+    }
+
+    async fn nhl_team_page(&self, _team_id: &str) -> Result<TeamPage, AppError> {
+        Ok(team_page("/nhl"))
     }
 
     async fn worldcup_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
@@ -529,11 +541,44 @@ async fn wnba_team_page_links_games_and_players() {
 }
 
 #[tokio::test]
+async fn mlb_team_page_links_games_and_players() {
+    let (status, body) = request("/mlb/team/13").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains("Last 10 Games"));
+    assert!(body.contains("Next Games"));
+    assert!(body.contains(r#"<a href="/mlb/scoreboard/2026-04-26/game/401869385">"#));
+    assert!(body.contains(r#"<a href="/mlb/scoreboard/2026-05-01/game/401869999">"#));
+    assert!(body.contains(r#"<a href="/mlb/player/4567">"#));
+}
+
+#[tokio::test]
+async fn nfl_team_page_links_games_and_players() {
+    let (status, body) = request("/nfl/team/13").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains(r#"<a href="/nfl/scoreboard/2026-04-26/game/401869385">"#));
+    assert!(body.contains(r#"<a href="/nfl/player/4567">"#));
+}
+
+#[tokio::test]
+async fn nhl_team_page_links_games_and_players() {
+    let (status, body) = request("/nhl/team/13").await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.contains(r#"<a href="/nhl/scoreboard/2026-04-26/game/401869385">"#));
+    assert!(body.contains(r#"<a href="/nhl/player/4567">"#));
+}
+
+#[tokio::test]
 async fn standings_link_team_names_to_team_pages() {
     let (_, body) = request("/nba/standings").await;
     assert!(body.contains(r#"<a href="/nba/team/bc">Boston Celtics</a>"#));
     let (_, body) = request("/wnba/standings").await;
     assert!(body.contains(r#"<a href="/wnba/team/ny">New York Liberty</a>"#));
+    let (_, body) = request("/mlb/standings").await;
+    assert!(body.contains(r#"<a href="/mlb/team/nyy">New York Yankees</a>"#));
+    let (_, body) = request("/nfl/standings").await;
+    assert!(body.contains(r#"<a href="/nfl/team/buf">Buffalo Bills</a>"#));
+    let (_, body) = request("/nhl/standings").await;
+    assert!(body.contains(r#"<a href="/nhl/team/bos">Boston Bruins</a>"#));
 }
 
 #[tokio::test]
@@ -948,6 +993,12 @@ fn team_page(route_base: &str) -> TeamPage {
                 "112-104".to_string(),
             ]],
             first_column_links: vec![format!("{route_base}/scoreboard/2026-04-26/game/401869385")],
+        },
+        next_games: Table {
+            name: "Next Games".to_string(),
+            headers: vec!["Date".to_string(), "Opp".to_string()],
+            rows: vec![vec!["2026-05-01".to_string(), "@ MIA".to_string()]],
+            first_column_links: vec![format!("{route_base}/scoreboard/2026-05-01/game/401869999")],
         },
         players: Table {
             name: "Player Stats".to_string(),

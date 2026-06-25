@@ -86,7 +86,7 @@ pub const LEAGUES: &[League] = &[
         standings: true,
         bracket: false,
         player: PlayerFeature::Supported,
-        team: false,
+        team: true,
     },
     League {
         id: LeagueId::Nfl,
@@ -102,7 +102,7 @@ pub const LEAGUES: &[League] = &[
         standings: true,
         bracket: false,
         player: PlayerFeature::Supported,
-        team: false,
+        team: true,
     },
     League {
         id: LeagueId::Nhl,
@@ -118,7 +118,7 @@ pub const LEAGUES: &[League] = &[
         standings: true,
         bracket: false,
         player: PlayerFeature::Supported,
-        team: false,
+        team: true,
     },
     League {
         id: LeagueId::WorldCup,
@@ -207,9 +207,9 @@ mod tests {
         assert_eq!(by_slug("nwsl").unwrap().player, PlayerFeature::Unsupported);
         assert!(by_slug("nba").unwrap().team);
         assert!(by_slug("wnba").unwrap().team);
-        assert!(!by_slug("mlb").unwrap().team);
-        assert!(!by_slug("nfl").unwrap().team);
-        assert!(!by_slug("nhl").unwrap().team);
+        assert!(by_slug("mlb").unwrap().team);
+        assert!(by_slug("nfl").unwrap().team);
+        assert!(by_slug("nhl").unwrap().team);
         assert!(!by_slug("worldcup").unwrap().team);
         assert!(!by_slug("nwsl").unwrap().team);
     }

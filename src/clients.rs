@@ -44,16 +44,19 @@ pub trait SportsData: Send + Sync {
     async fn mlb_game(&self, game_id: &str) -> Result<Option<MlbBoxScore>, AppError>;
     async fn mlb_standings(&self) -> Result<MlbStandingsTable, AppError>;
     async fn mlb_player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError>;
+    async fn mlb_team_page(&self, team_id: &str) -> Result<TeamPage, AppError>;
     async fn nfl_current_scoreboard(&self) -> Result<Scoreboard, AppError>;
     async fn nfl_week_games(&self, week: i64) -> Result<Scoreboard, AppError>;
     async fn nfl_game(&self, game_id: &str) -> Result<Option<NflBoxScore>, AppError>;
     async fn nfl_standings(&self) -> Result<NflStandingsTable, AppError>;
     async fn nfl_player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError>;
+    async fn nfl_team_page(&self, team_id: &str) -> Result<TeamPage, AppError>;
     async fn nhl_todays_scoreboard(&self) -> Result<Scoreboard, AppError>;
     async fn nhl_days_games(&self, day: &str) -> Result<Scoreboard, AppError>;
     async fn nhl_game(&self, game_id: &str) -> Result<Option<NhlBoxScore>, AppError>;
     async fn nhl_standings(&self) -> Result<NhlStandingsTable, AppError>;
     async fn nhl_player_stats(&self, player_id: &str) -> Result<PlayerStatsPage, AppError>;
+    async fn nhl_team_page(&self, team_id: &str) -> Result<TeamPage, AppError>;
     async fn worldcup_todays_scoreboard(&self) -> Result<Scoreboard, AppError>;
     async fn worldcup_days_games(&self, day: &str) -> Result<Scoreboard, AppError>;
     async fn worldcup_game(&self, game_id: &str) -> Result<Option<SoccerBoxScore>, AppError>;
@@ -577,6 +580,16 @@ impl SportsData for EspnSportsData {
         Ok(page)
     }
 
+    async fn mlb_team_page(&self, team_id: &str) -> Result<TeamPage, AppError> {
+        let cache_key = format!("mlb-team:{team_id}:{}", chrono::Utc::now().date_naive());
+        if let Some(cached) = self.cache.get_json::<TeamPage>(&cache_key).await? {
+            return Ok(cached);
+        }
+        let page = self.team_page_for_league(league("mlb"), team_id).await?;
+        self.cache.set_json(&cache_key, &page).await?;
+        Ok(page)
+    }
+
     async fn nfl_current_scoreboard(&self) -> Result<Scoreboard, AppError> {
         if let Some(cache) = self.nfl_today_cache.read().await.as_ref()
             && cache.fetched_at.elapsed() < Duration::from_secs(LIVE_DATA_CACHE_SECONDS)
@@ -666,6 +679,16 @@ impl SportsData for EspnSportsData {
         Ok(page)
     }
 
+    async fn nfl_team_page(&self, team_id: &str) -> Result<TeamPage, AppError> {
+        let cache_key = format!("nfl-team:{team_id}:{}", chrono::Utc::now().date_naive());
+        if let Some(cached) = self.cache.get_json::<TeamPage>(&cache_key).await? {
+            return Ok(cached);
+        }
+        let page = self.team_page_for_league(league("nfl"), team_id).await?;
+        self.cache.set_json(&cache_key, &page).await?;
+        Ok(page)
+    }
+
     async fn nhl_todays_scoreboard(&self) -> Result<Scoreboard, AppError> {
         if let Some(cache) = self.nhl_today_cache.read().await.as_ref()
             && cache.fetched_at.elapsed() < Duration::from_secs(LIVE_DATA_CACHE_SECONDS)
@@ -737,6 +760,16 @@ impl SportsData for EspnSportsData {
         let page = self
             .player_stats_espn_for_league(league("nhl"), player_id)
             .await?;
+        self.cache.set_json(&cache_key, &page).await?;
+        Ok(page)
+    }
+
+    async fn nhl_team_page(&self, team_id: &str) -> Result<TeamPage, AppError> {
+        let cache_key = format!("nhl-team:{team_id}:{}", chrono::Utc::now().date_naive());
+        if let Some(cached) = self.cache.get_json::<TeamPage>(&cache_key).await? {
+            return Ok(cached);
+        }
+        let page = self.team_page_for_league(league("nhl"), team_id).await?;
         self.cache.set_json(&cache_key, &page).await?;
         Ok(page)
     }
@@ -951,8 +984,18 @@ impl EspnSportsData {
             .get_json(&espn_team_schedule_url(league, team_id), false, None)
             .await?;
         let season = normalizers::team_schedule_season_year(&schedule.events);
-        let schedule_result =
-            normalizers::espn_team_schedule(league.route_base, &schedule.team, &schedule.events);
+        let schedule_result = normalizers::espn_team_schedule(
+            league.route_base,
+            league.bucket,
+            &schedule.team,
+            &schedule.events,
+        );
+        let next_games = normalizers::espn_upcoming_games(
+            league.route_base,
+            league.bucket,
+            &schedule.team,
+            &schedule.events,
+        );
 
         let roster: EspnRosterDto = self
             .http
@@ -978,7 +1021,11 @@ impl EspnSportsData {
 
         let players: Vec<(normalizers::RosterAthlete, Option<Value>)> =
             athletes.into_iter().zip(stats_by_index).collect();
-        let players_table = normalizers::espn_team_player_stats(league.route_base, &players);
+        let players_table = normalizers::espn_team_player_stats(
+            league.route_base,
+            &players,
+            normalizers::team_stat_columns(league.id),
+        );
 
         Ok(TeamPage {
             team_id: schedule_result.team_id,
@@ -986,6 +1033,7 @@ impl EspnSportsData {
             team_tricode: schedule_result.team_tricode,
             record: schedule_result.record,
             games: schedule_result.games,
+            next_games,
             players: players_table,
         })
     }

@@ -1822,16 +1822,26 @@ fn standings_table(
     )
 }
 
+/// Standings team cell linking the team name to its detail page.
+fn linked_team_cell(slug: &str, logo: &str, tricode: &str, team_name: &str) -> String {
+    format!(
+        r#"{logo}<a href="/{slug}/team/{}">{}</a>"#,
+        escape_attr(&tricode.to_ascii_lowercase()),
+        escape(team_name)
+    )
+}
+
 fn nfl_standings_table(title: &str, rows: &[NflStandingsTeam]) -> String {
     let table_rows: Vec<Vec<String>> = rows
         .iter()
         .map(|row| {
             vec![
                 row.playoff_rank.to_string(),
-                format!(
-                    "{}{}",
-                    nfl_team_logo(&row.team_tricode, &row.team_name, "mini-logo"),
-                    escape(&row.team_name)
+                linked_team_cell(
+                    "nfl",
+                    &nfl_team_logo(&row.team_tricode, &row.team_name, "mini-logo"),
+                    &row.team_tricode,
+                    &row.team_name,
                 ),
                 row.wins.to_string(),
                 row.losses.to_string(),
@@ -1873,10 +1883,11 @@ fn nhl_standings_table(title: &str, rows: &[NhlStandingsTeam]) -> String {
         .map(|row| {
             vec![
                 row.playoff_rank.to_string(),
-                format!(
-                    "{}{}",
-                    nhl_team_logo(&row.team_tricode, &row.team_name, "mini-logo"),
-                    escape(&row.team_name)
+                linked_team_cell(
+                    "nhl",
+                    &nhl_team_logo(&row.team_tricode, &row.team_name, "mini-logo"),
+                    &row.team_tricode,
+                    &row.team_name,
                 ),
                 row.wins.to_string(),
                 row.losses.to_string(),
@@ -1974,10 +1985,11 @@ fn mlb_standings_table(title: &str, rows: &[MlbStandingsTeam]) -> String {
         .map(|row| {
             vec![
                 row.playoff_rank.to_string(),
-                format!(
-                    "{}{}",
-                    mlb_team_logo(&row.team_tricode, &row.team_name, "mini-logo"),
-                    escape(&row.team_name)
+                linked_team_cell(
+                    "mlb",
+                    &mlb_team_logo(&row.team_tricode, &row.team_name, "mini-logo"),
+                    &row.team_tricode,
+                    &row.team_name,
                 ),
                 row.wins.to_string(),
                 row.losses.to_string(),
@@ -2036,9 +2048,11 @@ pub fn team_page(league: &crate::leagues::League, page: &TeamPage) -> String {
         ));
     }
     let body = format!(
-        r#"<main class="page team"><header class="team-header"><h1>{heading}</h1></header><article class="panel"><h1>{}</h1>{}</article><article class="panel"><h1>{}</h1>{}</article></main>"#,
+        r#"<main class="page team"><header class="team-header"><h1>{heading}</h1></header><article class="panel"><h1>{}</h1>{}</article><article class="panel"><h1>{}</h1>{}</article><article class="panel"><h1>{}</h1>{}</article></main>"#,
         escape(&page.games.name),
         render_table(&page.games),
+        escape(&page.next_games.name),
+        render_table(&page.next_games),
         escape(&page.players.name),
         render_table(&page.players),
     );
