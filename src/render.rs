@@ -102,7 +102,7 @@ pub fn nav() -> &'static str {
       <a href="/nhl/scoreboard" aria-label="NHL Scoreboard">Scoreboard</a>
       <a href="/nhl/standings" aria-label="NHL Standings">Standings</a>
     </div>
-    <div class="nav-section">
+    <div class="nav-section nav-section-wide">
       <span class="nav-label">World&nbsp;Cup</span>
       <a href="/worldcup/scoreboard" aria-label="World Cup Scoreboard">Scoreboard</a>
       <a href="/worldcup/standings" aria-label="World Cup Standings">Standings</a>

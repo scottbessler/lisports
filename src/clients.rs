@@ -73,6 +73,7 @@ pub struct EspnSportsData {
     nfl_today_cache: Arc<RwLock<Option<TodayCache>>>,
     nhl_today_cache: Arc<RwLock<Option<TodayCache>>>,
     worldcup_today_cache: Arc<RwLock<Option<TodayCache>>>,
+    worldcup_bracket_cache: Arc<RwLock<Option<BracketCache>>>,
     nwsl_today_cache: Arc<RwLock<Option<TodayCache>>>,
 }
 
@@ -87,6 +88,12 @@ struct TodayCache {
     scoreboard: Scoreboard,
 }
 
+#[derive(Clone)]
+struct BracketCache {
+    fetched_at: Instant,
+    bracket: BracketTable,
+}
+
 impl EspnSportsData {
     pub fn new(cache: Cache) -> Result<Self, AppError> {
         Ok(Self {
@@ -98,6 +105,7 @@ impl EspnSportsData {
             nfl_today_cache: Arc::new(RwLock::new(None)),
             nhl_today_cache: Arc::new(RwLock::new(None)),
             worldcup_today_cache: Arc::new(RwLock::new(None)),
+            worldcup_bracket_cache: Arc::new(RwLock::new(None)),
             nwsl_today_cache: Arc::new(RwLock::new(None)),
         })
     }
@@ -770,6 +778,11 @@ impl SportsData for EspnSportsData {
     }
 
     async fn worldcup_bracket(&self) -> Result<BracketTable, AppError> {
+        if let Some(cache) = self.worldcup_bracket_cache.read().await.as_ref()
+            && cache.fetched_at.elapsed() < Duration::from_secs(LIVE_DATA_CACHE_SECONDS)
+        {
+            return Ok(cache.bracket.clone());
+        }
         let cache_key = format!("worldcup-bracket:{}", chrono::Utc::now().date_naive());
         if let Some(cached) = self.cache.get_json::<BracketTable>(&cache_key).await? {
             return Ok(cached);
@@ -792,6 +805,10 @@ impl SportsData for EspnSportsData {
         if should_cache_completed_bracket(&bracket) {
             self.cache.set_json(&cache_key, &bracket).await?;
         }
+        *self.worldcup_bracket_cache.write().await = Some(BracketCache {
+            fetched_at: Instant::now(),
+            bracket: bracket.clone(),
+        });
         Ok(bracket)
     }
 

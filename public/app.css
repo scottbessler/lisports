@@ -553,10 +553,13 @@ table.sortable thead th.num {
 	}
 	.nav-section {
 		display: grid;
-		grid-template-columns: 76px 1fr 1fr 1fr;
+		grid-template-columns: 76px 1fr 1fr;
 		gap: 4px;
 		width: 100%;
 		padding: 4px;
+	}
+	.nav-section-wide {
+		grid-template-columns: 76px 1fr 1fr 1fr;
 	}
 	.nav-label {
 		align-self: center;
