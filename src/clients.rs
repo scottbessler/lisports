@@ -209,7 +209,7 @@ impl EspnSportsData {
         for id in event_ids {
             let http = self.http.clone();
             let url = format!(
-                "http://sports.core.api.espn.com/v2/sports/{}/leagues/{}/events/{id}/competitions/{id}",
+                "https://sports.core.api.espn.com/v2/sports/{}/leagues/{}/events/{id}/competitions/{id}",
                 league.sport_path, league.league_path
             );
             let id = id.clone();
@@ -789,7 +789,9 @@ impl SportsData for EspnSportsData {
             .collect();
         let match_numbers = self.worldcup_match_numbers(league, &knockout_ids).await;
         let bracket = normalizers::espn_soccer_bracket(data, &match_numbers)?;
-        self.cache.set_json(&cache_key, &bracket).await?;
+        if should_cache_completed_bracket(&bracket) {
+            self.cache.set_json(&cache_key, &bracket).await?;
+        }
         Ok(bracket)
     }
 
@@ -880,6 +882,22 @@ fn nba_fallback_season(today: NaiveDate) -> String {
 
 fn should_cache_completed_scoreboard(scoreboard: &Scoreboard) -> bool {
     !scoreboard.games.is_empty() && scoreboard.games.iter().all(|game| game.game_status == 3)
+}
+
+fn should_cache_completed_bracket(bracket: &BracketTable) -> bool {
+    let matches = bracket
+        .rounds
+        .iter()
+        .flat_map(|round| round.matches.iter())
+        .chain(bracket.third_place.iter());
+    let mut any = false;
+    for game in matches {
+        any = true;
+        if game.game_status != 3 {
+            return false;
+        }
+    }
+    any
 }
 
 impl EspnSportsData {
@@ -1058,6 +1076,56 @@ mod tests {
 
         scoreboard.games[0].game_status = 2;
         assert!(!should_cache_completed_scoreboard(&scoreboard));
+    }
+
+    #[test]
+    fn brackets_are_cached_only_when_every_match_is_completed() {
+        use crate::models::{BracketMatch, BracketRound, BracketSlot, BracketTable};
+
+        let slot = || BracketSlot {
+            team_id: 0,
+            name: String::new(),
+            short_name: String::new(),
+            team_tricode: String::new(),
+            logo: String::new(),
+            score: String::new(),
+            winner: false,
+            placeholder: true,
+        };
+        let bracket_match = |status: i64| BracketMatch {
+            game_id: "1".to_string(),
+            game_status: status,
+            game_status_text: String::new(),
+            game_time_utc: String::new(),
+            home: slot(),
+            away: slot(),
+        };
+
+        // No matches at all -> not cacheable.
+        let empty = BracketTable {
+            rounds: Vec::new(),
+            third_place: None,
+        };
+        assert!(!should_cache_completed_bracket(&empty));
+
+        // All rounds completed but third-place still scheduled -> not cacheable.
+        let mut bracket = BracketTable {
+            rounds: vec![BracketRound {
+                name: "Final".to_string(),
+                matches: vec![bracket_match(3)],
+            }],
+            third_place: Some(bracket_match(1)),
+        };
+        assert!(!should_cache_completed_bracket(&bracket));
+
+        // A live round match -> not cacheable.
+        bracket.third_place = Some(bracket_match(3));
+        bracket.rounds[0].matches[0].game_status = 2;
+        assert!(!should_cache_completed_bracket(&bracket));
+
+        // Everything completed -> cacheable.
+        bracket.rounds[0].matches[0].game_status = 3;
+        assert!(should_cache_completed_bracket(&bracket));
     }
 
     fn game_with_status(game_status: i64) -> Game {

@@ -22,7 +22,7 @@ I.http.wnba `/wnba/scoreboard`, `/wnba/scoreboard/today`, `/wnba/scoreboard/{YYY
 I.http.mlb `/mlb/scoreboard`, `/mlb/scoreboard/today`, `/mlb/scoreboard/{YYYY-MM-DD}`, `/mlb/scoreboard/{YYYY-MM-DD}/game/{game_id}`, `/mlb/standings`, `/mlb/player/{player_id}`.
 I.http.nfl `/nfl/scoreboard`, `/nfl/scoreboard/today`, `/nfl/scoreboard/{1..23}`, `/nfl/scoreboard/{1..23}/game/{game_id}`, `/nfl/standings`, `/nfl/player/{player_id}`.
 I.http.nhl `/nhl/scoreboard`, `/nhl/scoreboard/today`, `/nhl/scoreboard/{YYYY-MM-DD}`, `/nhl/scoreboard/{YYYY-MM-DD}/game/{game_id}`, `/nhl/standings`, `/nhl/player/{player_id}`.
-I.http.worldcup `/worldcup/scoreboard`, `/worldcup/scoreboard/today`, `/worldcup/scoreboard/{YYYY-MM-DD}`, `/worldcup/scoreboard/{YYYY-MM-DD}/game/{game_id}`, `/worldcup/standings`.
+I.http.worldcup `/worldcup/scoreboard`, `/worldcup/scoreboard/today`, `/worldcup/scoreboard/{YYYY-MM-DD}`, `/worldcup/scoreboard/{YYYY-MM-DD}/game/{game_id}`, `/worldcup/standings`, `/worldcup/bracket`.
 I.cfg `PORT`, `DATA_PATH`, `RUST_LOG?`, `WATCH_PATHS`, `POLL_INTERVAL`.
 I.up.nba.today `https://nba-prod-us-east-1-mediaops-stats.s3.amazonaws.com/NBA/liveData/scoreboard/todaysScoreboard_00.json`.
 I.up.espn.scoreboard `https://site.api.espn.com/apis/site/v2/sports/{sport}/{league}/scoreboard`.
