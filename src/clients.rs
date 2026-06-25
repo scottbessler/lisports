@@ -785,6 +785,10 @@ impl SportsData for EspnSportsData {
         }
         let cache_key = format!("worldcup-bracket:{}", chrono::Utc::now().date_naive());
         if let Some(cached) = self.cache.get_json::<BracketTable>(&cache_key).await? {
+            *self.worldcup_bracket_cache.write().await = Some(BracketCache {
+                fetched_at: Instant::now(),
+                bracket: cached.clone(),
+            });
             return Ok(cached);
         }
         let league = league("worldcup");
