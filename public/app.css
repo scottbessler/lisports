@@ -647,8 +647,13 @@ table.sortable thead th.num {
 	flex: 1;
 	display: flex;
 	flex-direction: column;
-	justify-content: space-around;
-	gap: 10px;
+}
+.bracket-cell {
+	flex: 1 1 0;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	padding: 5px 0;
 }
 .bracket-match {
 	position: relative;
