@@ -178,16 +178,36 @@ fn bracket_tree_order(
     let mut current = vec![final_id];
 
     for child_round in chain {
+        let mut winner_lookup: HashMap<i64, String> = HashMap::new();
+        for id in round_ids.get(child_round)? {
+            let event = &events[*by_id.get(id)?];
+            for competitor in bracket_competitors(event)? {
+                if !bool_at(&competitor, &["winner"]) {
+                    continue;
+                }
+                let team_id = str_at(&competitor, &["team", "id"])
+                    .map(|s| i64_from_str(&s))
+                    .filter(|id| *id != 0)?;
+                winner_lookup.insert(team_id, id.clone());
+            }
+        }
+
         let mut next = Vec::new();
         for parent_id in &current {
             let event = &events[*by_id.get(parent_id)?];
             for competitor in bracket_competitors(event)? {
                 let name = str_at(&competitor, &["team", "displayName"]).unwrap_or_default();
-                let (feeder_round, slot) = parse_bracket_feeder(&name)?;
-                if feeder_round != child_round {
-                    return None;
+                if let Some((feeder_round, slot)) = parse_bracket_feeder(&name) {
+                    if feeder_round != child_round {
+                        return None;
+                    }
+                    next.push(slot_lookup.get(&(child_round.to_string(), slot))?.clone());
+                    continue;
                 }
-                next.push(slot_lookup.get(&(child_round.to_string(), slot))?.clone());
+                let team_id = str_at(&competitor, &["team", "id"])
+                    .map(|s| i64_from_str(&s))
+                    .filter(|id| *id != 0)?;
+                next.push(winner_lookup.get(&team_id)?.clone());
             }
         }
         let expected: HashSet<&String> = round_ids.get(child_round)?.iter().collect();
@@ -2365,6 +2385,216 @@ fn format_games_back(value: f64) -> String {
 mod tests {
     use super::*;
 
+    fn bracket_competitor(
+        home_away: &str,
+        team_id: Option<&str>,
+        display_name: &str,
+        is_active: bool,
+        winner: Option<bool>,
+    ) -> Value {
+        let mut competitor = serde_json::json!({
+            "homeAway": home_away,
+            "score": "0",
+            "team": {
+                "displayName": display_name,
+                "isActive": is_active,
+                "logo": "",
+            }
+        });
+        if let Some(team_id) = team_id {
+            competitor["team"]["id"] = serde_json::json!(team_id);
+        }
+        if let Some(winner) = winner {
+            competitor["winner"] = serde_json::json!(winner);
+        }
+        competitor
+    }
+
+    fn bracket_match_event(
+        id: &str,
+        slug: &str,
+        date: &str,
+        completed: bool,
+        home: Value,
+        away: Value,
+    ) -> Value {
+        serde_json::json!({
+            "id": id,
+            "date": date,
+            "season": {"slug": slug},
+            "competitions": [{
+                "status": {"type": {"completed": completed, "state": if completed { "post" } else { "pre" }, "shortDetail": if completed { "FT" } else { "TBD" }}},
+                "competitors": [home, away]
+            }]
+        })
+    }
+
+    fn synthetic_bracket_data(
+        completed_r32_slot_one: bool,
+    ) -> (EspnScoreboardDto, HashMap<String, i64>) {
+        let mut events = Vec::new();
+        let mut match_numbers = HashMap::new();
+
+        let mut push_event = |id: String, match_number: i64, event: Value| {
+            match_numbers.insert(id, match_number);
+            events.push(event);
+        };
+
+        for slot in (1..=16).rev() {
+            let id = format!("r32-{slot}");
+            let base_id = 1000 + (slot as i64 - 1) * 2;
+            let home_id = base_id + 1;
+            let away_id = base_id + 2;
+            let completed = completed_r32_slot_one && slot == 1;
+            let home = bracket_competitor(
+                "home",
+                Some(&home_id.to_string()),
+                &format!("R32 Team {slot} A"),
+                true,
+                if completed { Some(true) } else { None },
+            );
+            let away = bracket_competitor(
+                "away",
+                Some(&away_id.to_string()),
+                &format!("R32 Team {slot} B"),
+                true,
+                if completed { Some(false) } else { None },
+            );
+            push_event(
+                id.clone(),
+                slot as i64,
+                bracket_match_event(
+                    &id,
+                    "round-of-32",
+                    &format!("2026-06-{slot:02}T16:00Z"),
+                    completed,
+                    home,
+                    away,
+                ),
+            );
+        }
+
+        for slot in (1..=8).rev() {
+            let completed = false;
+            let home = if completed_r32_slot_one && slot == 1 {
+                bracket_competitor("home", Some("1001"), "Team 1001", true, None)
+            } else {
+                bracket_competitor(
+                    "home",
+                    None,
+                    &format!("Round of 32 {slot} Winner"),
+                    false,
+                    None,
+                )
+            };
+            let away = bracket_competitor(
+                "away",
+                None,
+                &format!("Round of 32 {} Winner", slot + 8),
+                false,
+                None,
+            );
+            let id = format!("r16-{slot}");
+            push_event(
+                id.clone(),
+                100 + slot as i64,
+                bracket_match_event(
+                    &id,
+                    "round-of-16",
+                    &format!("2026-06-{slot:02}T18:00Z"),
+                    completed,
+                    home,
+                    away,
+                ),
+            );
+        }
+
+        for slot in (1..=4).rev() {
+            let home = bracket_competitor(
+                "home",
+                None,
+                &format!("Round of 16 {slot} Winner"),
+                false,
+                None,
+            );
+            let away = bracket_competitor(
+                "away",
+                None,
+                &format!("Round of 16 {} Winner", slot + 4),
+                false,
+                None,
+            );
+            let id = format!("qf-{slot}");
+            push_event(
+                id.clone(),
+                200 + slot as i64,
+                bracket_match_event(
+                    &id,
+                    "quarterfinals",
+                    &format!("2026-07-{slot:02}T18:00Z"),
+                    false,
+                    home,
+                    away,
+                ),
+            );
+        }
+
+        for slot in (1..=2).rev() {
+            let home = bracket_competitor(
+                "home",
+                None,
+                &format!("Quarterfinal {slot} Winner"),
+                false,
+                None,
+            );
+            let away = bracket_competitor(
+                "away",
+                None,
+                &format!("Quarterfinal {} Winner", slot + 2),
+                false,
+                None,
+            );
+            let id = format!("sf-{slot}");
+            push_event(
+                id.clone(),
+                300 + slot as i64,
+                bracket_match_event(
+                    &id,
+                    "semifinals",
+                    &format!("2026-07-{slot:02}T20:00Z"),
+                    false,
+                    home,
+                    away,
+                ),
+            );
+        }
+
+        let final_id = "final-1";
+        push_event(
+            final_id.to_string(),
+            400,
+            bracket_match_event(
+                final_id,
+                "final",
+                "2026-07-30T20:00Z",
+                false,
+                bracket_competitor("home", None, "Semifinal 1 Winner", false, None),
+                bracket_competitor("away", None, "Semifinal 2 Winner", false, None),
+            ),
+        );
+
+        let data = serde_json::from_value(serde_json::json!({"events": events})).unwrap();
+        (data, match_numbers)
+    }
+
+    fn round_game_ids(bracket: &BracketTable, round_index: usize) -> Vec<String> {
+        bracket.rounds[round_index]
+            .matches
+            .iter()
+            .map(|game| game.game_id.clone())
+            .collect()
+    }
+
     #[test]
     fn player_gamelog_conversion_produces_tables() {
         let data: EspnPlayerGamelogDto = serde_json::from_value(serde_json::json!({
@@ -2983,6 +3213,53 @@ mod tests {
         let third = bracket.third_place.expect("third place match");
         assert_eq!(third.game_id, "300");
         assert_eq!(third.away.name, "Semifinal 2 Loser");
+    }
+
+    #[test]
+    fn espn_soccer_bracket_tree_orders_partially_played_bracket() {
+        let (data, match_numbers) = synthetic_bracket_data(false);
+        let bracket = espn_soccer_bracket(data, &match_numbers).unwrap();
+
+        assert_eq!(bracket.rounds.len(), 5);
+        assert_eq!(
+            round_game_ids(&bracket, 0),
+            [
+                "r32-1", "r32-9", "r32-5", "r32-13", "r32-3", "r32-11", "r32-7", "r32-15", "r32-2",
+                "r32-10", "r32-6", "r32-14", "r32-4", "r32-12", "r32-8", "r32-16",
+            ]
+        );
+        assert_eq!(
+            round_game_ids(&bracket, 1),
+            [
+                "r16-1", "r16-5", "r16-3", "r16-7", "r16-2", "r16-6", "r16-4", "r16-8",
+            ]
+        );
+        assert_eq!(
+            round_game_ids(&bracket, 2),
+            ["qf-1", "qf-3", "qf-2", "qf-4"]
+        );
+        assert_eq!(round_game_ids(&bracket, 3), ["sf-1", "sf-2"]);
+        assert_eq!(round_game_ids(&bracket, 4), ["final-1"]);
+
+        let (data, match_numbers) = synthetic_bracket_data(true);
+        let bracket = espn_soccer_bracket(data, &match_numbers).unwrap();
+
+        assert_eq!(
+            round_game_ids(&bracket, 0),
+            [
+                "r32-1", "r32-9", "r32-5", "r32-13", "r32-3", "r32-11", "r32-7", "r32-15", "r32-2",
+                "r32-10", "r32-6", "r32-14", "r32-4", "r32-12", "r32-8", "r32-16",
+            ]
+        );
+        assert_eq!(
+            round_game_ids(&bracket, 1),
+            [
+                "r16-1", "r16-5", "r16-3", "r16-7", "r16-2", "r16-6", "r16-4", "r16-8",
+            ]
+        );
+        assert_eq!(bracket.rounds[0].matches[0].home.name, "R32 Team 1 A");
+        assert_eq!(bracket.rounds[1].matches[0].home.name, "Team 1001");
+        assert!(!bracket.rounds[1].matches[0].home.placeholder);
     }
 
     #[test]

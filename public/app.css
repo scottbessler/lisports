@@ -649,6 +649,7 @@ table.sortable thead th.num {
 	flex-direction: column;
 }
 .bracket-cell {
+	position: relative;
 	flex: 1 1 0;
 	display: flex;
 	flex-direction: column;
@@ -727,7 +728,7 @@ table.sortable thead th.num {
 	color: var(--bad);
 	font-weight: 600;
 }
-.bracket-round:not(:last-child) .bracket-match::after {
+.bracket-round:not(:last-child) .bracket-cell::after {
 	content: '';
 	position: absolute;
 	top: 50%;
@@ -736,7 +737,13 @@ table.sortable thead th.num {
 	height: 1px;
 	background: var(--line);
 }
-.bracket-round:not(:first-child) .bracket-match::before {
+.bracket-round:not(:last-child) .bracket-cell:nth-child(odd)::after {
+	height: 100%;
+	background: none;
+	border-top: 1px solid var(--line);
+	border-right: 1px solid var(--line);
+}
+.bracket-round:not(:first-child) .bracket-cell::before {
 	content: '';
 	position: absolute;
 	top: 50%;
