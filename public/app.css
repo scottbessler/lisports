@@ -623,6 +623,7 @@ table.sortable thead th.num {
 	padding-bottom: 10px;
 }
 .bracket-rounds {
+	--bracket-gutter: 14px;
 	display: flex;
 	align-items: stretch;
 	min-width: min-content;
@@ -632,7 +633,7 @@ table.sortable thead th.num {
 	flex-direction: column;
 	flex: 1 0 188px;
 	min-width: 188px;
-	padding: 0 14px;
+	padding: 0 var(--bracket-gutter);
 }
 .bracket-round-title {
 	margin: 0 0 10px;
@@ -732,8 +733,8 @@ table.sortable thead th.num {
 	content: '';
 	position: absolute;
 	top: 50%;
-	right: -14px;
-	width: 14px;
+	right: calc(-1 * var(--bracket-gutter));
+	width: var(--bracket-gutter);
 	height: 1px;
 	background: var(--line);
 }
@@ -747,8 +748,8 @@ table.sortable thead th.num {
 	content: '';
 	position: absolute;
 	top: 50%;
-	left: -14px;
-	width: 14px;
+	left: calc(-1 * var(--bracket-gutter));
+	width: var(--bracket-gutter);
 	height: 1px;
 	background: var(--line);
 }
@@ -760,10 +761,12 @@ table.sortable thead th.num {
 	display: block;
 }
 @media (max-width: 720px) {
+	.bracket-rounds {
+		--bracket-gutter: 10px;
+	}
 	.bracket-round {
 		flex-basis: 168px;
 		min-width: 168px;
-		padding: 0 10px;
 	}
 	.bracket-slot {
 		font-size: 12px;
