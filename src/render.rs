@@ -1652,7 +1652,20 @@ pub fn bracket_page(title_prefix: &str, bracket: &BracketTable) -> String {
             escape(&title)
         )
     };
-    layout(&title, &body)
+    let refresh_at = bracket_refresh_at(bracket);
+    layout_with_refresh(&title, &body, refresh_at.as_deref())
+}
+
+fn bracket_refresh_at(bracket: &BracketTable) -> Option<String> {
+    let should_refresh = bracket
+        .rounds
+        .iter()
+        .any(|round| round.matches.iter().any(|game| game.game_status == 2))
+        || bracket
+            .third_place
+            .as_ref()
+            .is_some_and(|game| game.game_status == 2);
+    live_refresh_at(should_refresh)
 }
 
 fn bracket_match_html(game: &BracketMatch) -> String {
@@ -1671,7 +1684,7 @@ fn bracket_match_html(game: &BracketMatch) -> String {
         format!(r#"<div class="bracket-caption">{}</div>"#, escape(caption))
     };
     format!(
-        r#"<article class="bracket-match{completed}">{}{}{caption_html}</article>"#,
+        r#"<div class="bracket-cell"><article class="bracket-match{completed}">{}{}{caption_html}</article></div>"#,
         bracket_slot_html(&game.home, played),
         bracket_slot_html(&game.away, played),
     )
