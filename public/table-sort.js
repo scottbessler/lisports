@@ -16,11 +16,12 @@
 		document.querySelectorAll('time[data-local-game-time]').forEach((time) => {
 			const date = new Date(time.dateTime);
 			if (Number.isNaN(date.valueOf())) return;
-			time.textContent = new Intl.DateTimeFormat(undefined, {
-				hour: 'numeric',
-				minute: '2-digit',
-				timeZoneName: 'short',
-			}).format(date);
+			const opts = { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' };
+			if (time.hasAttribute('data-show-date')) {
+				opts.month = 'numeric';
+				opts.day = 'numeric';
+			}
+			time.textContent = new Intl.DateTimeFormat(undefined, opts).format(date);
 		});
 	};
 

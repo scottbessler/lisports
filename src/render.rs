@@ -1681,11 +1681,19 @@ fn bracket_match_html(game: &BracketMatch) -> String {
     } else {
         ""
     };
-    let caption = game.game_status_text.trim();
-    let caption_html = if caption.is_empty() {
-        String::new()
+    let caption_html = if game.game_status < 2 && !game.game_time_utc.is_empty() {
+        format!(
+            r#"<div class="bracket-caption"><time data-local-game-time data-show-date datetime="{}">{}</time></div>"#,
+            escape_attr(&game.game_time_utc),
+            escape(game.game_status_text.trim()),
+        )
     } else {
-        format!(r#"<div class="bracket-caption">{}</div>"#, escape(caption))
+        let caption = game.game_status_text.trim();
+        if caption.is_empty() {
+            String::new()
+        } else {
+            format!(r#"<div class="bracket-caption">{}</div>"#, escape(caption))
+        }
     };
     let day = game.game_time_utc.get(..10).unwrap_or_default();
     let inner = format!(
