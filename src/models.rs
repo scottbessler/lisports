@@ -32,6 +32,8 @@ pub struct Team {
     pub display_record: String,
     pub score: i64,
     #[serde(default)]
+    pub shootout_score: Option<i64>,
+    #[serde(default)]
     pub hits: i64,
     #[serde(default)]
     pub errors: i64,
@@ -404,6 +406,8 @@ pub struct BracketSlot {
     pub team_tricode: String,
     pub logo: String,
     pub score: String,
+    #[serde(default)]
+    pub shootout_score: String,
     pub winner: bool,
     pub placeholder: bool,
 }

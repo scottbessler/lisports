@@ -296,6 +296,7 @@ fn bracket_slot(competitor: &Value) -> BracketSlot {
         team_tricode: str_at(competitor, &["team", "abbreviation"]).unwrap_or_default(),
         logo: str_at(competitor, &["team", "logo"]).unwrap_or_default(),
         score: str_at(competitor, &["score"]).unwrap_or_default(),
+        shootout_score: str_at(competitor, &["shootoutScore"]).unwrap_or_default(),
         winner: bool_at(competitor, &["winner"]),
         placeholder: !bool_at(competitor, &["team", "isActive"]),
     }
@@ -1189,6 +1190,7 @@ fn nba_team(team: &Value) -> Team {
         losses: i64_at(team, &["losses"]),
         display_record: format!("{}-{}", i64_at(team, &["wins"]), i64_at(team, &["losses"])),
         score: i64_at(team, &["score"]),
+        shootout_score: None,
         hits: 0,
         errors: 0,
         periods: array_at(team, &["periods"])
@@ -1229,6 +1231,7 @@ fn espn_competitor_to_team(c: &Value, competition: &Value) -> Team {
         losses,
         display_record,
         score: str_at(c, &["score"]).map(|s| i64_from_str(&s)).unwrap_or(0),
+        shootout_score: None,
         hits: stat_display(&array_at(c, &["statistics"]), "hits")
             .map(|s| i64_from_str(&s))
             .unwrap_or(0),
@@ -1266,6 +1269,7 @@ fn espn_wnba_competitor_to_team(c: &Value, competition: &Value) -> Team {
         losses,
         display_record,
         score: str_at(c, &["score"]).map(|s| i64_from_str(&s)).unwrap_or(0),
+        shootout_score: None,
         hits: 0,
         errors: 0,
         periods: array_at(c, &["linescores"])
@@ -1301,6 +1305,7 @@ fn espn_mlb_competitor_to_team(c: &Value, _competition: &Value) -> Team {
         losses,
         display_record: format!("{wins}-{losses}"),
         score: str_at(c, &["score"]).map(|s| i64_from_str(&s)).unwrap_or(0),
+        shootout_score: None,
         hits: stat_display(&stats, "hits")
             .map(|s| i64_from_str(&s))
             .unwrap_or_else(|| linescore_total(&linescores, "hits")),
@@ -1341,6 +1346,7 @@ fn espn_nfl_competitor_to_team(c: &Value, _competition: &Value) -> Team {
             .and_then(|r| str_at(r, &["summary"]))
             .unwrap_or_else(|| format!("{wins}-{losses}")),
         score: str_at(c, &["score"]).map(|s| i64_from_str(&s)).unwrap_or(0),
+        shootout_score: None,
         hits: 0,
         errors: 0,
         periods: array_at(c, &["linescores"])
@@ -1375,6 +1381,7 @@ fn espn_nhl_competitor_to_team(c: &Value, competition: &Value) -> Team {
         losses,
         display_record,
         score: str_at(c, &["score"]).map(|s| i64_from_str(&s)).unwrap_or(0),
+        shootout_score: None,
         hits: 0,
         errors: 0,
         periods: array_at(c, &["linescores"])
@@ -1397,6 +1404,9 @@ fn espn_soccer_competitor_to_team(c: &Value, _competition: &Value) -> Team {
     } else {
         parse_record(&display_record)
     };
+    let shootout_score = str_at(c, &["shootoutScore"])
+        .filter(|s| !s.is_empty())
+        .map(|s| i64_from_str(&s));
     Team {
         team_id: str_at(c, &["team", "id"])
             .or_else(|| str_at(c, &["id"]))
@@ -1411,6 +1421,7 @@ fn espn_soccer_competitor_to_team(c: &Value, _competition: &Value) -> Team {
         losses,
         display_record,
         score: str_at(c, &["score"]).map(|s| i64_from_str(&s)).unwrap_or(0),
+        shootout_score,
         hits: 0,
         errors: 0,
         periods: Vec::new(),
