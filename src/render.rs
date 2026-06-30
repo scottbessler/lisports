@@ -823,8 +823,12 @@ fn team_summary_row(game: &Game, team: &Team, is_home: bool, league: League) -> 
             html.push_str(r#"<td class="score-total">-</td></tr>"#);
         }
         League::Soccer | League::Nwsl => {
+            let pens = team
+                .shootout_score
+                .map(|s| format!(r#" <span class="pens">({s})</span>"#))
+                .unwrap_or_default();
             html.push_str(&format!(
-                r#"<td class="score-total">{}</td></tr>"#,
+                r#"<td class="score-total">{}{pens}</td></tr>"#,
                 team.score
             ));
         }
@@ -1683,11 +1687,21 @@ fn bracket_match_html(game: &BracketMatch) -> String {
     } else {
         format!(r#"<div class="bracket-caption">{}</div>"#, escape(caption))
     };
-    format!(
-        r#"<div class="bracket-cell"><article class="bracket-match{completed}">{}{}{caption_html}</article></div>"#,
+    let day = game.game_time_utc.get(..10).unwrap_or_default();
+    let inner = format!(
+        r#"<article class="bracket-match{completed}">{}{}{caption_html}</article>"#,
         bracket_slot_html(&game.home, played),
         bracket_slot_html(&game.away, played),
-    )
+    );
+    if !game.game_id.is_empty() && !day.is_empty() && game.game_status >= 2 {
+        format!(
+            r#"<div class="bracket-cell"><a class="bracket-link" href="/worldcup/scoreboard/{}/game/{}">{inner}</a></div>"#,
+            escape_attr(day),
+            escape_attr(&game.game_id),
+        )
+    } else {
+        format!(r#"<div class="bracket-cell">{inner}</div>"#)
+    }
 }
 
 fn bracket_slot_html(slot: &BracketSlot, played: bool) -> String {
@@ -1708,8 +1722,16 @@ fn bracket_slot_html(slot: &BracketSlot, played: bool) -> String {
         r#"<span class="bracket-flag empty" aria-hidden="true"></span>"#.to_string()
     };
     let score = if played && !slot.score.is_empty() {
+        let pens = if slot.shootout_score.is_empty() {
+            String::new()
+        } else {
+            format!(
+                r#" <span class="bracket-pens">({})</span>"#,
+                escape(&slot.shootout_score)
+            )
+        };
         format!(
-            r#"<span class="bracket-score">{}</span>"#,
+            r#"<span class="bracket-score">{}{pens}</span>"#,
             escape(&slot.score)
         )
     } else {
@@ -1954,6 +1976,7 @@ fn soccer_standings_table(title: &str, rows: &[SoccerStandingsTeam], league: Lea
                             losses: 0,
                             display_record: String::new(),
                             score: 0,
+                            shootout_score: None,
                             hits: 0,
                             errors: 0,
                             periods: Vec::new(),
@@ -2531,6 +2554,7 @@ mod tests {
             losses: 0,
             display_record: String::new(),
             score: 4,
+            shootout_score: None,
             hits: 6,
             errors: 0,
             periods: vec![
@@ -2593,6 +2617,7 @@ mod tests {
                 losses: 0,
                 display_record: String::new(),
                 score: 60,
+                shootout_score: None,
                 hits: 0,
                 errors: 0,
                 periods: Vec::new(),
@@ -2606,6 +2631,7 @@ mod tests {
                 losses: 0,
                 display_record: String::new(),
                 score: 51,
+                shootout_score: None,
                 hits: 0,
                 errors: 0,
                 periods: Vec::new(),

@@ -1264,6 +1264,7 @@ mod tests {
             team_tricode: String::new(),
             logo: String::new(),
             score: String::new(),
+            shootout_score: String::new(),
             winner: false,
             placeholder: true,
         };
@@ -1328,6 +1329,7 @@ mod tests {
             losses: 0,
             display_record: String::new(),
             score: 0,
+            shootout_score: None,
             hits: 0,
             errors: 0,
             periods: Vec::new(),
