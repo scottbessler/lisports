@@ -296,7 +296,10 @@ fn bracket_slot(competitor: &Value) -> BracketSlot {
         team_tricode: str_at(competitor, &["team", "abbreviation"]).unwrap_or_default(),
         logo: str_at(competitor, &["team", "logo"]).unwrap_or_default(),
         score: str_at(competitor, &["score"]).unwrap_or_default(),
-        shootout_score: str_at(competitor, &["shootoutScore"]).unwrap_or_default(),
+        shootout_score: competitor
+            .get("shootoutScore")
+            .map(value_to_string)
+            .unwrap_or_default(),
         winner: bool_at(competitor, &["winner"]),
         placeholder: !bool_at(competitor, &["team", "isActive"]),
     }
@@ -1404,9 +1407,10 @@ fn espn_soccer_competitor_to_team(c: &Value, _competition: &Value) -> Team {
     } else {
         parse_record(&display_record)
     };
-    let shootout_score = str_at(c, &["shootoutScore"])
-        .filter(|s| !s.is_empty())
-        .map(|s| i64_from_str(&s));
+    let shootout_score = c.get("shootoutScore").and_then(|v| {
+        v.as_i64()
+            .or_else(|| v.as_str().filter(|s| !s.is_empty()).map(i64_from_str))
+    });
     Team {
         team_id: str_at(c, &["team", "id"])
             .or_else(|| str_at(c, &["id"]))
